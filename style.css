@@ -1199,12 +1199,12 @@ ul {
     }
 
     .hero-content {
-        padding-top: 60px;
+        padding-top: 100px;
     }
 
     .hero-subtitle {
-        font-size: 0.7rem;
-        letter-spacing: 2.5px;
+        font-size: 0.65rem;
+        letter-spacing: 2px;
         margin-bottom: 20px;
     }
 
@@ -1237,12 +1237,9 @@ ul {
         padding: 16px 36px;
     }
 
+    /* Hide scroll indicator on mobile */
     .hero-scroll {
-        bottom: 24px;
-    }
-
-    .scroll-line {
-        height: 40px;
+        display: none;
     }
 
     /* Sections mobile */
