@@ -6,14 +6,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Navbar scroll effect ---
     const navbar = document.getElementById('navbar');
+    let lastScroll = 0;
+    let ticking = false;
+
     const handleScroll = () => {
-        if (window.scrollY > 50) {
-            navbar.classList.add('scrolled');
-        } else {
-            navbar.classList.remove('scrolled');
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                const scrollY = window.scrollY;
+
+                // Navbar background
+                if (scrollY > 50) {
+                    navbar.classList.add('scrolled');
+                } else {
+                    navbar.classList.remove('scrolled');
+                }
+
+                // Mobile CTA: show after hero
+                const mobileCta = document.getElementById('mobileCta');
+                if (mobileCta) {
+                    if (scrollY > window.innerHeight * 0.6) {
+                        mobileCta.classList.add('show');
+                    } else {
+                        mobileCta.classList.remove('show');
+                    }
+
+                    // Hide CTA when on inscription section
+                    const inscriptionSection = document.getElementById('inscription');
+                    if (inscriptionSection) {
+                        const rect = inscriptionSection.getBoundingClientRect();
+                        if (rect.top < window.innerHeight && rect.bottom > 0) {
+                            mobileCta.classList.remove('show');
+                        }
+                    }
+                }
+
+                // Active nav link
+                highlightNav(scrollY);
+
+                lastScroll = scrollY;
+                ticking = false;
+            });
+            ticking = true;
         }
     };
-    window.addEventListener('scroll', handleScroll);
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     // --- Mobile nav toggle ---
     const navToggle = document.getElementById('navToggle');
@@ -34,13 +71,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Close mobile nav on outside tap
+    document.addEventListener('click', (e) => {
+        if (navLinks.classList.contains('open') &&
+            !navLinks.contains(e.target) &&
+            !navToggle.contains(e.target)) {
+            navToggle.classList.remove('active');
+            navLinks.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+    });
+
     // --- Smooth scroll for anchor links ---
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', (e) => {
             e.preventDefault();
-            const target = document.querySelector(anchor.getAttribute('href'));
+            const targetId = anchor.getAttribute('href');
+            const target = document.querySelector(targetId);
             if (target) {
-                const offset = 80;
+                const offset = 70;
                 const top = target.getBoundingClientRect().top + window.pageYOffset - offset;
                 window.scrollTo({ top, behavior: 'smooth' });
             }
@@ -49,8 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Scroll animations (Intersection Observer) ---
     const observerOptions = {
-        threshold: 0.15,
-        rootMargin: '0px 0px -50px 0px'
+        threshold: 0.1,
+        rootMargin: '0px 0px -30px 0px'
     };
 
     const observer = new IntersectionObserver((entries) => {
@@ -63,19 +112,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }, observerOptions);
 
     // Observe elements for fade-in animations
-    const animateElements = document.querySelectorAll(
-        '.highlight-card, .timeline-item, .reason-card, .pricing-card'
-    );
-
-    animateElements.forEach((el, index) => {
-        el.style.transitionDelay = `${index * 0.1}s`;
+    document.querySelectorAll(
+        '.highlight-card, .reason-card, .pricing-card'
+    ).forEach((el, index) => {
+        el.style.transitionDelay = `${(index % 4) * 0.1}s`;
         el.classList.add('fade-in');
         observer.observe(el);
     });
 
     // Timeline items
     document.querySelectorAll('.timeline-item').forEach((item, index) => {
-        item.style.transitionDelay = `${index * 0.15}s`;
+        item.style.transitionDelay = `${index * 0.12}s`;
         observer.observe(item);
     });
 
@@ -102,23 +149,29 @@ document.addEventListener('DOMContentLoaded', () => {
             form.querySelector('.form-submit').style.display = 'none';
             formSuccess.classList.add('show');
 
+            // Hide mobile CTA
+            const mobileCta = document.getElementById('mobileCta');
+            if (mobileCta) mobileCta.classList.remove('show');
+
             // Scroll to success message
-            formSuccess.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => {
+                formSuccess.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
         });
     }
 
     // --- Active nav link on scroll ---
     const sections = document.querySelectorAll('section[id]');
 
-    const highlightNav = () => {
-        const scrollY = window.pageYOffset + 120;
+    const highlightNav = (scrollY) => {
+        const currentY = (scrollY || window.pageYOffset) + 120;
 
         sections.forEach(section => {
             const sectionTop = section.offsetTop;
             const sectionHeight = section.offsetHeight;
             const sectionId = section.getAttribute('id');
 
-            if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+            if (currentY >= sectionTop && currentY < sectionTop + sectionHeight) {
                 navLinks.querySelectorAll('a').forEach(link => {
                     link.classList.remove('active');
                     if (link.getAttribute('href') === `#${sectionId}`) {
@@ -129,15 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    window.addEventListener('scroll', highlightNav);
-
-    // --- Parallax effect on hero ---
-    const hero = document.getElementById('hero');
-    window.addEventListener('scroll', () => {
-        if (window.scrollY < window.innerHeight) {
-            const offset = window.scrollY * 0.3;
-            hero.style.backgroundPositionY = `${offset}px`;
-        }
-    });
+    // --- Initial state ---
+    handleScroll();
 
 });
