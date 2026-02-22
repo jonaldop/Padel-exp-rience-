@@ -161,36 +161,49 @@ ul {
 }
 
 .logo {
+    position: relative;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    line-height: 1;
-    gap: 0;
+    justify-content: center;
+    line-height: 1.1;
+    min-width: 90px;
+    min-height: 48px;
 }
 
 .logo-padel {
     font-family: var(--font-heading);
     font-weight: 900;
-    font-size: 1rem;
+    font-size: 0.85rem;
     color: var(--color-white);
-    letter-spacing: 3px;
+    letter-spacing: 5px;
+    position: relative;
+    z-index: 2;
 }
 
 .logo-4 {
     font-family: var(--font-heading);
     font-weight: 900;
-    font-size: 1.8rem;
+    font-size: 3.2rem;
     color: var(--color-accent);
-    margin: 0 3px;
-    text-shadow: 0 0 20px rgba(226, 184, 87, 0.4);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.2;
+    z-index: 1;
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(226, 184, 87, 0.3);
 }
 
 .logo-business {
     font-family: var(--font-heading);
     font-weight: 900;
-    font-size: 1rem;
+    font-size: 0.85rem;
     color: var(--color-white);
     letter-spacing: 3px;
+    position: relative;
+    z-index: 2;
 }
 
 .nav-links {
@@ -333,6 +346,7 @@ ul {
 }
 
 .hero-title {
+    position: relative;
     font-family: var(--font-heading);
     font-weight: 900;
     font-size: clamp(3rem, 8vw, 6rem);
@@ -344,15 +358,24 @@ ul {
     animation: fadeInUp 0.8s ease forwards 0.4s;
 }
 
-.hero-title-4 {
+.hero-title-bg {
+    position: absolute;
     font-family: var(--font-heading);
     font-weight: 900;
+    font-size: 3em;
     color: var(--color-accent);
-    font-size: 1.4em;
-    text-shadow: 0 0 40px rgba(226, 184, 87, 0.5);
+    opacity: 0.1;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+    line-height: 1;
+    text-shadow: 0 0 60px rgba(226, 184, 87, 0.3);
 }
 
 .hero-title-accent {
+    position: relative;
+    z-index: 1;
     font-family: var(--font-accent);
     font-style: italic;
     font-weight: 700;
@@ -1255,18 +1278,19 @@ ul {
         display: inline-flex;
     }
 
+    .logo {
+        min-width: 70px;
+        min-height: 40px;
+    }
+
     .logo-padel,
-    .logo-4,
     .logo-business {
-        font-size: 0.85rem;
+        font-size: 0.7rem;
+        letter-spacing: 3px;
     }
 
-    .logo-padel {
-        letter-spacing: 2px;
-    }
-
-    .logo-business {
-        letter-spacing: 2px;
+    .logo-4 {
+        font-size: 2.5rem;
     }
 
     /* Hero mobile */
