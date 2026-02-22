@@ -163,15 +163,15 @@ ul {
 .logo {
     display: flex;
     flex-direction: row;
-    align-items: baseline;
-    line-height: 1.1;
+    align-items: center;
+    line-height: 1;
     gap: 0;
 }
 
 .logo-padel {
     font-family: var(--font-heading);
     font-weight: 900;
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: var(--color-white);
     letter-spacing: 3px;
 }
@@ -179,15 +179,16 @@ ul {
 .logo-4 {
     font-family: var(--font-heading);
     font-weight: 900;
-    font-size: 1.1rem;
+    font-size: 1.8rem;
     color: var(--color-accent);
-    margin: 0 2px;
+    margin: 0 3px;
+    text-shadow: 0 0 20px rgba(226, 184, 87, 0.4);
 }
 
 .logo-business {
     font-family: var(--font-heading);
     font-weight: 900;
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: var(--color-white);
     letter-spacing: 3px;
 }
@@ -341,6 +342,14 @@ ul {
     margin-bottom: 30px;
     opacity: 0;
     animation: fadeInUp 0.8s ease forwards 0.4s;
+}
+
+.hero-title-4 {
+    font-family: var(--font-heading);
+    font-weight: 900;
+    color: var(--color-accent);
+    font-size: 1.4em;
+    text-shadow: 0 0 40px rgba(226, 184, 87, 0.5);
 }
 
 .hero-title-accent {
