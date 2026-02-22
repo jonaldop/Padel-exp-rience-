@@ -1,0 +1,27 @@
+name: Deploy to N0C via FTP
+
+on:
+  push:
+    branches: [ main, claude/padel-business-website-Vmr3p ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: hc-widelydaringbuck-eu.n0c.com
+          username: mxwstkxxzg
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: /public_html/2026/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            README.md
+            CNAME
+            .github/**
