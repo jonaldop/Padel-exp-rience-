@@ -1,5 +1,5 @@
 /* =========================================
-   PADEL BUSINESS EXPERIENCE
+   PADEL4BUSINESS
    Premium Event Website
    ========================================= */
 
@@ -162,8 +162,10 @@ ul {
 
 .logo {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: baseline;
     line-height: 1.1;
+    gap: 0;
 }
 
 .logo-padel {
@@ -171,25 +173,23 @@ ul {
     font-weight: 900;
     font-size: 1.1rem;
     color: var(--color-white);
-    letter-spacing: 6px;
-}
-
-.logo-business {
-    font-family: var(--font-accent);
-    font-style: italic;
-    font-weight: 400;
-    font-size: 0.75rem;
-    color: var(--color-accent);
     letter-spacing: 3px;
 }
 
-.logo-experience {
+.logo-4 {
     font-family: var(--font-heading);
-    font-weight: 300;
-    font-size: 0.6rem;
-    color: rgba(255, 255, 255, 0.6);
-    letter-spacing: 5px;
-    text-transform: uppercase;
+    font-weight: 900;
+    font-size: 1.1rem;
+    color: var(--color-accent);
+    margin: 0 2px;
+}
+
+.logo-business {
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: 1.1rem;
+    color: var(--color-white);
+    letter-spacing: 3px;
 }
 
 .nav-links {
@@ -1246,18 +1246,18 @@ ul {
         display: inline-flex;
     }
 
+    .logo-padel,
+    .logo-4,
+    .logo-business {
+        font-size: 0.85rem;
+    }
+
     .logo-padel {
-        font-size: 1rem;
-        letter-spacing: 4px;
+        letter-spacing: 2px;
     }
 
     .logo-business {
-        font-size: 0.65rem;
-    }
-
-    .logo-experience {
-        font-size: 0.5rem;
-        letter-spacing: 3px;
+        letter-spacing: 2px;
     }
 
     /* Hero mobile */
