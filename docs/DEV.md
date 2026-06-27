@@ -1,96 +1,77 @@
-# Guide développeur — lancer & tester l'app
+# Guide développeur — lancer & tester l'application
 
-Ce dépôt contient le **code réel** du MVP, pas seulement la conception :
+Le dépôt contient le **code réel et fonctionnel** du MVP :
 
 ```
 apps/
-  api/   → back-end NestJS (token WebRTC + routage d'appels Telnyx + historique)
-  web/   → softphone web React (appeler / décrocher dans le navigateur)
-docs/    → dossier de conception (00 à 09)
+  api/   → back-end NestJS (inscription, numéros, appels, messagerie, webhooks)
+  web/   → dashboard React (connexion, tableau de bord, numéros, softphone)
+docs/    → conception (00→09) + déploiement
 ```
 
-> ⚠️ **Ce qui se teste SANS rien** : la logique (tests unitaires des horaires) et la compilation.
-> **Ce qui exige un compte Telnyx** : passer/recevoir de vrais appels (la voix transite par Telnyx).
-> C'est normal : on n'est pas opérateur, Telnyx fournit le réseau.
+## 1. Lancer en local (sans compte Telnyx) — tout de suite
 
----
-
-## 1. Tester tout de suite, sans compte Telnyx
+Prérequis : Node.js 20+.
 
 ```bash
-npm install                       # installe les 2 apps (workspaces)
-npm test --workspace apps/api     # tests unitaires (horaires d'ouverture)
-npm run build --workspace apps/api  # vérifie que le back compile
-```
+# À la racine du repo
+npm install
 
-Tu peux aussi démarrer l'API et vérifier qu'elle répond :
-
-```bash
+# Terminal 1 — back-end (port 3001)
 npm run dev:api
-# puis dans un autre terminal :
-curl http://localhost:3001/health
-# -> {"status":"ok",...}
+
+# Terminal 2 — créer un compte de démo (optionnel)
+npm run seed --workspace apps/api
+#   → identifiants : demo@standardpro.fr / demo1234
+
+# Terminal 3 — front (port 5173)
+npm run dev:web
 ```
 
----
+Ouvre **http://localhost:5173** :
+- **Crée un compte** (ou connecte-toi avec le compte démo).
+- **Tableau de bord** : KPIs + historique des appels.
+- **Mes numéros** : choisis un numéro (catalogue de démo), configure horaires/renvoi/répondeur.
+- **Softphone** : visible (la connexion d'appel réel nécessite Telnyx, cf. §3).
 
-## 2. Tester de VRAIS appels (avec compte Telnyx) — ~30 min de setup
+> En **mode démo** (sans clé Telnyx) : tout fonctionne sauf les vrais appels voix.
+> Les numéros « achetés » sont des numéros de démonstration, les appels sont enregistrés
+> dans l'historique mais ne sonnent pas réellement.
 
-### a) Créer le compte et les ressources Telnyx
-1. Compte sur https://telnyx.com (mode test/dev).
-2. **Acheter un numéro FR** (Numbers > Search & Buy), au format `+33…`.
-3. **Créer une "Credential Connection"** (Voice > SIP Connections, type *Credentials* / WebRTC).
-   → note son **Connection ID**.
-4. **Créer une "Call Control Application"** (Voice > Call Control > Applications).
-   → note son **App ID**, et règle son **Webhook URL** sur `https://<ton-tunnel>/calls/webhook`.
-5. **Rattacher le numéro** à la Call Control Application (pour le routage entrant).
-6. **API Key** : Account > API Keys → crée une clé V2.
-
-### b) Exposer ton API locale à Telnyx (webhooks)
-Telnyx doit pouvoir appeler ton back. En local, utilise un tunnel :
+## 2. Tester la logique (sans rien)
 
 ```bash
-npx ngrok http 3001
-# copie l'URL https://xxxx.ngrok.io dans PUBLIC_API_URL et dans le webhook Telnyx
+npm test --workspace apps/api      # tests unitaires horaires d'ouverture
+npm run build --workspace apps/api # vérifie la compilation back
+npm run build --workspace apps/web # vérifie la compilation front
 ```
 
-### c) Configurer l'environnement
-```bash
-cp .env.example .env
-# remplis : TELNYX_API_KEY, TELNYX_CONNECTION_ID, TELNYX_CALL_CONTROL_APP_ID,
-#           TELNYX_FROM_NUMBER, PUBLIC_API_URL (= URL ngrok)
-```
+## 3. Activer les VRAIS appels (avec compte Telnyx)
 
-### d) Lancer
-```bash
-npm run dev:api      # terminal 1 — API sur :3001
-npm run dev:web      # terminal 2 — softphone sur http://localhost:5173
-```
+1. Crée les ressources Telnyx (clé API, numéro FR, Credential Connection WebRTC,
+   Call Control Application) — cf. dashboard Telnyx.
+2. Copie `.env.example` → `.env` à la racine et remplis les `TELNYX_*`.
+3. Expose ton API à Telnyx (webhooks) : `npx ngrok http 3001` → mets l'URL dans
+   `PUBLIC_API_URL` **et** comme Webhook de la Call Control App (`/calls/webhook`).
+4. Relance `npm run dev:api`. Au démarrage il affiche `Telnyx: configuré ✅`.
+5. Dans l'app : **Softphone → Se connecter** → appelle / reçois.
 
-### e) Tester
-- **Appel SORTANT** : ouvre http://localhost:5173 → "Se connecter" → tape un n° → "Appeler".
-  Ton téléphone perso sonne, tu réponds, tu te parles. ✅
-- **Appel ENTRANT** : depuis ton mobile, appelle ton **numéro Telnyx**.
-  - En **horaires d'ouverture** (lun–ven 9h–12h/14h–18h par défaut) → le softphone web sonne
-    → "Décrocher". ✅
-  - **Hors horaires** → message d'accueil + répondeur (le message est enregistré). ✅
-- **Historique** : `curl http://localhost:3001/calls`
-
----
-
-## 3. Où on en est (état du code)
+## 4. État du code
 
 | Fonction | État |
 |---|---|
-| Token WebRTC (connexion softphone) | ✅ implémenté |
-| Appel sortant depuis le navigateur | ✅ implémenté |
-| Appel entrant → softphone (horaires) | ✅ implémenté |
-| Répondeur hors horaires + enregistrement | ✅ implémenté |
-| Horaires d'ouverture (Europe/Paris) + tests | ✅ implémenté |
-| Historique d'appels | ✅ (en mémoire — à passer en Postgres) |
-| Auth / comptes / utilisateurs | ⬜ à faire (tickets INFRA-3, ACC-*) |
-| Persistance Postgres | ⬜ à faire (remplace `calls.store.ts`) |
-| App mobile (React Native + CallKit) | ⬜ à faire (réutilise cette API) |
-| Transcription / IA | ⬜ V2 (plomberie prévue) |
+| Inscription client (compte + utilisateur) | ✅ |
+| Connexion / JWT | ✅ |
+| Achat / provisioning de numéro (via API Telnyx) | ✅ |
+| Horaires d'ouverture (Europe/Paris) + tests | ✅ |
+| Routage entrant (horaires → softphone / renvoi / répondeur) | ✅ |
+| Appel sortant | ✅ |
+| Messagerie vocale (enregistrement) | ✅ (transcription = V2) |
+| Historique + dashboard + KPIs | ✅ |
+| Réglages par numéro (renvoi, répondeur, message) | ✅ |
+| Softphone web (WebRTC) | ✅ (nécessite Telnyx pour le son) |
+| Persistance | ✅ fichier JSON (→ Postgres/Supabase pour le scale) |
+| App mobile (React Native + CallKit) | ⬜ à venir (réutilise cette API) |
+| Notifications push, IA, portabilité auto | ⬜ V2 (cf. docs/08) |
 
-Prochaines étapes : voir [docs/08-tickets-dev.md](08-tickets-dev.md).
+Déploiement : voir [DEPLOIEMENT.md](DEPLOIEMENT.md).

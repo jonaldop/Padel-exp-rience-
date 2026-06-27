@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TelnyxRTC } from '@telnyx/webrtc';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { api } from '../api';
 
 export type CallState = 'idle' | 'connecting' | 'ringing' | 'active' | 'hangup';
 
 /**
- * Hook qui gère la connexion WebRTC à Telnyx :
- *  - récupère un token court auprès de notre API
- *  - se connecte au SDK Telnyx
- *  - expose les actions : appeler, décrocher, raccrocher
- *  - suit l'état de l'appel courant (entrant ou sortant)
- *
- * C'est le cœur "appeler / répondre" côté client (cf. doc 01 §4 et §5).
+ * Connexion WebRTC à Telnyx pour le softphone : récupère un token via NOTRE API
+ * (authentifié), se connecte au SDK, expose appeler / décrocher / raccrocher.
+ * (docs/01 §4-5)
  */
 export function useTelnyxClient() {
   const clientRef = useRef<TelnyxRTC | null>(null);
@@ -25,29 +20,17 @@ export function useTelnyxClient() {
   const connect = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch(`${API_URL}/telnyx/webrtc-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userTag: 'demo-user' }),
-      });
-      if (!res.ok) throw new Error(`Token API: ${res.status}`);
-      const { token } = await res.json();
-
+      const { token } = await api.webrtcToken();
       const client = new TelnyxRTC({ login_token: token });
 
       client.on('telnyx.ready', () => setRegistered(true));
-      client.on('telnyx.error', (e: any) =>
-        setError(e?.error?.message || 'Erreur Telnyx'),
-      );
-
-      client.on('telnyx.notification', (notification: any) => {
-        if (notification.type !== 'callUpdate') return;
-        const call = notification.call;
+      client.on('telnyx.error', (e: any) => setError(e?.error?.message || 'Erreur Telnyx'));
+      client.on('telnyx.notification', (n: any) => {
+        if (n.type !== 'callUpdate') return;
+        const call = n.call;
         callRef.current = call;
-
         switch (call.state) {
           case 'ringing':
-            // Appel ENTRANT : on affiche "décrocher"
             setIncomingFrom(call.options?.remoteCallerNumber || 'Inconnu');
             setCallState('ringing');
             break;
@@ -79,7 +62,6 @@ export function useTelnyxClient() {
     setRegistered(false);
   }, []);
 
-  /** Passer un appel SORTANT. */
   const dial = useCallback((destination: string) => {
     if (!clientRef.current) return;
     setCallState('connecting');
@@ -90,23 +72,10 @@ export function useTelnyxClient() {
     });
   }, []);
 
-  /** Décrocher un appel entrant. */
   const answer = useCallback(() => callRef.current?.answer(), []);
-
-  /** Raccrocher. */
   const hangup = useCallback(() => callRef.current?.hangup(), []);
 
   useEffect(() => () => disconnect(), [disconnect]);
 
-  return {
-    registered,
-    callState,
-    incomingFrom,
-    error,
-    connect,
-    disconnect,
-    dial,
-    answer,
-    hangup,
-  };
+  return { registered, callState, incomingFrom, error, connect, disconnect, dial, answer, hangup };
 }
