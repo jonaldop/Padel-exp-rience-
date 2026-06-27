@@ -46,49 +46,67 @@ export function Dashboard() {
     <div>
       <h2 style={{ marginTop: 0 }}>Tableau de bord</h2>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 14, marginBottom: 20 }}>
-        <Kpi label="Appels totaux" value={total} />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        <Kpi label="Appels" value={total} />
         <Kpi label="Répondus" value={answered} color={colors.green} />
         <Kpi label="Manqués" value={missed} color={colors.red} />
         <Kpi label="Durée moy." value={`${avgDur}s`} />
       </div>
 
-      <Card>
-        <h3 style={{ marginTop: 0 }}>Historique des appels</h3>
-        {loading ? (
-          <p style={{ color: colors.muted }}>Chargement…</p>
-        ) : calls.length === 0 ? (
-          <p style={{ color: colors.muted }}>Aucun appel pour le moment.</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: colors.muted }}>
-                <th style={{ padding: 8 }}>Sens</th>
-                <th style={{ padding: 8 }}>De / Vers</th>
-                <th style={{ padding: 8 }}>Statut</th>
-                <th style={{ padding: 8 }}>Durée</th>
-                <th style={{ padding: 8 }}>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {calls.map((c) => {
-                const s = statusLabel[c.status] || { txt: c.status, color: colors.muted };
-                return (
-                  <tr key={c.id} style={{ borderTop: `1px solid ${colors.border}` }}>
-                    <td style={{ padding: 8 }}>{c.direction === 'inbound' ? '⬇️ Entrant' : '⬆️ Sortant'}</td>
-                    <td style={{ padding: 8 }}>{c.direction === 'inbound' ? c.fromE164 : c.toE164}</td>
-                    <td style={{ padding: 8, color: s.color, fontWeight: 600 }}>{s.txt}</td>
-                    <td style={{ padding: 8 }}>{c.durationS ? `${c.durationS}s` : '—'}</td>
-                    <td style={{ padding: 8, color: colors.muted }}>
-                      {new Date(c.startedAt).toLocaleString('fr-FR')}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Card>
+      <h3 style={{ marginBottom: 10 }}>Historique des appels</h3>
+      {loading ? (
+        <p style={{ color: colors.muted }}>Chargement…</p>
+      ) : calls.length === 0 ? (
+        <Card>
+          <p style={{ color: colors.muted, margin: 0 }}>
+            Aucun appel pour le moment. Ils apparaîtront ici dès que votre numéro recevra ou
+            passera des appels.
+          </p>
+        </Card>
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {calls.map((c) => {
+            const s = statusLabel[c.status] || { txt: c.status, color: colors.muted };
+            const inbound = c.direction === 'inbound';
+            return (
+              <Card key={c.id} style={{ padding: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>{inbound ? '📥' : '📤'}</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 15 }}>
+                        {inbound ? c.fromE164 : c.toE164}
+                      </div>
+                      <div style={{ fontSize: 12, color: colors.muted }}>
+                        {inbound ? 'Entrant' : 'Sortant'} ·{' '}
+                        {new Date(c.startedAt).toLocaleString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: s.color, fontWeight: 600, fontSize: 14 }}>{s.txt}</div>
+                    {c.durationS ? (
+                      <div style={{ fontSize: 12, color: colors.muted }}>{c.durationS}s</div>
+                    ) : null}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -96,7 +114,7 @@ export function Dashboard() {
 function Kpi({ label, value, color }: { label: string; value: React.ReactNode; color?: string }) {
   return (
     <Card style={{ padding: 16 }}>
-      <div style={{ fontSize: 28, fontWeight: 700, color: color || colors.text }}>{value}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color: color || colors.text }}>{value}</div>
       <div style={{ fontSize: 13, color: colors.muted }}>{label}</div>
     </Card>
   );
