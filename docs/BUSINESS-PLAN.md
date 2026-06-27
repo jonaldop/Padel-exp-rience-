@@ -82,22 +82,37 @@ des concurrents qui imposent souvent 3 utilisateurs minimum / engagement annuel.
 
 ## 5. Économie unitaire (unit economics)
 
-Par client et par mois. On montre les **deux offres** pour prouver qu'on reste rentable **même à 14,99 €** :
+### Minutes incluses par offre (entrant + sortant mobile)
 
-| Poste | Essentiel (14,99 €) | Pro (29 €) |
-|---|---|---|
-| **Revenu (ARPU)** | **14,99 €** | **29,00 €** |
-| Coût minutes Telnyx | −4,50 € (~250 min) | −12,00 € (~800 min) |
-| Numéro (DID) | −1,00 € | −1,00 € |
-| Frais Stripe (~1,5 % + 0,25 €) | −0,50 € | −0,70 € |
-| Infra mutualisée amortie | −1,00 € | −1,50 € |
-| Transcription / IA | — | −1,50 € |
-| **Coût variable (COGS)** | **−7,00 €** | **−16,70 €** |
-| **Marge brute / client** | **≈ 8,00 € (~53 %)** | **≈ 12,30 € (~42 %)** |
+Tarifs Telnyx retenus (ordres de grandeur, à confirmer) : **entrant 0,005 €/min**, **sortant mobile FR
+0,018 €/min**. Le sortant mobile étant le poste cher, c'est lui qui dimensionne les forfaits.
 
-> Clé : on reste **moins cher que les concurrents ET rentable**, car l'offre d'entrée a des **minutes
-> incluses limitées** (250). Le gros consommateur passe en Pro / paie le dépassement — sa conso ne
-> plombe pas ta marge.
+| Offre | Min. **entrantes** incluses | Min. **sortantes mobile** incluses | Total min/mois |
+|---|---|---|---|
+| **Essentiel** (14,99 €) | 200 | 100 | 300 |
+| **Pro** (29 €/user) | 600 | 400 | 1 000 |
+| **Business** (49 €/user) | 1 200 | 800 | 2 000 |
+
+> Au-delà : **dépassement facturé ~0,03 €/min** (sortant mobile) — au-dessus de ton coût (0,018 €),
+> donc même les gros consommateurs restent **rentables**. International **bloqué par défaut** (anti-fraude).
+
+### Coût & marge détaillés par offre (par client / mois)
+
+| Poste | Essentiel | Pro | Business |
+|---|---|---|---|
+| **Revenu** | **14,99 €** | **29,00 €** | **49,00 €** |
+| Entrant (×0,005 €) | −1,00 € (200) | −3,00 € (600) | −6,00 € (1200) |
+| Sortant mobile (×0,018 €) | −1,80 € (100) | −7,20 € (400) | −14,40 € (800) |
+| Numéro (DID) | −1,00 € | −1,00 € | −1,00 € |
+| Frais Stripe (~1,5 %+0,25 €) | −0,47 € | −0,69 € | −1,00 € |
+| Infra amortie | −1,00 € | −1,50 € | −2,00 € |
+| Transcription / IA | — | −1,50 € | −2,00 € |
+| **Coût total (COGS)** | **−5,27 €** | **−14,89 €** | **−26,40 €** |
+| **Marge brute** | **≈ 9,72 € (65 %)** | **≈ 14,11 € (49 %)** | **≈ 22,60 € (46 %)** |
+
+> Conclusion : **moins cher que les concurrents ET rentable sur les 3 offres.** L'entrée à 14,99 €
+> garde **65 % de marge** grâce à des minutes incluses calibrées ; le sortant mobile est le levier
+> qui sépare les paliers.
 
 ### LTV / CAC (sur ARPU blended ~22 €)
 | Indicateur | Hypothèse | Valeur |
