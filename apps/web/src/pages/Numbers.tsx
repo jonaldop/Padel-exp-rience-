@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { Button, Card, Field, Input, colors } from '../ui';
+import { Badge, Button, Card, Field, IconChip, Input, PageTitle, colors } from '../ui';
 
 interface Settings {
   forwardToMobile: boolean;
@@ -26,7 +26,6 @@ export function Numbers() {
   async function refresh() {
     setNumbers(await api.myNumbers());
   }
-
   useEffect(() => {
     refresh();
     api.availableNumbers().then(setAvailable).catch(() => setAvailable([]));
@@ -36,7 +35,7 @@ export function Numbers() {
     setMsg(null);
     try {
       await api.buyNumber(e164, type);
-      setMsg(`✅ Numéro ${e164} attribué à votre compte`);
+      setMsg(`✅ Numéro ${e164} ajouté à votre compte`);
       refresh();
     } catch (e: any) {
       setMsg(`⚠️ ${e.message}`);
@@ -45,43 +44,50 @@ export function Numbers() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Mes numéros</h2>
-      {msg && <p style={{ color: colors.text }}>{msg}</p>}
+      <PageTitle subtitle="Gérez vos lignes professionnelles">Mes numéros</PageTitle>
 
-      {numbers.length === 0 && <p style={{ color: colors.muted }}>Aucun numéro. Choisissez-en un ci-dessous.</p>}
+      {msg && (
+        <div style={{ background: '#eef0ff', color: colors.primary, padding: '10px 14px', borderRadius: 12, marginBottom: 14, fontSize: 14, fontWeight: 600 }}>
+          {msg}
+        </div>
+      )}
 
-      <div style={{ display: 'grid', gap: 14, marginBottom: 24 }}>
+      {numbers.length === 0 && (
+        <Card style={{ marginBottom: 20 }}>
+          <p style={{ color: colors.muted, margin: 0 }}>
+            Vous n'avez pas encore de numéro. Choisissez-en un ci-dessous 👇
+          </p>
+        </Card>
+      )}
+
+      <div style={{ display: 'grid', gap: 14, marginBottom: 28 }}>
         {numbers.map((n) => (
           <NumberCard key={n.id} number={n} onSaved={refresh} />
         ))}
       </div>
 
-      <Card>
-        <h3 style={{ marginTop: 0 }}>Obtenir un nouveau numéro</h3>
-        <p style={{ color: colors.muted, fontSize: 14 }}>
-          Numéros français disponibles immédiatement.
-        </p>
+      <h3 style={{ fontSize: 17, marginBottom: 6 }}>Obtenir un numéro</h3>
+      <p style={{ color: colors.muted, fontSize: 14, marginTop: 0 }}>Numéros français disponibles immédiatement.</p>
+      <div style={{ display: 'grid', gap: 10 }}>
         {available.map((a) => (
-          <div
-            key={a.e164}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '10px 0',
-              borderTop: `1px solid ${colors.border}`,
-            }}
-          >
-            <div>
-              <strong>{a.e164}</strong>{' '}
-              <span style={{ color: colors.muted, fontSize: 13 }}>({a.type}) — {a.monthlyCost} €/mois</span>
+          <Card key={a.e164} style={{ padding: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <IconChip icon="☎️" />
+                <div>
+                  <div style={{ fontWeight: 700 }}>{a.e164}</div>
+                  <div style={{ color: colors.muted, fontSize: 12.5 }}>
+                    {a.type} · {a.monthlyCost} €/mois
+                  </div>
+                </div>
+              </div>
+              <Button variant="green" onClick={() => buy(a.e164, a.type)}>
+                Choisir
+              </Button>
             </div>
-            <Button variant="green" onClick={() => buy(a.e164, a.type)}>
-              Choisir
-            </Button>
-          </div>
+          </Card>
         ))}
-      </Card>
+      </div>
     </div>
   );
 }
@@ -89,6 +95,7 @@ export function Numbers() {
 function NumberCard({ number, onSaved }: { number: PhoneNumber; onSaved: () => void }) {
   const [s, setS] = useState<Settings>(number.settings);
   const [saved, setSaved] = useState(false);
+  const [open, setOpen] = useState(false);
 
   async function save() {
     await api.updateSettings(number.id, s);
@@ -99,60 +106,107 @@ function NumberCard({ number, onSaved }: { number: PhoneNumber; onSaved: () => v
 
   return (
     <Card>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0 }}>
-          {number.e164}{' '}
-          <span style={{ fontSize: 13, color: colors.muted }}>
-            ({number.origin === 'ported' ? 'porté' : 'nouveau'} · {number.status})
-          </span>
-        </h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <IconChip icon="📱" bg="#eef0ff" color={colors.primary} />
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>{number.e164}</div>
+            <div style={{ marginTop: 3 }}>
+              <Badge color={colors.green} bg={colors.greenSoft}>
+                {number.status === 'active' ? 'Actif' : number.status}
+              </Badge>{' '}
+              <span style={{ color: colors.muted, fontSize: 12.5 }}>
+                {number.origin === 'ported' ? 'porté' : 'nouveau'}
+              </span>
+            </div>
+          </div>
+        </div>
+        <Button variant="soft" onClick={() => setOpen(!open)}>
+          {open ? 'Fermer' : 'Régler'}
+        </Button>
       </div>
 
-      <div style={{ marginTop: 14 }}>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-          <input
-            type="checkbox"
+      {open && (
+        <div className="fade-up" style={{ marginTop: 16, borderTop: `1px solid ${colors.border}`, paddingTop: 16 }}>
+          <Toggle
+            label="Renvoi vers mon mobile"
+            hint="Pour la fiabilité (chantier, zone sans data)"
             checked={s.forwardToMobile}
-            onChange={(e) => setS({ ...s, forwardToMobile: e.target.checked })}
+            onChange={(v) => setS({ ...s, forwardToMobile: v })}
           />
-          Renvoi vers mon mobile (fiabilité)
-        </label>
-        {s.forwardToMobile && (
-          <Field label="Numéro de renvoi">
-            <Input
-              value={s.forwardNumber || ''}
-              onChange={(e) => setS({ ...s, forwardNumber: e.target.value })}
-              placeholder="+33 6 ..."
-            />
-          </Field>
-        )}
-
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-          <input
-            type="checkbox"
+          {s.forwardToMobile && (
+            <Field label="Numéro de renvoi">
+              <Input value={s.forwardNumber || ''} onChange={(e) => setS({ ...s, forwardNumber: e.target.value })} placeholder="+33 6 ..." />
+            </Field>
+          )}
+          <Toggle
+            label="Répondeur / messagerie"
             checked={s.voicemailEnabled}
-            onChange={(e) => setS({ ...s, voicemailEnabled: e.target.checked })}
+            onChange={(v) => setS({ ...s, voicemailEnabled: v })}
           />
-          Répondeur / messagerie vocale
-        </label>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-          <input
-            type="checkbox"
+          <Toggle
+            label="Enregistrement des appels"
+            hint="Consentement requis (RGPD)"
             checked={s.recordingEnabled}
-            onChange={(e) => setS({ ...s, recordingEnabled: e.target.checked })}
+            onChange={(v) => setS({ ...s, recordingEnabled: v })}
           />
-          Enregistrement des appels (consentement requis)
-        </label>
-
-        <Field label="Message d'accueil hors horaires">
-          <Input
-            value={s.greetingClosed || ''}
-            onChange={(e) => setS({ ...s, greetingClosed: e.target.value })}
-          />
-        </Field>
-
-        <Button onClick={save}>{saved ? '✅ Enregistré' : 'Enregistrer'}</Button>
-      </div>
+          <Field label="Message d'accueil hors horaires">
+            <Input value={s.greetingClosed || ''} onChange={(e) => setS({ ...s, greetingClosed: e.target.value })} />
+          </Field>
+          <Button onClick={save} full>
+            {saved ? '✅ Enregistré' : 'Enregistrer les réglages'}
+          </Button>
+        </div>
+      )}
     </Card>
+  );
+}
+
+function Toggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div
+      onClick={() => onChange(!checked)}
+      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', cursor: 'pointer' }}
+    >
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 15 }}>{label}</div>
+        {hint && <div style={{ fontSize: 12.5, color: colors.muted }}>{hint}</div>}
+      </div>
+      <div
+        style={{
+          width: 46,
+          height: 28,
+          borderRadius: 999,
+          background: checked ? colors.primary : '#d1d5db',
+          position: 'relative',
+          transition: 'background 0.15s',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 3,
+            left: checked ? 21 : 3,
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            background: '#fff',
+            transition: 'left 0.15s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }}
+        />
+      </div>
+    </div>
   );
 }

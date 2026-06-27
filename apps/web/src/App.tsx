@@ -10,9 +10,9 @@ import { useIsMobile } from './useIsMobile';
 type Tab = 'dashboard' | 'numbers' | 'softphone';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'dashboard', label: 'Tableau de bord', icon: '📊' },
-  { key: 'numbers', label: 'Mes numéros', icon: '☎️' },
-  { key: 'softphone', label: 'Softphone', icon: '📞' },
+  { key: 'dashboard', label: 'Accueil', icon: '📊' },
+  { key: 'numbers', label: 'Numéros', icon: '☎️' },
+  { key: 'softphone', label: 'Appeler', icon: '📞' },
 ];
 
 export function App() {
@@ -33,14 +33,42 @@ export function App() {
 
   if (!authed) return <Login onLoggedIn={() => setAuthed(true)} />;
 
+  const Brand = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          background: colors.primaryGrad,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 18,
+        }}
+      >
+        📞
+      </div>
+      <strong style={{ fontSize: 17, letterSpacing: '-0.02em' }}>Standard Pro</strong>
+    </div>
+  );
+
+  const content = (
+    <div className="fade-up" key={tab}>
+      {tab === 'dashboard' && <Dashboard companyName={me?.account?.companyName} />}
+      {tab === 'numbers' && <Numbers />}
+      {tab === 'softphone' && <Softphone />}
+    </div>
+  );
+
   return (
     <div style={{ background: colors.bg, minHeight: '100vh' }}>
-      {/* En-tête */}
       <header
         style={{
-          background: 'white',
+          background: 'rgba(255,255,255,0.85)',
+          backdropFilter: 'saturate(180%) blur(10px)',
           borderBottom: `1px solid ${colors.border}`,
-          padding: isMobile ? '12px 16px' : '12px 20px',
+          padding: isMobile ? '12px 16px' : '14px 22px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -49,102 +77,120 @@ export function App() {
           zIndex: 10,
         }}
       >
-        <strong style={{ fontSize: 17 }}>📞 Standard Pro</strong>
+        {Brand}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           {!isMobile && (
             <span style={{ color: colors.muted, fontSize: 14 }}>{me?.account?.companyName || ''}</span>
           )}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              logout();
+          <button
+            onClick={logout}
+            style={{
+              background: colors.soft,
+              border: 'none',
+              borderRadius: 10,
+              padding: '8px 12px',
+              color: colors.text,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
             }}
-            style={{ color: colors.primary, fontSize: 14 }}
           >
             Déconnexion
-          </a>
+          </button>
         </div>
       </header>
 
       {isMobile ? (
-        /* ---- MOBILE : contenu pleine largeur + barre d'onglets en bas ---- */
         <>
-          <main style={{ padding: 14, paddingBottom: 90 }}>
-            {tab === 'dashboard' && <Dashboard />}
-            {tab === 'numbers' && <Numbers />}
-            {tab === 'softphone' && <Softphone />}
-          </main>
+          <main style={{ padding: 16, paddingBottom: 96, maxWidth: 560, margin: '0 auto' }}>{content}</main>
           <nav
             style={{
               position: 'fixed',
               bottom: 0,
               left: 0,
               right: 0,
-              background: 'white',
+              background: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'saturate(180%) blur(10px)',
               borderTop: `1px solid ${colors.border}`,
               display: 'flex',
               justifyContent: 'space-around',
-              padding: '8px 0 calc(8px + env(safe-area-inset-bottom))',
+              padding: '8px 6px calc(10px + env(safe-area-inset-bottom))',
               zIndex: 10,
             }}
           >
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 2,
-                  fontSize: 11,
-                  flex: 1,
-                  color: tab === t.key ? colors.primary : colors.muted,
-                  fontWeight: tab === t.key ? 700 : 400,
-                }}
-              >
-                <span style={{ fontSize: 20 }}>{t.icon}</span>
-                {t.label.split(' ')[0]}
-              </button>
-            ))}
+            {TABS.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 3,
+                    fontSize: 11,
+                    fontWeight: active ? 700 : 500,
+                    flex: 1,
+                    color: active ? colors.primary : colors.muted,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 18,
+                      width: 46,
+                      height: 30,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 12,
+                      background: active ? '#eef0ff' : 'transparent',
+                    }}
+                  >
+                    {t.icon}
+                  </span>
+                  {t.label}
+                </button>
+              );
+            })}
           </nav>
         </>
       ) : (
-        /* ---- DESKTOP : menu latéral ---- */
-        <div style={{ display: 'flex', maxWidth: 1100, margin: '0 auto' }}>
-          <nav style={{ width: 220, padding: 16 }}>
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '11px 14px',
-                  marginBottom: 6,
-                  borderRadius: 10,
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 15,
-                  background: tab === t.key ? colors.primary : 'transparent',
-                  color: tab === t.key ? 'white' : colors.text,
-                  fontWeight: tab === t.key ? 600 : 400,
-                }}
-              >
-                {t.icon} {t.label}
-              </button>
-            ))}
+        <div style={{ display: 'flex', maxWidth: 1120, margin: '0 auto' }}>
+          <nav style={{ width: 230, padding: 18 }}>
+            {TABS.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '12px 14px',
+                    marginBottom: 6,
+                    borderRadius: 12,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 15,
+                    background: active ? colors.primaryGrad : 'transparent',
+                    color: active ? '#fff' : colors.text,
+                    fontWeight: active ? 700 : 500,
+                    boxShadow: active ? '0 6px 16px rgba(79,70,229,0.25)' : 'none',
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>{t.icon}</span> {t.label}
+                </button>
+              );
+            })}
           </nav>
-          <main style={{ flex: 1, padding: 16 }}>
-            {tab === 'dashboard' && <Dashboard />}
-            {tab === 'numbers' && <Numbers />}
-            {tab === 'softphone' && <Softphone />}
-          </main>
+          <main style={{ flex: 1, padding: 22, maxWidth: 860 }}>{content}</main>
         </div>
       )}
     </div>
