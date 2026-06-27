@@ -18,27 +18,51 @@ interface PhoneNumber {
   settings: Settings;
 }
 
+const TYPES = [
+  { key: '', label: 'Tous' },
+  { key: 'geographic', label: 'Géographique' },
+  { key: 'mobile', label: 'Mobile' },
+  { key: 'non_geo', label: 'National (09)' },
+];
+
 export function Numbers() {
   const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
   const [available, setAvailable] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [type, setType] = useState('');
+  const [contains, setContains] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [buying, setBuying] = useState<string | null>(null);
 
   async function refresh() {
     setNumbers(await api.myNumbers());
   }
+  async function search(t = type, c = contains) {
+    setSearching(true);
+    try {
+      setAvailable(await api.availableNumbers(t, c));
+    } catch {
+      setAvailable([]);
+    } finally {
+      setSearching(false);
+    }
+  }
   useEffect(() => {
     refresh();
-    api.availableNumbers().then(setAvailable).catch(() => setAvailable([]));
+    search('', '');
   }, []);
 
   async function buy(e164: string, type: string) {
     setMsg(null);
+    setBuying(e164);
     try {
       await api.buyNumber(e164, type);
       setMsg(`✅ Numéro ${e164} ajouté à votre compte`);
       refresh();
     } catch (e: any) {
       setMsg(`⚠️ ${e.message}`);
+    } finally {
+      setBuying(null);
     }
   }
 
@@ -67,27 +91,75 @@ export function Numbers() {
       </div>
 
       <h3 style={{ fontSize: 17, marginBottom: 6 }}>Obtenir un numéro</h3>
-      <p style={{ color: colors.muted, fontSize: 14, marginTop: 0 }}>Numéros français disponibles immédiatement.</p>
-      <div style={{ display: 'grid', gap: 10 }}>
-        {available.map((a) => (
-          <Card key={a.e164} style={{ padding: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <IconChip icon="☎️" />
-                <div>
-                  <div style={{ fontWeight: 700 }}>{a.e164}</div>
-                  <div style={{ color: colors.muted, fontSize: 12.5 }}>
-                    {a.type} · {a.monthlyCost} €/mois
-                  </div>
-                </div>
-              </div>
-              <Button variant="green" onClick={() => buy(a.e164, a.type)}>
-                Choisir
-              </Button>
-            </div>
-          </Card>
+      <p style={{ color: colors.muted, fontSize: 14, marginTop: 0 }}>
+        Choisissez le type et/ou tapez des chiffres (indicatif, numéro facile à retenir…).
+      </p>
+
+      {/* Filtres */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        {TYPES.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => {
+              setType(t.key);
+              search(t.key, contains);
+            }}
+            style={{
+              border: `1px solid ${type === t.key ? colors.primary : colors.border}`,
+              background: type === t.key ? '#eef0ff' : '#fff',
+              color: type === t.key ? colors.primary : colors.text,
+              fontWeight: type === t.key ? 700 : 500,
+              borderRadius: 999,
+              padding: '7px 14px',
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            {t.label}
+          </button>
         ))}
       </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <Input
+          value={contains}
+          onChange={(e) => setContains(e.target.value)}
+          placeholder="Chiffres (ex. 01, 06, 4242…)"
+          onKeyDown={(e) => e.key === 'Enter' && search()}
+          style={{ flex: 1 }}
+        />
+        <Button onClick={() => search()}>Rechercher</Button>
+      </div>
+
+      {searching ? (
+        <p style={{ color: colors.muted }}>Recherche…</p>
+      ) : available.length === 0 ? (
+        <Card>
+          <p style={{ color: colors.muted, margin: 0 }}>
+            Aucun numéro trouvé pour ces critères. Essayez un autre type ou d'autres chiffres.
+          </p>
+        </Card>
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {available.map((a) => (
+            <Card key={a.e164} style={{ padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <IconChip icon="☎️" />
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{a.e164}</div>
+                    <div style={{ color: colors.muted, fontSize: 12.5 }}>
+                      {a.type} · {a.monthlyCost} €/mois
+                    </div>
+                  </div>
+                </div>
+                <Button variant="green" disabled={buying === a.e164} onClick={() => buy(a.e164, a.type)}>
+                  {buying === a.e164 ? '…' : 'Choisir'}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

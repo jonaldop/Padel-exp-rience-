@@ -48,7 +48,13 @@ export const api = {
   me: () => request('/auth/me'),
 
   // Numéros
-  availableNumbers: () => request('/numbers/available'),
+  availableNumbers: (type?: string, contains?: string) => {
+    const p = new URLSearchParams();
+    if (type) p.set('type', type);
+    if (contains) p.set('contains', contains);
+    const qs = p.toString();
+    return request('/numbers/available' + (qs ? `?${qs}` : ''));
+  },
   myNumbers: () => request('/numbers'),
   buyNumber: (e164: string, type?: string) =>
     request('/numbers/buy', { method: 'POST', body: JSON.stringify({ e164, type }) }),

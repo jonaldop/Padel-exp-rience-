@@ -99,22 +99,45 @@ export class TelnyxService {
 
   // ── Provisioning de numéros ────────────────────────────────────────────────
 
-  async searchAvailableNumbers(opts: { country?: string; type?: string; limit?: number } = {}) {
+  async searchAvailableNumbers(
+    opts: { country?: string; type?: string; contains?: string; limit?: number } = {},
+  ) {
     if (!this.configured) {
-      return [
-        { e164: '+33756000001', type: 'mobile', monthlyCost: 1 },
-        { e164: '+33186000002', type: 'geographic', monthlyCost: 1 },
-        { e164: '+33970000003', type: 'non_geo', monthlyCost: 1 },
+      const demo = [
+        { e164: '+33186000010', type: 'geographic', monthlyCost: 1 },
+        { e164: '+33186000011', type: 'geographic', monthlyCost: 1 },
+        { e164: '+33756000020', type: 'mobile', monthlyCost: 1 },
+        { e164: '+33970000030', type: 'non_geo', monthlyCost: 1 },
       ];
+      return demo.filter(
+        (n) =>
+          (!opts.type || n.type === opts.type) &&
+          (!opts.contains || n.e164.includes(opts.contains)),
+      );
     }
-    const params = new URLSearchParams({
-      'filter[country_code]': opts.country || 'FR',
-      'filter[limit]': String(opts.limit || 10),
-    });
+    // Telnyx : local = géographique (01-05), mobile = 06/07, national = 09
+    const typeMap: Record<string, string> = {
+      geographic: 'local',
+      mobile: 'mobile',
+      non_geo: 'national',
+    };
+    const params = new URLSearchParams();
+    params.set('filter[country_code]', opts.country || 'FR');
+    params.set('filter[features][]', 'voice');
+    params.set('filter[limit]', String(opts.limit || 20));
+    if (opts.type && typeMap[opts.type]) params.set('filter[phone_number_type]', typeMap[opts.type]);
+    if (opts.contains) params.set('filter[phone_number][contains]', opts.contains.replace(/\D/g, ''));
+
     const data = await this.api<{ data: any[] }>(`/available_phone_numbers?${params}`);
+    const label: Record<string, string> = {
+      local: 'géographique',
+      mobile: 'mobile',
+      national: 'national',
+      toll_free: 'gratuit',
+    };
     return (data.data || []).map((n) => ({
       e164: n.phone_number,
-      type: n.phone_number_type || 'geographic',
+      type: label[n.phone_number_type] || n.phone_number_type || 'géographique',
       monthlyCost: Number(n.cost_information?.monthly_cost || 1),
     }));
   }

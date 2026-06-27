@@ -17,10 +17,10 @@ export class NumbersController {
     private readonly telnyx: TelnyxService,
   ) {}
 
-  /** Catalogue de numéros disponibles à l'achat. */
+  /** Catalogue de numéros disponibles à l'achat (recherche par type / chiffres). */
   @Get('available')
-  available(@Query('type') type?: string) {
-    return this.telnyx.searchAvailableNumbers({ country: 'FR', type, limit: 10 });
+  available(@Query('type') type?: string, @Query('contains') contains?: string) {
+    return this.telnyx.searchAvailableNumbers({ country: 'FR', type, contains, limit: 20 });
   }
 
   /** Liste des numéros du compte. */
