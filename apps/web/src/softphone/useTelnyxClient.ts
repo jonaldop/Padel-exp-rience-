@@ -39,11 +39,17 @@ export function useTelnyxClient() {
             setIncomingFrom(null);
             break;
           case 'hangup':
-          case 'destroy':
+          case 'destroy': {
+            // Capture la cause du raccrochage (diagnostic)
+            const cause = call.cause || call.options?.causeCode;
+            if (cause && cause !== 'NORMAL_CLEARING' && cause !== 'USER_BUSY') {
+              setError(`Appel terminé : ${cause}`);
+            }
             setCallState('idle');
             setIncomingFrom(null);
             callRef.current = null;
             break;
+          }
           default:
             setCallState('connecting');
         }

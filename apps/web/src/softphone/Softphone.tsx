@@ -58,6 +58,17 @@ export function Softphone() {
   const press = (d: string) => setNumber((n) => (n + d).slice(0, 20));
   const back = () => setNumber((n) => n.slice(0, -1));
 
+  // Normalise en E.164 : 06... -> +336..., 0033... -> +33..., défaut FR
+  const toE164 = (raw: string) => {
+    let d = raw.replace(/[^\d+]/g, '');
+    if (d.startsWith('+')) return d;
+    if (d.startsWith('0033')) return '+' + d.slice(2);
+    if (d.startsWith('33')) return '+' + d;
+    if (d.startsWith('0')) return '+33' + d.slice(1);
+    return '+33' + d;
+  };
+  const callNow = () => (registered && number ? dial(toE164(number), proNumber) : connect());
+
   const stage = (children: React.ReactNode) => (
     <div
       style={{
@@ -165,7 +176,7 @@ export function Softphone() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', maxWidth: 290, margin: '0 auto' }}>
         <span />
         <button
-          onClick={() => (registered && number ? dial(number, proNumber) : connect())}
+          onClick={callNow}
           disabled={registered && !number}
           style={{
             ...glass,
