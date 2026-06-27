@@ -1,4 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { config } from '../config/config';
 
 /**
@@ -86,9 +87,18 @@ export class TelnyxService {
     const list = await this.api<{ data: any[] }>('/credential_connections?page[size]=250');
     let conn = list.data?.find((c) => c.connection_name === 'standard-pro-webrtc');
     if (!conn) {
+      // Telnyx exige un user_name + password sur la connexion (identifiants SIP).
+      // On les génère (uniques) ; les tokens WebRTC courts s'appuieront dessus.
+      const userName = 'sp' + randomUUID().replace(/-/g, '').slice(0, 16);
+      const password = 'Sp1' + randomUUID().replace(/-/g, '');
       const created = await this.api<{ data: any }>('/credential_connections', {
         method: 'POST',
-        body: { connection_name: 'standard-pro-webrtc', webhook_event_url: `${config.publicApiUrl}/calls/webhook` },
+        body: {
+          connection_name: 'standard-pro-webrtc',
+          user_name: userName,
+          password,
+          webhook_event_url: `${config.publicApiUrl}/calls/webhook`,
+        },
       });
       conn = created.data;
       this.logger.log(`Credential Connection créée: ${conn.id}`);
