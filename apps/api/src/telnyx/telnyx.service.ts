@@ -142,12 +142,44 @@ export class TelnyxService {
     }));
   }
 
+  /** Numéros déjà possédés sur le compte Telnyx (pour réimport/sync). */
+  async listOwnedNumbers() {
+    if (!this.configured) return [];
+    const label: Record<string, string> = {
+      local: 'géographique',
+      mobile: 'mobile',
+      national: 'national',
+      toll_free: 'gratuit',
+    };
+    const data = await this.api<{ data: any[] }>('/phone_numbers?page[size]=250');
+    return (data.data || []).map((n) => ({
+      e164: n.phone_number,
+      providerNumberId: n.id,
+      type: label[n.phone_number_type] || 'géographique',
+    }));
+  }
+
+  /** Assigne un numéro existant à notre Call Control App (routage entrant). */
+  async routeNumberToApp(providerNumberId: string) {
+    const appId = await this.ensureCallControlApp();
+    await this.api(`/phone_numbers/${providerNumberId}`, {
+      method: 'PATCH',
+      body: { connection_id: appId },
+    });
+  }
+
   /** Achète un numéro et l'attribue à notre Call Control App (routage entrant). */
   async buyNumber(e164: string): Promise<{ providerNumberId: string | null }> {
-    await this.api('/number_orders', {
-      method: 'POST',
-      body: { phone_numbers: [{ phone_number: e164 }] },
-    });
+    // Idempotent : si le numéro est déjà possédé, l'achat échoue -> on continue
+    // quand même pour le retrouver et l'assigner au compte.
+    try {
+      await this.api('/number_orders', {
+        method: 'POST',
+        body: { phone_numbers: [{ phone_number: e164 }] },
+      });
+    } catch (e) {
+      this.logger.warn(`Commande ${e164} non passée (peut-être déjà possédé): ${(e as Error).message}`);
+    }
 
     const appId = await this.ensureCallControlApp();
 

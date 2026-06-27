@@ -58,6 +58,7 @@ export const api = {
   myNumbers: () => request('/numbers'),
   buyNumber: (e164: string, type?: string) =>
     request('/numbers/buy', { method: 'POST', body: JSON.stringify({ e164, type }) }),
+  importNumbers: () => request('/numbers/import', { method: 'POST', body: '{}' }),
   updateSettings: (id: string, patch: any) =>
     request(`/numbers/${id}/settings`, { method: 'PATCH', body: JSON.stringify(patch) }),
 

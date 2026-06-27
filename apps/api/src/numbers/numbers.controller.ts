@@ -29,6 +29,31 @@ export class NumbersController {
     return this.db.listPhoneNumbers(user.accountId);
   }
 
+  /** Importer dans le compte les numéros déjà possédés sur Telnyx (resync). */
+  @Post('import')
+  async import(@CurrentUser() user: JwtPayload) {
+    if (!this.telnyx.configured) return { imported: 0 };
+    const owned = await this.telnyx.listOwnedNumbers();
+    const existing = new Set(this.db.listPhoneNumbers(user.accountId).map((n) => n.e164));
+    let imported = 0;
+    for (const n of owned) {
+      if (existing.has(n.e164)) continue;
+      try {
+        await this.telnyx.routeNumberToApp(n.providerNumberId);
+      } catch {
+        /* on importe quand même */
+      }
+      this.db.createPhoneNumber({
+        accountId: user.accountId,
+        e164: n.e164,
+        type: n.type,
+        providerNumberId: n.providerNumberId,
+      });
+      imported++;
+    }
+    return { imported };
+  }
+
   /** Acheter un nouveau numéro et l'attribuer au compte. */
   @Post('buy')
   async buy(@CurrentUser() user: JwtPayload, @Body() body: { e164: string; type?: string }) {
