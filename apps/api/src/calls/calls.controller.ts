@@ -132,7 +132,8 @@ export class CallsController {
 
       case 'call.recording.saved': {
         const call = this.db.findCallByProviderId(callControlId);
-        const url = payload.recording_urls?.mp3 || payload.public_recording_urls?.mp3;
+        // URL publique en priorité (lisible directement par le navigateur)
+        const url = payload.public_recording_urls?.mp3 || payload.recording_urls?.mp3;
         if (call) {
           this.db.createVoicemail({ callId: call.id, audioUrl: url });
           // TODO (V2) : enqueue transcription Whisper/Deepgram (ticket AI-1)

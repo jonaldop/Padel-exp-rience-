@@ -3,15 +3,17 @@ import { api, auth } from './api';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Numbers } from './pages/Numbers';
+import { Voicemails } from './pages/Voicemails';
 import { Softphone } from './softphone/Softphone';
 import { colors } from './ui';
 import { useIsMobile } from './useIsMobile';
 
-type Tab = 'dashboard' | 'numbers' | 'softphone';
+type Tab = 'dashboard' | 'numbers' | 'messages' | 'softphone';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'dashboard', label: 'Accueil', icon: '📊' },
   { key: 'numbers', label: 'Numéros', icon: '☎️' },
+  { key: 'messages', label: 'Messages', icon: '🎙️' },
   { key: 'softphone', label: 'Appeler', icon: '📞' },
 ];
 
@@ -57,6 +59,7 @@ export function App() {
     <div className="fade-up" key={tab}>
       {tab === 'dashboard' && <Dashboard companyName={me?.account?.companyName} />}
       {tab === 'numbers' && <Numbers />}
+      {tab === 'messages' && <Voicemails />}
       {tab === 'softphone' && <Softphone />}
     </div>
   );
