@@ -1,0 +1,14 @@
+{
+  "name": "standard-tel-pro",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SaaS standard téléphonique pro VoIP + IA — monorepo",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/api && npm run build --workspace apps/web"
+  }
+}
