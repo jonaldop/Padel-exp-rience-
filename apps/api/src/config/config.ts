@@ -7,7 +7,8 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 export const config = {
-  port: parseInt(process.env.API_PORT || '3001', 10),
+  // Railway/Render/Fly injectent PORT ; en local on utilise API_PORT (def. 3001)
+  port: parseInt(process.env.PORT || process.env.API_PORT || '3001', 10),
   publicApiUrl: process.env.PUBLIC_API_URL || 'http://localhost:3001',
   webOrigin: process.env.WEB_ORIGIN || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
