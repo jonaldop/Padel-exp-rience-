@@ -44,7 +44,7 @@ function Blob({ color, style }: { color: string; style: React.CSSProperties }) {
   );
 }
 
-export function Softphone() {
+export function Softphone({ initialNumber }: { initialNumber?: string }) {
   const { registered, callState, incomingFrom, error, connect, dial, answer, hangup } =
     useTelnyxClient();
   const [number, setNumber] = useState('');
@@ -54,6 +54,11 @@ export function Softphone() {
     connect();
     api.myNumbers().then((nums: any[]) => setProNumber(nums?.[0]?.e164)).catch(() => {});
   }, [connect]);
+
+  // Numéro pré-rempli depuis le carnet de clients
+  useEffect(() => {
+    if (initialNumber) setNumber(initialNumber);
+  }, [initialNumber]);
 
   const press = (d: string) => setNumber((n) => (n + d).slice(0, 20));
   const back = () => setNumber((n) => n.slice(0, -1));

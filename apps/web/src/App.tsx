@@ -3,26 +3,35 @@ import { api, auth } from './api';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Numbers } from './pages/Numbers';
+import { Clients } from './pages/Clients';
 import { Voicemails } from './pages/Voicemails';
 import { Softphone } from './softphone/Softphone';
 import { colors, GlassBackground } from './ui';
 import { useIsMobile } from './useIsMobile';
 
-type Tab = 'dashboard' | 'numbers' | 'messages' | 'softphone';
+type Tab = 'dashboard' | 'clients' | 'softphone' | 'messages' | 'numbers';
 
-// Ordre façon appli Téléphone iOS : Récents · Numéros · Clavier · Messagerie
+// Ordre façon appli Téléphone iOS : Récents · Clients · Clavier · Messagerie · Numéros
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'dashboard', label: 'Récents', icon: '🕓' },
-  { key: 'numbers', label: 'Numéros', icon: '☎️' },
+  { key: 'clients', label: 'Clients', icon: '👤' },
   { key: 'softphone', label: 'Clavier', icon: '🔢' },
   { key: 'messages', label: 'Messagerie', icon: '🔵' },
+  { key: 'numbers', label: 'Numéros', icon: '☎️' },
 ];
 
 export function App() {
   const [authed, setAuthed] = useState(Boolean(auth.token));
   const [me, setMe] = useState<any>(null);
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [dialNumber, setDialNumber] = useState<string>('');
   const isMobile = useIsMobile();
+
+  // Appeler depuis le carnet : préremplit le Clavier et bascule dessus
+  const callNumber = (phone: string) => {
+    setDialNumber(phone);
+    setTab('softphone');
+  };
 
   useEffect(() => {
     if (authed) api.me().then(setMe).catch(() => logout());
@@ -59,9 +68,10 @@ export function App() {
   const content = (
     <div className="fade-up" key={tab}>
       {tab === 'dashboard' && <Dashboard companyName={me?.account?.companyName} />}
+      {tab === 'clients' && <Clients onCall={callNumber} />}
       {tab === 'numbers' && <Numbers />}
       {tab === 'messages' && <Voicemails />}
-      {tab === 'softphone' && <Softphone />}
+      {tab === 'softphone' && <Softphone initialNumber={dialNumber} />}
     </div>
   );
 

@@ -89,6 +89,16 @@ export interface Voicemail {
   createdAt: string;
 }
 
+export interface Client {
+  id: string;
+  accountId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  notes?: string;
+  createdAt: string;
+}
+
 interface Data {
   accounts: Account[];
   users: User[];
@@ -96,6 +106,7 @@ interface Data {
   settings: PhoneSettings[];
   calls: Call[];
   voicemails: Voicemail[];
+  clients: Client[];
 }
 
 const DEFAULT_SCHEDULE = JSON.stringify({
@@ -117,6 +128,7 @@ export class DbService implements OnModuleInit {
     settings: [],
     calls: [],
     voicemails: [],
+    clients: [],
   };
   private readonly file = process.env.DB_FILE || path.resolve(process.cwd(), 'data.json');
 
@@ -328,6 +340,69 @@ export class DbService implements OnModuleInit {
       .filter((v) => callIds.has(v.callId))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((v) => ({ ...v, call: this.data.calls.find((c) => c.id === v.callId) }));
+  }
+
+  // ── Clients (carnet de contacts) ───────────────────────────────────────────
+
+  createClient(input: { accountId: string; name: string; phone: string; email?: string; notes?: string }): Client {
+    const c: Client = {
+      id: randomUUID(),
+      accountId: input.accountId,
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      notes: input.notes,
+      createdAt: this.now(),
+    };
+    this.data.clients.push(c);
+    this.save();
+    return c;
+  }
+
+  createManyClients(accountId: string, items: { name: string; phone: string }[]): number {
+    let n = 0;
+    for (const it of items) {
+      if (!it.phone) continue;
+      // évite les doublons par numéro
+      if (this.data.clients.some((c) => c.accountId === accountId && c.phone === it.phone)) continue;
+      this.data.clients.push({
+        id: randomUUID(),
+        accountId,
+        name: it.name || it.phone,
+        phone: it.phone,
+        createdAt: this.now(),
+      });
+      n++;
+    }
+    if (n) this.save();
+    return n;
+  }
+
+  listClients(accountId: string, search?: string): Client[] {
+    let list = this.data.clients.filter((c) => c.accountId === accountId);
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((c) => c.name.toLowerCase().includes(q) || c.phone.includes(q));
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  updateClient(accountId: string, id: string, patch: Partial<Client>): Client | null {
+    const c = this.data.clients.find((x) => x.id === id && x.accountId === accountId);
+    if (!c) return null;
+    for (const k of ['name', 'phone', 'email', 'notes'] as const) {
+      if (patch[k] !== undefined) (c as any)[k] = patch[k];
+    }
+    this.save();
+    return c;
+  }
+
+  deleteClient(accountId: string, id: string): boolean {
+    const before = this.data.clients.length;
+    this.data.clients = this.data.clients.filter((c) => !(c.id === id && c.accountId === accountId));
+    const removed = this.data.clients.length < before;
+    if (removed) this.save();
+    return removed;
   }
 
   // util pour le seed

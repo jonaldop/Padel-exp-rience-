@@ -67,6 +67,17 @@ export const api = {
   voicemails: () => request('/calls/voicemails'),
   dial: (to: string) => request('/calls/dial', { method: 'POST', body: JSON.stringify({ to }) }),
 
+  // Clients (carnet)
+  clients: (search?: string) =>
+    request('/clients' + (search ? `?search=${encodeURIComponent(search)}` : '')),
+  addClient: (data: { name: string; phone: string; email?: string; notes?: string }) =>
+    request('/clients', { method: 'POST', body: JSON.stringify(data) }),
+  importClients: (items: { name: string; phone: string }[]) =>
+    request('/clients/import', { method: 'POST', body: JSON.stringify({ items }) }),
+  updateClient: (id: string, data: any) =>
+    request(`/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteClient: (id: string) => request(`/clients/${id}`, { method: 'DELETE' }),
+
   // Softphone
   webrtcToken: () => request('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),
 };
