@@ -91,15 +91,28 @@ export class TelnyxService {
   /** Profil d'appel sortant (obligatoire pour passer des appels) — créé/réutilisé. */
   private async ensureOutboundVoiceProfile(): Promise<string> {
     if (this.outboundProfileId) return this.outboundProfileId;
+    // Destinations autorisées : France (+ DOM utiles). SANS ça, Telnyx rejette TOUT.
+    const destinations = ['FR', 'GP', 'MQ', 'RE', 'YT', 'GF', 'BE', 'CH', 'LU'];
     const list = await this.api<{ data: any[] }>('/outbound_voice_profiles?page[size]=250');
     let p = list.data?.find((x) => x.name === 'standard-pro');
     if (!p) {
       const created = await this.api<{ data: any }>('/outbound_voice_profiles', {
         method: 'POST',
-        body: { name: 'standard-pro', traffic_type: 'conversational' },
+        body: {
+          name: 'standard-pro',
+          traffic_type: 'conversational',
+          whitelisted_destinations: destinations,
+        },
       });
       p = created.data;
       this.logger.log(`Outbound Voice Profile créé: ${p.id}`);
+    } else if (!(p.whitelisted_destinations || []).includes('FR')) {
+      // Profil existant sans la France autorisée -> on corrige (cause de CALL_REJECTED)
+      await this.api(`/outbound_voice_profiles/${p.id}`, {
+        method: 'PATCH',
+        body: { whitelisted_destinations: destinations },
+      });
+      this.logger.log(`Destinations autorisées mises à jour sur le profil ${p.id}`);
     }
     this.outboundProfileId = p.id;
     return p.id;
