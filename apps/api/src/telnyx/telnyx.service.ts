@@ -18,6 +18,7 @@ export class TelnyxService {
   private readonly logger = new Logger(TelnyxService.name);
   private callControlAppId?: string;
   private credentialConnectionId?: string;
+  private outboundProfileId?: string;
 
   get configured() {
     return config.telnyx.configured;
@@ -58,25 +59,50 @@ export class TelnyxService {
     if (this.callControlAppId) return this.callControlAppId;
 
     const webhook = `${config.publicApiUrl}/calls/webhook`;
+    const profileId = await this.ensureOutboundVoiceProfile();
     const list = await this.api<{ data: any[] }>('/call_control_applications?page[size]=250');
     let app = list.data?.find((a) => a.application_name === 'standard-pro');
 
     if (!app) {
       const created = await this.api<{ data: any }>('/call_control_applications', {
         method: 'POST',
-        body: { application_name: 'standard-pro', webhook_event_url: webhook },
+        body: {
+          application_name: 'standard-pro',
+          webhook_event_url: webhook,
+          outbound: { outbound_voice_profile_id: profileId },
+        },
       });
       app = created.data;
       this.logger.log(`Call Control Application créée: ${app.id}`);
-    } else if (app.webhook_event_url !== webhook) {
-      await this.api(`/call_control_applications/${app.id}`, {
-        method: 'PATCH',
-        body: { webhook_event_url: webhook },
-      });
-      this.logger.log(`Webhook Call Control mis à jour vers ${webhook}`);
+    } else {
+      // Maintient le webhook à jour ET attache le profil sortant (pour le renvoi PSTN).
+      const patch: any = {};
+      if (app.webhook_event_url !== webhook) patch.webhook_event_url = webhook;
+      if (!app.outbound?.outbound_voice_profile_id) patch.outbound = { outbound_voice_profile_id: profileId };
+      if (Object.keys(patch).length) {
+        await this.api(`/call_control_applications/${app.id}`, { method: 'PATCH', body: patch });
+        this.logger.log(`Call Control Application mise à jour (${Object.keys(patch).join(', ')})`);
+      }
     }
     this.callControlAppId = app.id;
     return app.id;
+  }
+
+  /** Profil d'appel sortant (obligatoire pour passer des appels) — créé/réutilisé. */
+  private async ensureOutboundVoiceProfile(): Promise<string> {
+    if (this.outboundProfileId) return this.outboundProfileId;
+    const list = await this.api<{ data: any[] }>('/outbound_voice_profiles?page[size]=250');
+    let p = list.data?.find((x) => x.name === 'standard-pro');
+    if (!p) {
+      const created = await this.api<{ data: any }>('/outbound_voice_profiles', {
+        method: 'POST',
+        body: { name: 'standard-pro', traffic_type: 'conversational' },
+      });
+      p = created.data;
+      this.logger.log(`Outbound Voice Profile créé: ${p.id}`);
+    }
+    this.outboundProfileId = p.id;
+    return p.id;
   }
 
   /** Retourne (en la créant si besoin) l'ID de notre Credential Connection (WebRTC). */
@@ -84,11 +110,10 @@ export class TelnyxService {
     if (config.telnyx.connectionId) return config.telnyx.connectionId;
     if (this.credentialConnectionId) return this.credentialConnectionId;
 
+    const profileId = await this.ensureOutboundVoiceProfile();
     const list = await this.api<{ data: any[] }>('/credential_connections?page[size]=250');
     let conn = list.data?.find((c) => c.connection_name === 'standard-pro-webrtc');
     if (!conn) {
-      // Telnyx exige un user_name + password sur la connexion (identifiants SIP).
-      // On les génère (uniques) ; les tokens WebRTC courts s'appuieront dessus.
       const userName = 'sp' + randomUUID().replace(/-/g, '').slice(0, 16);
       const password = 'Sp1' + randomUUID().replace(/-/g, '');
       const created = await this.api<{ data: any }>('/credential_connections', {
@@ -98,10 +123,18 @@ export class TelnyxService {
           user_name: userName,
           password,
           webhook_event_url: `${config.publicApiUrl}/calls/webhook`,
+          outbound: { outbound_voice_profile_id: profileId },
         },
       });
       conn = created.data;
       this.logger.log(`Credential Connection créée: ${conn.id}`);
+    } else if (!conn.outbound?.outbound_voice_profile_id) {
+      // Connexion existante sans profil sortant -> on l'attache (corrige "appel raccroché aussitôt")
+      await this.api(`/credential_connections/${conn.id}`, {
+        method: 'PATCH',
+        body: { outbound: { outbound_voice_profile_id: profileId } },
+      });
+      this.logger.log(`Outbound profile attaché à la connexion ${conn.id}`);
     }
     this.credentialConnectionId = conn.id;
     return conn.id;

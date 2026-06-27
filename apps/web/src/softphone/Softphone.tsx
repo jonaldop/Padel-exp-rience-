@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTelnyxClient } from './useTelnyxClient';
+import { api } from '../api';
 import { colors } from '../ui';
 
 const KEYS: { d: string; sub: string }[] = [
@@ -47,9 +48,11 @@ export function Softphone() {
   const { registered, callState, incomingFrom, error, connect, dial, answer, hangup } =
     useTelnyxClient();
   const [number, setNumber] = useState('');
+  const [proNumber, setProNumber] = useState<string | undefined>();
 
   useEffect(() => {
     connect();
+    api.myNumbers().then((nums: any[]) => setProNumber(nums?.[0]?.e164)).catch(() => {});
   }, [connect]);
 
   const press = (d: string) => setNumber((n) => (n + d).slice(0, 20));
@@ -162,7 +165,7 @@ export function Softphone() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', maxWidth: 290, margin: '0 auto' }}>
         <span />
         <button
-          onClick={() => (registered && number ? dial(number) : connect())}
+          onClick={() => (registered && number ? dial(number, proNumber) : connect())}
           disabled={registered && !number}
           style={{
             ...glass,

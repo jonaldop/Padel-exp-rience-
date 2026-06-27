@@ -62,14 +62,15 @@ export function useTelnyxClient() {
     setRegistered(false);
   }, []);
 
-  const dial = useCallback((destination: string) => {
+  const dial = useCallback((destination: string, callerNumber?: string) => {
     if (!clientRef.current) return;
     setCallState('connecting');
     callRef.current = clientRef.current.newCall({
       destinationNumber: destination,
+      callerNumber, // présente le numéro pro
       audio: true,
       video: false,
-    });
+    } as any);
   }, []);
 
   const answer = useCallback(() => callRef.current?.answer(), []);
