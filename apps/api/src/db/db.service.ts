@@ -43,6 +43,7 @@ export interface PhoneSettings {
   holidays: string;
   greetingOpen?: string;
   greetingClosed?: string;
+  greetingVoice: string;
   ringTimeoutS: number;
   forwardToMobile: boolean;
   forwardNumber?: string;
@@ -220,6 +221,7 @@ export class DbService implements OnModuleInit {
       greetingClosed:
         input.greetingClosed ||
         'Bonjour, nos bureaux sont fermés. Laissez un message après le bip.',
+      greetingVoice: 'Polly.Lea-Neural',
       ringTimeoutS: 20,
       forwardToMobile: false,
       voicemailEnabled: true,

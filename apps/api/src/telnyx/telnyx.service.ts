@@ -232,11 +232,12 @@ export class TelnyxService {
     return this.api(`/calls/${callControlId}/actions/answer`, { method: 'POST' });
   }
 
-  speak(callControlId: string, text: string) {
-    return this.api(`/calls/${callControlId}/actions/speak`, {
-      method: 'POST',
-      body: { payload: text, voice: 'female', language: 'fr-FR' },
-    });
+  speak(callControlId: string, text: string, voice = 'Polly.Lea-Neural') {
+    // Voix Polly (neuronales) : la langue est déduite -> on n'envoie language
+    // que pour les voix basiques "male"/"female".
+    const body: any = { payload: text, voice };
+    if (voice === 'male' || voice === 'female') body.language = 'fr-FR';
+    return this.api(`/calls/${callControlId}/actions/speak`, { method: 'POST', body });
   }
 
   transferToUser(callControlId: string, sipUsername: string) {

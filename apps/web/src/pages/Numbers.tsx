@@ -9,7 +9,30 @@ interface Settings {
   voicemailEnabled: boolean;
   recordingEnabled: boolean;
   greetingClosed?: string;
+  greetingVoice?: string;
   weeklySchedule?: string;
+}
+
+const VOICES = [
+  { id: 'Polly.Lea-Neural', label: 'Léa — féminine, naturelle ✨' },
+  { id: 'Polly.Remi-Neural', label: 'Rémi — masculine, naturelle ✨' },
+  { id: 'Polly.Celine', label: 'Céline — féminine' },
+  { id: 'Polly.Mathieu', label: 'Mathieu — masculine' },
+  { id: 'female', label: 'Standard féminine' },
+];
+
+/** Aperçu via la synthèse vocale du navigateur (voix de l'appareil). */
+function previewVoice(text: string) {
+  try {
+    const u = new SpeechSynthesisUtterance(text || 'Bonjour, vous êtes bien chez nous.');
+    u.lang = 'fr-FR';
+    const fr = window.speechSynthesis.getVoices().find((v) => v.lang.startsWith('fr'));
+    if (fr) u.voice = fr;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* non supporté */
+  }
 }
 
 const DAYS: [string, string][] = [
@@ -295,6 +318,24 @@ function NumberCard({ number, onSaved }: { number: PhoneNumber; onSaved: () => v
           <Field label="Message d'accueil hors horaires">
             <Input value={s.greetingClosed || ''} onChange={(e) => setS({ ...s, greetingClosed: e.target.value })} />
           </Field>
+
+          <Field label="Voix du répondeur">
+            <select
+              value={s.greetingVoice || 'Polly.Lea-Neural'}
+              onChange={(e) => setS({ ...s, greetingVoice: e.target.value })}
+              style={{ width: '100%', padding: '12px 14px', fontSize: 16, borderRadius: 12, border: `1px solid ${colors.border}`, background: '#fff' }}
+            >
+              {VOICES.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Button variant="soft" onClick={() => previewVoice(s.greetingClosed || '')} style={{ marginBottom: 14 }}>
+            ▶︎ Écouter un aperçu
+          </Button>
+
           <Button onClick={save} full>
             {saved ? '✅ Enregistré' : 'Enregistrer les réglages'}
           </Button>

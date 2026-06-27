@@ -121,6 +121,7 @@ export class CallsController {
             callControlId,
             settings?.greetingClosed ||
               'Nos bureaux sont fermés. Laissez un message après le bip.',
+            settings?.greetingVoice || 'Polly.Lea-Neural',
           );
           if (settings?.voicemailEnabled !== false) {
             await this.telnyx.recordStart(callControlId);

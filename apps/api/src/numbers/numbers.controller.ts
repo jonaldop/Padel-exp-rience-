@@ -95,6 +95,7 @@ export class NumbersController {
     for (const k of [
       'greetingOpen',
       'greetingClosed',
+      'greetingVoice',
       'ringTimeoutS',
       'forwardToMobile',
       'forwardNumber',
