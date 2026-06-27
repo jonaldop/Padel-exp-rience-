@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { Badge, Card, IconChip, PageTitle, colors } from '../ui';
+import { formatFr } from '../format';
 
 interface Call {
   id: string;
@@ -76,7 +77,7 @@ export function Dashboard({ companyName }: { companyName?: string }) {
                     />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {inbound ? c.fromE164 : c.toE164}
+                        {formatFr(inbound ? c.fromE164 : c.toE164)}
                       </div>
                       <div style={{ fontSize: 12.5, color: colors.muted }}>
                         {inbound ? 'Entrant' : 'Sortant'} ·{' '}

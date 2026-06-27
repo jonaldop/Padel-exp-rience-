@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { Badge, Button, Card, Field, IconChip, Input, PageTitle, colors } from '../ui';
+import { formatFr } from '../format';
 
 interface Settings {
   forwardToMobile: boolean;
@@ -92,7 +93,9 @@ export function Numbers() {
 
       <h3 style={{ fontSize: 17, marginBottom: 6 }}>Obtenir un numéro</h3>
       <p style={{ color: colors.muted, fontSize: 14, marginTop: 0 }}>
-        Choisissez le type et/ou tapez des chiffres (indicatif, numéro facile à retenir…).
+        Choisissez le type, puis tapez des chiffres pour un numéro précis ou{' '}
+        <strong>facile à retenir</strong> (ex. <code>0000</code>, <code>1234</code>, un indicatif
+        comme <code>01</code>…).
       </p>
 
       {/* Filtres */}
@@ -134,8 +137,16 @@ export function Numbers() {
         <p style={{ color: colors.muted }}>Recherche…</p>
       ) : available.length === 0 ? (
         <Card>
-          <p style={{ color: colors.muted, margin: 0 }}>
-            Aucun numéro trouvé pour ces critères. Essayez un autre type ou d'autres chiffres.
+          <p style={{ color: colors.muted, margin: 0, lineHeight: 1.5 }}>
+            {type === 'mobile' ? (
+              <>
+                ℹ️ En France, les <strong>numéros mobiles (06/07) ne sont pas disponibles</strong> chez
+                les fournisseurs VoIP — ils sont réservés aux opérateurs mobiles. Pour un standard pro,
+                choisissez plutôt <strong>Géographique</strong> (01-05) ou <strong>National (09)</strong>.
+              </>
+            ) : (
+              <>Aucun numéro trouvé pour ces critères. Essayez un autre type ou d'autres chiffres.</>
+            )}
           </p>
         </Card>
       ) : (
@@ -146,7 +157,7 @@ export function Numbers() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <IconChip icon="☎️" />
                   <div>
-                    <div style={{ fontWeight: 700 }}>{a.e164}</div>
+                    <div style={{ fontWeight: 700, letterSpacing: '0.02em' }}>{formatFr(a.e164)}</div>
                     <div style={{ color: colors.muted, fontSize: 12.5 }}>
                       {a.type} · {a.monthlyCost} €/mois
                     </div>
@@ -182,7 +193,7 @@ function NumberCard({ number, onSaved }: { number: PhoneNumber; onSaved: () => v
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <IconChip icon="📱" bg="#eef0ff" color={colors.primary} />
           <div>
-            <div style={{ fontWeight: 800, fontSize: 16 }}>{number.e164}</div>
+            <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: '0.02em' }}>{formatFr(number.e164)}</div>
             <div style={{ marginTop: 3 }}>
               <Badge color={colors.green} bg={colors.greenSoft}>
                 {number.status === 'active' ? 'Actif' : number.status}
