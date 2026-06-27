@@ -22,6 +22,8 @@ une **IA optionnelle** (prise de message, résumé, qualification, récap email,
 | 07 | [Planning & roadmap](docs/07-roadmap-planning.md) | MVP par étapes, roadmap 3/6/12 mois, à éviter |
 | 08 | [Tickets de dev](docs/08-tickets-dev.md) | Backlog prêt pour l'équipe (epics + tickets) |
 | 09 | [MVP ultra-simplifié & test marché](docs/09-mvp-simplifie-test-marche.md) | Le lancement le plus rapide possible |
+| 📊 | [Business Plan](docs/BUSINESS-PLAN.md) | Marché, pricing (prix cassé), unit economics, projections 3 ans |
+| 🛠️ | [Guide dev](docs/DEV.md) · [Déploiement](docs/DEPLOIEMENT.md) | Lancer/tester l'app, héberger (Vercel/Railway/Supabase) |
 
 ## TL;DR du CTO
 
