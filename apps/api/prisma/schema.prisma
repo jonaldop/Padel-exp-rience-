@@ -1,0 +1,122 @@
+// Schéma de données — Standard téléphonique pro (cf. docs/04-modele-donnees.md)
+//
+// Pour le DEV / la démo on utilise SQLite (zéro install, tourne partout).
+// Pour la PROD : remplacer provider par "postgresql" et DATABASE_URL par l'URL
+// Postgres (cf. docker-compose.yml). Le code applicatif ne change pas.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id          String   @id @default(cuid())
+  companyName String
+  siret       String?
+  address     String?
+  country     String   @default("FR")
+  plan        String   @default("starter") // starter | pro
+  status      String   @default("trial") // trial | active | suspended
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users        User[]
+  phoneNumbers PhoneNumber[]
+  calls        Call[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  phonePerso   String?
+  role         String   @default("owner") // owner | admin | agent
+  createdAt    DateTime @default(now())
+
+  devices Device[]
+}
+
+model PhoneNumber {
+  id               String   @id @default(cuid())
+  accountId        String
+  account          Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  e164             String   @unique
+  type             String   @default("geographic") // geographic | non_geo | mobile
+  provider         String   @default("telnyx")
+  providerNumberId String?
+  origin           String   @default("new") // new | ported
+  status           String   @default("active") // active | porting | suspended
+  createdAt        DateTime @default(now())
+
+  settings PhoneSettings?
+  calls    Call[]
+}
+
+// Réunit horaires + comportement d'appel d'un numéro (BUSINESS_HOURS + CALL_FLOW)
+model PhoneSettings {
+  id              String      @id @default(cuid())
+  phoneNumberId   String      @unique
+  phoneNumber     PhoneNumber @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
+  timezone        String      @default("Europe/Paris")
+  weeklySchedule  String      @default("{}") // JSON: {mon:["09:00-18:00"],...}
+  holidays        String      @default("[]") // JSON: ["2026-12-25",...]
+  greetingOpen    String? // texte TTS ou URL audio
+  greetingClosed  String?
+  ringTimeoutS    Int         @default(20)
+  forwardToMobile Boolean     @default(false)
+  forwardNumber   String?
+  voicemailEnabled Boolean    @default(true)
+  recordingEnabled Boolean    @default(false)
+  aiEnabled       Boolean     @default(false)
+}
+
+model Call {
+  id             String   @id @default(cuid())
+  accountId      String
+  account        Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  phoneNumberId  String?
+  phoneNumber    PhoneNumber? @relation(fields: [phoneNumberId], references: [id])
+  direction      String // inbound | outbound
+  fromE164       String
+  toE164         String
+  status         String   @default("ringing") // ringing | answered | missed | voicemail | completed | failed
+  startedAt      DateTime @default(now())
+  answeredAt     DateTime?
+  endedAt        DateTime?
+  durationS      Int?
+  recordingUrl   String?
+  costAmount     Float?
+  providerCallId String?
+
+  voicemail Voicemail?
+}
+
+model Voicemail {
+  id                  String   @id @default(cuid())
+  callId              String   @unique
+  call                Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  audioUrl            String?
+  durationS           Int?
+  transcriptionText   String?
+  transcriptionStatus String   @default("pending") // pending | done | failed
+  isRead              Boolean  @default(false)
+  createdAt           DateTime @default(now())
+}
+
+model Device {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform  String // ios | android | web
+  pushToken String?
+  voipToken String?
+  createdAt DateTime @default(now())
+}

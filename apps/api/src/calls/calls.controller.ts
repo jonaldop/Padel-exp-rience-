@@ -1,112 +1,177 @@
-import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, UseGuards } from '@nestjs/common';
 import { TelnyxService } from '../telnyx/telnyx.service';
-import { CallsStore } from './calls.store';
-import { isOpen, DEFAULT_SCHEDULE } from './business-hours';
+import { DbService } from '../db/db.service';
+import { isOpen, DEFAULT_SCHEDULE, WeeklySchedule } from './business-hours';
+import { CurrentUser, JwtGuard } from '../auth/jwt.guard';
+import { JwtPayload } from '../auth/auth.service';
 
 /**
- * Webhook Call Control de Telnyx + lecture de l'historique.
- *
- * Telnyx envoie un événement à chaque étape de l'appel (call.initiated,
- * call.answered, call.hangup, ...). On décide ici quoi faire de l'appel ENTRANT :
- *   - dans les horaires  -> on transfère vers le softphone (l'app sonne)
- *   - hors horaires      -> message d'accueil puis enregistrement (répondeur)
- *
- * Cf. doc 01 §4 (flux entrant) et doc 08 (tickets CALL-2, FLOW-1/3/4).
+ * - Webhook Call Control de Telnyx : route les appels ENTRANTS selon les
+ *   réglages du numéro (horaires -> softphone / renvoi mobile, sinon répondeur).
+ * - Endpoints authentifiés : historique, messagerie, lancer un appel sortant.
+ * (docs/01 §4-5, docs/08 CALL-*, FLOW-*)
  */
 @Controller('calls')
 export class CallsController {
   private readonly logger = new Logger(CallsController.name);
 
-  // Horaires en dur pour la démo — viendront de la DB par numéro (doc 04).
-  private readonly schedule = DEFAULT_SCHEDULE;
-
   constructor(
     private readonly telnyx: TelnyxService,
-    private readonly store: CallsStore,
+    private readonly db: DbService,
   ) {}
 
-  /** Historique pour le dashboard / softphone. */
+  // ── Endpoints authentifiés (dashboard / softphone) ─────────────────────────
+
+  @UseGuards(JwtGuard)
   @Get()
-  list() {
-    return this.store.list();
+  history(@CurrentUser() user: JwtPayload) {
+    return this.db.listCalls(user.accountId);
   }
 
-  /** Webhook appelé par Telnyx (à configurer sur la Call Control Application). */
+  @UseGuards(JwtGuard)
+  @Get('voicemails')
+  voicemails(@CurrentUser() user: JwtPayload) {
+    return this.db.listVoicemails(user.accountId);
+  }
+
+  /** Lancer un appel SORTANT depuis le numéro pro du compte. */
+  @UseGuards(JwtGuard)
+  @Post('dial')
+  async dial(@CurrentUser() user: JwtPayload, @Body() body: { to: string; fromNumberId?: string }) {
+    const number = body.fromNumberId
+      ? this.db.findPhoneNumber(user.accountId, body.fromNumberId)
+      : this.db.findFirstPhoneNumber(user.accountId);
+    if (!number) return { error: 'Aucun numéro pro configuré' };
+
+    const call = this.db.createCall({
+      accountId: user.accountId,
+      phoneNumberId: number.id,
+      direction: 'outbound',
+      fromE164: number.e164,
+      toE164: body.to,
+      status: 'ringing',
+    });
+
+    if (this.telnyx.configured) {
+      try {
+        const res = await this.telnyx.dial(body.to, number.e164);
+        this.db.updateCall(call.id, { providerCallId: (res as any)?.data?.call_control_id });
+      } catch (e) {
+        this.db.updateCall(call.id, { status: 'failed' });
+        return { error: `Échec de l'appel: ${(e as Error).message}` };
+      }
+    }
+    return call;
+  }
+
+  // ── Webhook Telnyx (appels entrants) ───────────────────────────────────────
+
   @Post('webhook')
   async webhook(@Body() body: any) {
     const event = body?.data;
     if (!event) return { ok: true };
-
     const type: string = event.event_type;
     const payload = event.payload || {};
     const callControlId: string = payload.call_control_id;
-
-    this.logger.log(`Webhook reçu: ${type} (${callControlId})`);
+    this.logger.log(`Webhook: ${type}`);
 
     switch (type) {
       case 'call.initiated': {
-        // Seuls les appels ENTRANTS sont routés ici.
         if (payload.direction !== 'incoming') break;
-
-        this.store.upsert({
-          id: callControlId,
+        const number = this.db.findPhoneNumberByE164(payload.to);
+        if (!number) {
+          this.logger.warn(`Appel vers un numéro inconnu: ${payload.to}`);
+          break;
+        }
+        this.db.createCall({
+          accountId: number.accountId,
+          phoneNumberId: number.id,
           direction: 'inbound',
-          from: payload.from,
-          to: payload.to,
+          fromE164: payload.from,
+          toE164: payload.to,
           status: 'ringing',
-          startedAt: new Date().toISOString(),
+          providerCallId: callControlId,
         });
-
         await this.telnyx.answer(callControlId);
         break;
       }
 
       case 'call.answered': {
-        if (isOpen(this.schedule)) {
-          // Ouvert -> on fait sonner le softphone de l'utilisateur.
-          // 'demo-user' = nom de la credential créée pour le softphone web.
-          this.store.upsert({ id: callControlId, status: 'answered' });
-          await this.telnyx.transferToUser(callControlId, 'demo-user');
+        const call = this.db.findCallByProviderId(callControlId);
+        const settings = call?.phoneNumber?.settings;
+        const schedule: WeeklySchedule = settings?.weeklySchedule
+          ? safeJson(settings.weeklySchedule, DEFAULT_SCHEDULE)
+          : DEFAULT_SCHEDULE;
+        const holidays: string[] = settings?.holidays ? safeJson(settings.holidays, []) : [];
+
+        if (isOpen(schedule, holidays)) {
+          if (settings?.forwardToMobile && settings.forwardNumber) {
+            await this.telnyx.transferToPstn(callControlId, settings.forwardNumber);
+            this.updateByProvider(callControlId, { status: 'forwarded' });
+          } else {
+            await this.telnyx.transferToUser(callControlId, 'demo-user');
+            this.updateByProvider(callControlId, {
+              status: 'answered',
+              answeredAt: new Date().toISOString(),
+            });
+          }
         } else {
-          // Fermé -> message d'accueil + répondeur.
-          this.store.upsert({ id: callControlId, status: 'voicemail' });
           await this.telnyx.speak(
             callControlId,
-            "Bonjour, vous êtes bien chez nous. Nos bureaux sont actuellement fermés. " +
-              'Laissez votre message après le bip, nous vous rappellerons.',
+            settings?.greetingClosed ||
+              'Nos bureaux sont fermés. Laissez un message après le bip.',
           );
-          await this.telnyx.recordStart(callControlId);
+          if (settings?.voicemailEnabled !== false) {
+            await this.telnyx.recordStart(callControlId);
+            this.updateByProvider(callControlId, { status: 'voicemail' });
+          }
         }
         break;
       }
 
       case 'call.recording.saved': {
-        // Le message vocal est prêt (URL fournie par Telnyx) -> à stocker en S3
-        // et transcrire (ticket AI-1). Pour l'instant on logue l'URL.
-        this.logger.log(`Voicemail enregistré: ${payload.recording_urls?.mp3}`);
+        const call = this.db.findCallByProviderId(callControlId);
+        const url = payload.recording_urls?.mp3 || payload.public_recording_urls?.mp3;
+        if (call) {
+          this.db.createVoicemail({ callId: call.id, audioUrl: url });
+          // TODO (V2) : enqueue transcription Whisper/Deepgram (ticket AI-1)
+        }
         break;
       }
 
       case 'call.hangup': {
-        const startedAt = this.store
-          .list()
-          .find((c) => c.id === callControlId)?.startedAt;
-        const durationS = startedAt
-          ? Math.round((Date.now() - new Date(startedAt).getTime()) / 1000)
-          : undefined;
-        this.store.upsert({
-          id: callControlId,
-          status: 'completed',
-          endedAt: new Date().toISOString(),
-          durationS,
-        });
+        const call = this.db.findCallByProviderId(callControlId);
+        if (call) {
+          const durationS = Math.round((Date.now() - new Date(call.startedAt).getTime()) / 1000);
+          const finalStatus =
+            call.status === 'ringing'
+              ? 'missed'
+              : call.status === 'answered'
+                ? 'completed'
+                : call.status;
+          this.db.updateCall(call.id, {
+            status: finalStatus,
+            endedAt: new Date().toISOString(),
+            durationS,
+          });
+          // TODO : si missed -> notification push + email (ticket FLOW-6)
+        }
         break;
       }
-
-      default:
-        break;
     }
-
     return { ok: true };
+  }
+
+  private updateByProvider(providerCallId: string, patch: any) {
+    const call = this.db.findCallByProviderId(providerCallId);
+    if (call) this.db.updateCall(call.id, patch);
+  }
+}
+
+function safeJson<T>(s: string, fallback: T): T {
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return fallback;
   }
 }

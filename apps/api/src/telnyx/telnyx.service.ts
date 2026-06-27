@@ -1,27 +1,35 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { config } from '../config/config';
 
 /**
- * Service d'accès à l'API Telnyx V2.
+ * Service d'accès à l'API Telnyx V2 — c'est NOTRE compte maître (un seul pour
+ * tout le SaaS). Le client final ne connaît jamais Telnyx : notre back-end
+ * provisionne les numéros et pilote les appels pour son compte.
  *
- * Deux responsabilités au MVP :
- *  1. Émettre un token WebRTC court pour que le softphone (web/mobile) se connecte
- *     et puisse passer/recevoir des appels (login_token du SDK @telnyx/webrtc).
- *  2. Piloter les appels entrants via la "Call Control API" (répondre, jouer un
- *     message, transférer vers le softphone, enregistrer un message vocal).
+ * Mode dégradé : si TELNYX_API_KEY n'est pas configurée, les méthodes de
+ * lecture renvoient des données de démo et les actions lèvent une erreur claire.
+ * Ça permet de faire tourner / tester l'app sans compte Telnyx.
  *
- * Note : on isole TOUT l'accès Telnyx ici (cf. doc 02 — module telecom). Le jour
- * où on ajoute Twilio en secours, on crée un autre adaptateur derrière la même
- * interface, sans toucher au reste de l'app.
+ * On isole TOUT l'accès Telnyx ici (cf. docs/02 — module telecom). Ajouter
+ * Twilio en secours = un autre adaptateur derrière la même interface.
  */
 @Injectable()
 export class TelnyxService {
   private readonly logger = new Logger(TelnyxService.name);
 
+  get configured() {
+    return config.telnyx.configured;
+  }
+
   private async api<T = any>(
     pathname: string,
     init: { method?: string; body?: unknown } = {},
   ): Promise<T> {
+    if (!this.configured) {
+      throw new ServiceUnavailableException(
+        'Telnyx non configuré (TELNYX_API_KEY manquante). Voir docs/DEV.md',
+      );
+    }
     const res = await fetch(`${config.telnyx.apiBase}${pathname}`, {
       method: init.method || 'GET',
       headers: {
@@ -32,52 +40,85 @@ export class TelnyxService {
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Telnyx ${init.method || 'GET'} ${pathname} -> ${res.status}: ${text}`);
+      this.logger.error(`Telnyx ${init.method || 'GET'} ${pathname} -> ${res.status}: ${text}`);
+      throw new Error(`Telnyx ${res.status}: ${text}`);
     }
     return (await res.json()) as T;
   }
 
-  /**
-   * Crée une "telephony credential" rattachée à notre Credential Connection,
-   * puis génère un token JWT court utilisable par le SDK WebRTC côté client.
-   *
-   * En production : on crée UNE credential par utilisateur (réutilisable) et on
-   * ne régénère que le token. Ici on fait simple pour la démo.
-   */
+  // ── Provisioning de numéros ────────────────────────────────────────────────
+
+  /** Recherche des numéros FR disponibles à l'achat. */
+  async searchAvailableNumbers(opts: { country?: string; type?: string; limit?: number } = {}) {
+    if (!this.configured) {
+      // Démo : faux numéros pour pouvoir tester l'UI sans Telnyx.
+      return [
+        { e164: '+33756000001', type: 'mobile', monthlyCost: 1 },
+        { e164: '+33186000002', type: 'geographic', monthlyCost: 1 },
+        { e164: '+33970000003', type: 'non_geo', monthlyCost: 1 },
+      ];
+    }
+    const country = opts.country || 'FR';
+    const params = new URLSearchParams({
+      'filter[country_code]': country,
+      'filter[limit]': String(opts.limit || 10),
+    });
+    const data = await this.api<{ data: any[] }>(`/available_phone_numbers?${params}`);
+    return data.data.map((n) => ({
+      e164: n.phone_number,
+      type: n.phone_number_type || 'geographic',
+      monthlyCost: Number(n.cost_information?.monthly_cost || 1),
+    }));
+  }
+
+  /** Achète un numéro et le rattache à notre Call Control App (routage entrant). */
+  async buyNumber(e164: string): Promise<{ providerNumberId: string }> {
+    const order = await this.api<{ data: { id: string; phone_numbers: any[] } }>(
+      '/number_orders',
+      { method: 'POST', body: { phone_numbers: [{ phone_number: e164 }] } },
+    );
+    const providerNumberId = order.data.phone_numbers?.[0]?.id || order.data.id;
+
+    // Associer le numéro à la Call Control Application pour router les entrants.
+    if (config.telnyx.callControlAppId && providerNumberId) {
+      try {
+        await this.api(`/phone_numbers/${providerNumberId}`, {
+          method: 'PATCH',
+          body: { connection_id: config.telnyx.callControlAppId },
+        });
+      } catch (e) {
+        this.logger.warn(`Association Call Control échouée: ${(e as Error).message}`);
+      }
+    }
+    return { providerNumberId };
+  }
+
+  // ── WebRTC (softphone) ─────────────────────────────────────────────────────
+
   async createWebrtcToken(userTag: string): Promise<{ token: string }> {
-    // 1) Créer (ou réutiliser) une credential rattachée à la connection WebRTC
+    if (!this.configured) {
+      throw new ServiceUnavailableException('Telnyx non configuré : impossible de générer un token WebRTC');
+    }
     const cred = await this.api<{ data: { id: string } }>('/telephony_credentials', {
       method: 'POST',
-      body: {
-        connection_id: config.telnyx.connectionId,
-        name: `webrtc-${userTag}`,
-      },
+      body: { connection_id: config.telnyx.connectionId, name: `webrtc-${userTag}` },
     });
-
-    // 2) Générer un token court à partir de cette credential
     const tokenRes = await fetch(
       `${config.telnyx.apiBase}/telephony_credentials/${cred.data.id}/token`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${config.telnyx.apiKey}` },
-      },
+      { method: 'POST', headers: { Authorization: `Bearer ${config.telnyx.apiKey}` } },
     );
     if (!tokenRes.ok) {
       throw new Error(`Telnyx token error: ${tokenRes.status} ${await tokenRes.text()}`);
     }
-    // L'endpoint renvoie le token en texte brut (JWT)
-    const token = (await tokenRes.text()).trim();
-    return { token };
+    return { token: (await tokenRes.text()).trim() };
   }
 
-  // ── Call Control : actions sur un appel en cours (entrant) ──────────────────
+  // ── Call Control : actions sur un appel en cours ───────────────────────────
 
-  /** Répondre à un appel entrant. */
   answer(callControlId: string) {
     return this.api(`/calls/${callControlId}/actions/answer`, { method: 'POST' });
   }
 
-  /** Jouer un message d'accueil (TTS) — ex. message hors horaires. */
   speak(callControlId: string, text: string) {
     return this.api(`/calls/${callControlId}/actions/speak`, {
       method: 'POST',
@@ -85,10 +126,7 @@ export class TelnyxService {
     });
   }
 
-  /**
-   * Transférer l'appel vers notre utilisateur softphone (SIP de la credential
-   * connection) — c'est ce qui "fait sonner l'app".
-   */
+  /** Transfère vers le softphone de l'utilisateur (fait sonner l'app). */
   transferToUser(callControlId: string, sipUsername: string) {
     return this.api(`/calls/${callControlId}/actions/transfer`, {
       method: 'POST',
@@ -96,7 +134,14 @@ export class TelnyxService {
     });
   }
 
-  /** Démarrer l'enregistrement d'un message vocal. */
+  /** Renvoi vers un mobile classique (PSTN). */
+  transferToPstn(callControlId: string, e164: string) {
+    return this.api(`/calls/${callControlId}/actions/transfer`, {
+      method: 'POST',
+      body: { to: e164, from: config.telnyx.fromNumber },
+    });
+  }
+
   recordStart(callControlId: string) {
     return this.api(`/calls/${callControlId}/actions/record_start`, {
       method: 'POST',
@@ -104,8 +149,19 @@ export class TelnyxService {
     });
   }
 
-  /** Raccrocher. */
   hangup(callControlId: string) {
     return this.api(`/calls/${callControlId}/actions/hangup`, { method: 'POST' });
+  }
+
+  /** Lance un appel SORTANT (présente le numéro pro du compte). */
+  dial(to: string, from: string) {
+    return this.api('/calls', {
+      method: 'POST',
+      body: {
+        to,
+        from,
+        connection_id: config.telnyx.callControlAppId,
+      },
+    });
   }
 }

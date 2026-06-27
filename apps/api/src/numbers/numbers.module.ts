@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { CallsController } from './calls.controller';
+import { NumbersController } from './numbers.controller';
 import { TelnyxModule } from '../telnyx/telnyx.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [TelnyxModule, AuthModule],
-  controllers: [CallsController],
+  controllers: [NumbersController],
 })
-export class CallsModule {}
+export class NumbersModule {}

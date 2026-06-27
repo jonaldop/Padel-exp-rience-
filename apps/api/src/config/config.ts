@@ -3,27 +3,25 @@ import * as path from 'path';
 
 // Charge le .env situé à la racine du monorepo
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
-
-function required(name: string): string {
-  const v = process.env[name];
-  if (!v) {
-    // En dev on ne crashe pas : on log, pour pouvoir démarrer sans Telnyx configuré.
-    // eslint-disable-next-line no-console
-    console.warn(`[config] Variable d'environnement manquante: ${name}`);
-    return '';
-  }
-  return v;
-}
+// + un .env local à l'API (utile en dev/CI)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 export const config = {
   port: parseInt(process.env.API_PORT || '3001', 10),
   publicApiUrl: process.env.PUBLIC_API_URL || 'http://localhost:3001',
+  webOrigin: process.env.WEB_ORIGIN || 'http://localhost:5173',
+  jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   telnyx: {
-    apiKey: required('TELNYX_API_KEY'),
-    connectionId: required('TELNYX_CONNECTION_ID'),
-    callControlAppId: required('TELNYX_CALL_CONTROL_APP_ID'),
-    fromNumber: required('TELNYX_FROM_NUMBER'),
+    apiKey: process.env.TELNYX_API_KEY || '',
+    connectionId: process.env.TELNYX_CONNECTION_ID || '',
+    callControlAppId: process.env.TELNYX_CALL_CONTROL_APP_ID || '',
+    fromNumber: process.env.TELNYX_FROM_NUMBER || '',
     publicKey: process.env.TELNYX_PUBLIC_KEY || '',
     apiBase: 'https://api.telnyx.com/v2',
+    /** true si la clé est configurée -> sinon mode dégradé (démo sans Telnyx). */
+    get configured() {
+      return Boolean(process.env.TELNYX_API_KEY);
+    },
   },
 };
