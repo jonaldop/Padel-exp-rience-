@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { Button, Card, Field, IconChip, Input, PageTitle, colors } from '../ui';
 import { formatFr } from '../format';
@@ -19,6 +19,7 @@ export function Clients({ onCall }: { onCall: (phone: string) => void }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [bulk, setBulk] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   async function refresh(q = search) {
     setList(await api.clients(q));
@@ -67,6 +68,26 @@ export function Clients({ onCall }: { onCall: (phone: string) => void }) {
     refresh();
   }
 
+  // Import depuis un fichier de contacts (.vcf / vCard exporté de l'iPhone)
+  async function importVcf(file: File) {
+    const text = await file.text();
+    const cards = text.split(/BEGIN:VCARD/i).filter((c) => /TEL/i.test(c));
+    const items = cards
+      .map((c) => {
+        const fn = (c.match(/\nFN[^:]*:(.+)/i)?.[1] || '').trim();
+        const tel = (c.match(/\nTEL[^:]*:(.+)/i)?.[1] || '').replace(/[^\d+]/g, '').trim();
+        return { name: fn || tel, phone: tel };
+      })
+      .filter((it) => it.phone.length >= 6);
+    if (!items.length) {
+      alert("Aucun contact avec numéro trouvé dans ce fichier.");
+      return;
+    }
+    const r = await api.importClients(items);
+    refresh();
+    alert(`${r.imported} contact(s) importé(s) depuis le fichier`);
+  }
+
   return (
     <div>
       <PageTitle subtitle="Votre annuaire — appelez en un tap">Clients</PageTitle>
@@ -102,7 +123,30 @@ export function Clients({ onCall }: { onCall: (phone: string) => void }) {
 
       {importing && (
         <Card style={{ marginBottom: 16 }}>
-          <Field label="Coller une liste (une ligne par contact : « Nom, numéro »)">
+          {/* Import depuis les contacts du téléphone via fichier vCard */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".vcf,text/vcard,text/x-vcard"
+            multiple
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              for (const f of files) await importVcf(f);
+              if (fileRef.current) fileRef.current.value = '';
+            }}
+          />
+          <Button onClick={() => fileRef.current?.click()} full style={{ marginBottom: 8 }}>
+            📇 Importer depuis mes contacts (fichier .vcf)
+          </Button>
+          <p style={{ fontSize: 12.5, color: colors.muted, margin: '0 0 16px', lineHeight: 1.5 }}>
+            Sur iPhone : <strong>Contacts</strong> → ouvre un contact (ou un groupe) →{' '}
+            <strong>Partager le contact</strong> → <strong>Enregistrer dans Fichiers</strong> (.vcf),
+            puis sélectionne-le ici. Tu peux en sélectionner plusieurs.
+          </p>
+
+          <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: 14 }} />
+          <Field label="Ou coller une liste (une ligne par contact : « Nom, numéro »)">
             <textarea
               value={bulk}
               onChange={(e) => setBulk(e.target.value)}
