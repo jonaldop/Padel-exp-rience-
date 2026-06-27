@@ -5,7 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Numbers } from './pages/Numbers';
 import { Voicemails } from './pages/Voicemails';
 import { Softphone } from './softphone/Softphone';
-import { colors } from './ui';
+import { colors, GlassBackground } from './ui';
 import { useIsMobile } from './useIsMobile';
 
 type Tab = 'dashboard' | 'numbers' | 'messages' | 'softphone';
@@ -66,11 +66,14 @@ export function App() {
   );
 
   return (
-    <div style={{ background: colors.bg, minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh', position: 'relative' }}>
+      <GlassBackground />
+      <div style={{ position: 'relative', zIndex: 1 }}>
       <header
         style={{
-          background: 'rgba(255,255,255,0.85)',
-          backdropFilter: 'saturate(180%) blur(10px)',
+          background: 'rgba(255,255,255,0.5)',
+          backdropFilter: 'saturate(180%) blur(18px)',
+          WebkitBackdropFilter: 'saturate(180%) blur(18px)',
           borderBottom: `1px solid ${colors.border}`,
           padding: isMobile ? '12px 16px' : '14px 22px',
           display: 'flex',
@@ -113,9 +116,10 @@ export function App() {
               bottom: 0,
               left: 0,
               right: 0,
-              background: 'rgba(255,255,255,0.92)',
-              backdropFilter: 'saturate(180%) blur(10px)',
-              borderTop: `1px solid ${colors.border}`,
+              background: 'rgba(255,255,255,0.55)',
+              backdropFilter: 'saturate(180%) blur(18px)',
+              WebkitBackdropFilter: 'saturate(180%) blur(18px)',
+              borderTop: '1px solid rgba(255,255,255,0.5)',
               display: 'flex',
               justifyContent: 'space-around',
               padding: '8px 6px calc(10px + env(safe-area-inset-bottom))',
@@ -172,10 +176,12 @@ export function App() {
                     border: 'none',
                     cursor: 'pointer',
                     fontSize: 15,
-                    background: active ? colors.primaryGrad : 'transparent',
+                    background: active ? 'rgba(0,122,255,0.92)' : 'rgba(255,255,255,0.4)',
+                    backdropFilter: 'blur(14px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(14px) saturate(180%)',
                     color: active ? '#fff' : colors.text,
                     fontWeight: active ? 700 : 500,
-                    boxShadow: active ? '0 6px 16px rgba(79,70,229,0.25)' : 'none',
+                    boxShadow: active ? '0 6px 16px rgba(0,122,255,0.30)' : 'none',
                   }}
                 >
                   <span style={{ fontSize: 18 }}>{t.icon}</span> {t.label}
@@ -186,6 +192,7 @@ export function App() {
           <main style={{ flex: 1, padding: 22, maxWidth: 860 }}>{content}</main>
         </div>
       )}
+      </div>
     </div>
   );
 }

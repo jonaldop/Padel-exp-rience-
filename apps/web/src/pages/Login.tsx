@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, auth } from '../api';
-import { Button, Field, Input, colors, shadowLg } from '../ui';
+import { Button, Field, GlassBackground, Input, colors, glass } from '../ui';
 
 export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -37,11 +37,12 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'radial-gradient(120% 80% at 50% 0%, #eef0ff 0%, #f6f7fb 55%)',
         padding: 20,
+        position: 'relative',
       }}
     >
-      <div className="fade-up" style={{ width: '100%', maxWidth: 400 }}>
+      <GlassBackground />
+      <div className="fade-up" style={{ width: '100%', maxWidth: 400, position: 'relative', zIndex: 1 }}>
         {/* Logo / marque */}
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <div
@@ -72,11 +73,9 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
 
         <div
           style={{
-            background: '#fff',
-            border: `1px solid ${colors.border}`,
+            ...glass,
             borderRadius: 22,
             padding: 24,
-            boxShadow: shadowLg,
           }}
         >
           <form onSubmit={submit}>

@@ -19,9 +19,47 @@ export const colors = {
   soft: '#E9E9EB',
 };
 
-export const radius = 14;
-export const shadow = '0 1px 4px rgba(0, 0, 0, 0.04)';
-export const shadowLg = '0 10px 30px rgba(0, 0, 0, 0.12)';
+export const radius = 18;
+export const shadow = '0 8px 24px rgba(0, 0, 0, 0.06)';
+export const shadowLg = '0 16px 40px rgba(0, 0, 0, 0.14)';
+
+/** Style "Liquid Glass" réutilisable. */
+export const glass: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.55)',
+  backdropFilter: 'blur(20px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+  border: '1px solid rgba(255,255,255,0.6)',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.07), inset 0 1px 1px rgba(255,255,255,0.75)',
+};
+
+/** Fond global dégradé + halos colorés (pour l'effet verre). */
+export function GlassBackground() {
+  const blob = (c: string, s: React.CSSProperties): React.CSSProperties => ({
+    position: 'absolute',
+    width: 380,
+    height: 380,
+    borderRadius: '50%',
+    background: c,
+    filter: 'blur(90px)',
+    opacity: 0.5,
+    ...s,
+  });
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 0,
+        overflow: 'hidden',
+        background: 'linear-gradient(160deg,#eaf2ff 0%,#f0ecff 45%,#ffeef6 100%)',
+      }}
+    >
+      <div style={blob('#8fb6ff', { top: -120, left: -90 })} />
+      <div style={blob('#c9a7ff', { top: '38%', right: -130 })} />
+      <div style={blob('#ffb3d9', { bottom: -140, left: '28%' })} />
+    </div>
+  );
+}
 
 export function Button({
   children,
@@ -40,12 +78,17 @@ export function Button({
   full?: boolean;
   style?: React.CSSProperties;
 }) {
+  const glassEdge = {
+    backdropFilter: 'blur(14px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(14px) saturate(180%)',
+    border: '1px solid rgba(255,255,255,0.45)',
+  };
   const styles: Record<string, React.CSSProperties> = {
-    primary: { background: colors.primaryGrad, color: '#fff', boxShadow: '0 6px 16px rgba(79,70,229,0.30)' },
-    green: { background: colors.green, color: '#fff', boxShadow: '0 6px 16px rgba(16,185,129,0.28)' },
-    red: { background: colors.red, color: '#fff' },
-    ghost: { background: 'transparent', color: colors.text, border: `1px solid ${colors.border}` },
-    soft: { background: colors.soft, color: colors.primary, fontWeight: 700 },
+    primary: { background: 'rgba(0,122,255,0.92)', color: '#fff', ...glassEdge, boxShadow: '0 8px 20px rgba(0,122,255,0.35), inset 0 1px 1px rgba(255,255,255,0.5)' },
+    green: { background: 'rgba(52,199,89,0.92)', color: '#fff', ...glassEdge, boxShadow: '0 8px 20px rgba(52,199,89,0.32), inset 0 1px 1px rgba(255,255,255,0.5)' },
+    red: { background: 'rgba(255,59,48,0.92)', color: '#fff', ...glassEdge },
+    ghost: { background: 'rgba(255,255,255,0.4)', color: colors.text, ...glassEdge },
+    soft: { background: 'rgba(255,255,255,0.55)', color: colors.primary, fontWeight: 700, ...glassEdge },
   };
   return (
     <button
@@ -100,11 +143,9 @@ export function Card({
     <div
       onClick={onClick}
       style={{
-        background: colors.surface,
-        border: `1px solid ${colors.border}`,
+        ...glass,
         borderRadius: radius,
         padding: 18,
-        boxShadow: shadow,
         ...style,
       }}
     >
