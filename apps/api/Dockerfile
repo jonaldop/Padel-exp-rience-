@@ -13,9 +13,10 @@ ENV NODE_ENV=production
 COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /app/dist ./dist
-# Données MVP (fichier JSON) dans /app (éphémère sur Railway sans volume attaché).
-# Pour persister : attacher un Railway Volume et pointer DB_FILE dessus.
+# Données MVP (fichier JSON) dans /data. Attacher un Railway Volume monté sur
+# /data pour les rendre PERSISTANTES (survit aux redéploiements).
 # Pour le scale : migrer vers Postgres/Supabase (cf. docs/DEPLOIEMENT.md).
-ENV DB_FILE=/app/data.json
+RUN mkdir -p /data
+ENV DB_FILE=/data/data.json
 EXPOSE 3001
 CMD ["node", "dist/main.js"]
