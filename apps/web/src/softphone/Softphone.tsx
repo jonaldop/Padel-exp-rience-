@@ -1,78 +1,214 @@
+import { useEffect } from 'react';
 import { useState } from 'react';
 import { useTelnyxClient } from './useTelnyxClient';
-import { Button, Card, Input, PageTitle, colors } from '../ui';
+import { colors } from '../ui';
+
+const KEYS: { d: string; sub: string }[] = [
+  { d: '1', sub: '' },
+  { d: '2', sub: 'ABC' },
+  { d: '3', sub: 'DEF' },
+  { d: '4', sub: 'GHI' },
+  { d: '5', sub: 'JKL' },
+  { d: '6', sub: 'MNO' },
+  { d: '7', sub: 'PQRS' },
+  { d: '8', sub: 'TUV' },
+  { d: '9', sub: 'WXYZ' },
+  { d: '*', sub: '' },
+  { d: '0', sub: '+' },
+  { d: '#', sub: '' },
+];
 
 export function Softphone() {
-  const { registered, callState, incomingFrom, error, connect, dial, answer, hangup } = useTelnyxClient();
-  const [number, setNumber] = useState('+33');
+  const { registered, callState, incomingFrom, error, connect, dial, answer, hangup } =
+    useTelnyxClient();
+  const [number, setNumber] = useState('');
 
-  return (
-    <div>
-      <PageTitle subtitle="Passez et recevez vos appels pro">Appeler</PageTitle>
+  // Connexion auto au softphone à l'ouverture du clavier (comme une vraie app)
+  useEffect(() => {
+    connect();
+  }, [connect]);
 
-      <Card style={{ maxWidth: 440, padding: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span
-            style={{
-              width: 9,
-              height: 9,
-              borderRadius: '50%',
-              background: registered ? colors.green : '#cbd5e1',
-              boxShadow: registered ? `0 0 0 4px ${colors.greenSoft}` : 'none',
-            }}
-          />
-          <span style={{ color: registered ? colors.green : colors.muted, fontSize: 14, fontWeight: 600 }}>
-            {registered ? 'Connecté — prêt à appeler' : 'Non connecté'}
-          </span>
-        </div>
+  const press = (d: string) => setNumber((n) => (n + d).slice(0, 20));
+  const back = () => setNumber((n) => n.slice(0, -1));
 
-        {error && (
-          <div style={{ background: colors.amberSoft, color: '#b45309', padding: '10px 12px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>
-            ℹ️ Le softphone nécessite un compte Telnyx configuré côté serveur pour le son réel.
-          </div>
-        )}
-
-        {!registered && (
-          <Button onClick={connect} full style={{ padding: 14, fontSize: 16 }}>
-            Se connecter au softphone
-          </Button>
-        )}
-
-        {registered && callState === 'idle' && (
+  // ---- Appel entrant ----
+  if (callState === 'ringing') {
+    return (
+      <CallScreen
+        title="Appel entrant"
+        subtitle={incomingFrom || 'Inconnu'}
+        actions={
           <>
-            <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="+33 6 12 34 56 78" style={{ fontSize: 20, textAlign: 'center', marginBottom: 14, letterSpacing: '0.04em' }} />
-            <Button variant="green" onClick={() => dial(number)} full style={{ padding: 16, fontSize: 17 }}>
-              📞 Appeler
-            </Button>
+            <RoundBtn color={colors.red} icon="✕" label="Refuser" onClick={hangup} />
+            <RoundBtn color={colors.green} icon="📞" label="Accepter" onClick={answer} />
           </>
-        )}
+        }
+      />
+    );
+  }
 
-        {callState === 'ringing' && (
-          <div style={{ textAlign: 'center', padding: '10px 0' }}>
-            <div style={{ fontSize: 14, color: colors.muted }}>Appel entrant</div>
-            <div style={{ fontSize: 22, fontWeight: 800, margin: '6px 0 18px' }}>{incomingFrom}</div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <Button variant="green" onClick={answer} style={{ padding: '14px 24px' }}>
-                Décrocher
-              </Button>
-              <Button variant="red" onClick={hangup} style={{ padding: '14px 24px' }}>
-                Rejeter
-              </Button>
-            </div>
-          </div>
-        )}
+  // ---- En communication / connexion ----
+  if (callState === 'active' || callState === 'connecting') {
+    return (
+      <CallScreen
+        title={callState === 'active' ? 'Appel en cours' : 'Connexion…'}
+        subtitle={number || '—'}
+        actions={<RoundBtn color={colors.red} icon="✕" label="Raccrocher" onClick={hangup} />}
+      />
+    );
+  }
 
-        {(callState === 'active' || callState === 'connecting') && (
-          <div style={{ textAlign: 'center', padding: '10px 0' }}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 18 }}>
-              {callState === 'active' ? '🟢 En communication' : '… Connexion'}
-            </div>
-            <Button variant="red" onClick={hangup} style={{ padding: '14px 28px' }}>
-              Raccrocher
-            </Button>
-          </div>
-        )}
-      </Card>
+  // ---- Clavier ----
+  return (
+    <div style={{ maxWidth: 360, margin: '0 auto', textAlign: 'center' }}>
+      <div style={{ minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: 34, fontWeight: 500, letterSpacing: '0.04em', color: colors.text }}>
+          {number || <span style={{ color: colors.muted }}>Composer</span>}
+        </span>
+      </div>
+
+      <div style={{ height: 18, fontSize: 12, color: registered ? colors.green : colors.muted }}>
+        {error ? '' : registered ? '● Prêt' : '○ Connexion au réseau…'}
+      </div>
+      {error && (
+        <div style={{ fontSize: 12, color: colors.red, marginBottom: 6, padding: '0 16px', wordBreak: 'break-word' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Pavé numérique */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 18,
+          justifyItems: 'center',
+          margin: '8px auto 18px',
+          maxWidth: 300,
+        }}
+      >
+        {KEYS.map((k) => (
+          <button
+            key={k.d}
+            onClick={() => press(k.d)}
+            style={{
+              width: 74,
+              height: 74,
+              borderRadius: '50%',
+              border: 'none',
+              background: colors.soft,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: 1,
+            }}
+          >
+            <span style={{ fontSize: 30, fontWeight: 500, color: colors.text }}>{k.d}</span>
+            {k.sub && (
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: colors.muted, marginTop: 2 }}>
+                {k.sub}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Bouton d'appel + retour arrière */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', maxWidth: 300, margin: '0 auto' }}>
+        <span />
+        <button
+          onClick={() => (registered && number ? dial(number) : connect())}
+          disabled={registered && !number}
+          style={{
+            width: 74,
+            height: 74,
+            borderRadius: '50%',
+            border: 'none',
+            background: colors.green,
+            color: '#fff',
+            fontSize: 32,
+            cursor: number || !registered ? 'pointer' : 'default',
+            opacity: registered && !number ? 0.4 : 1,
+            boxShadow: '0 6px 16px rgba(52,199,89,0.4)',
+          }}
+        >
+          📞
+        </button>
+        <div style={{ textAlign: 'left', paddingLeft: 18 }}>
+          {number && (
+            <button onClick={back} style={{ background: 'none', border: 'none', fontSize: 26, cursor: 'pointer', color: colors.muted }}>
+              ⌫
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CallScreen({
+  title,
+  subtitle,
+  actions,
+}: {
+  title: string;
+  subtitle: string;
+  actions: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        maxWidth: 360,
+        margin: '0 auto',
+        textAlign: 'center',
+        padding: '40px 0',
+        minHeight: 420,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 15, color: colors.muted }}>{title}</div>
+        <div style={{ fontSize: 30, fontWeight: 600, marginTop: 8 }}>{subtitle}</div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-evenly', alignItems: 'flex-end' }}>{actions}</div>
+    </div>
+  );
+}
+
+function RoundBtn({
+  color,
+  icon,
+  label,
+  onClick,
+}: {
+  color: string;
+  icon: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <button
+        onClick={onClick}
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: '50%',
+          border: 'none',
+          background: color,
+          color: '#fff',
+          fontSize: 30,
+          cursor: 'pointer',
+          boxShadow: `0 6px 16px ${color}66`,
+        }}
+      >
+        {icon}
+      </button>
+      <span style={{ fontSize: 13, color: colors.muted }}>{label}</span>
     </div>
   );
 }

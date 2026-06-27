@@ -1,26 +1,27 @@
 import React from 'react';
 
+// Palette iOS (system colors)
 export const colors = {
-  primary: '#4f46e5',
-  primaryDark: '#4338ca',
-  primaryGrad: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-  green: '#10b981',
-  greenSoft: '#ecfdf5',
-  red: '#ef4444',
-  redSoft: '#fef2f2',
-  amber: '#f59e0b',
-  amberSoft: '#fffbeb',
-  bg: '#f6f7fb',
+  primary: '#007AFF', // iOS system blue
+  primaryDark: '#0066d6',
+  primaryGrad: 'linear-gradient(135deg, #34AADC 0%, #007AFF 100%)',
+  green: '#34C759', // iOS green (call)
+  greenSoft: '#e7f9ec',
+  red: '#FF3B30', // iOS red
+  redSoft: '#ffecea',
+  amber: '#FF9500', // iOS orange
+  amberSoft: '#fff4e5',
+  bg: '#F2F2F7', // iOS grouped background
   surface: '#ffffff',
-  border: '#ecedf3',
-  text: '#0f172a',
-  muted: '#64748b',
-  soft: '#f1f3f9',
+  border: '#E5E5EA', // iOS separator (light)
+  text: '#000000',
+  muted: '#8E8E93', // iOS secondary label
+  soft: '#E9E9EB',
 };
 
-export const radius = 16;
-export const shadow = '0 2px 10px rgba(15, 23, 42, 0.05)';
-export const shadowLg = '0 12px 32px rgba(15, 23, 42, 0.10)';
+export const radius = 14;
+export const shadow = '0 1px 4px rgba(0, 0, 0, 0.04)';
+export const shadowLg = '0 10px 30px rgba(0, 0, 0, 0.12)';
 
 export function Button({
   children,
@@ -165,9 +166,10 @@ export function Badge({ children, color, bg }: { children: React.ReactNode; colo
 
 export function PageTitle({ children, subtitle }: { children: React.ReactNode; subtitle?: string }) {
   return (
-    <div style={{ marginBottom: 18 }}>
-      <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{children}</h2>
-      {subtitle && <p style={{ margin: '4px 0 0', color: colors.muted, fontSize: 14 }}>{subtitle}</p>}
+    <div style={{ marginBottom: 16 }}>
+      {/* iOS large title */}
+      <h2 style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: '0.01em' }}>{children}</h2>
+      {subtitle && <p style={{ margin: '4px 0 0', color: colors.muted, fontSize: 15 }}>{subtitle}</p>}
     </div>
   );
 }

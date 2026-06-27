@@ -10,11 +10,12 @@ import { useIsMobile } from './useIsMobile';
 
 type Tab = 'dashboard' | 'numbers' | 'messages' | 'softphone';
 
+// Ordre façon appli Téléphone iOS : Récents · Numéros · Clavier · Messagerie
 const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'dashboard', label: 'Accueil', icon: '📊' },
+  { key: 'dashboard', label: 'Récents', icon: '🕓' },
   { key: 'numbers', label: 'Numéros', icon: '☎️' },
-  { key: 'messages', label: 'Messages', icon: '🎙️' },
-  { key: 'softphone', label: 'Appeler', icon: '📞' },
+  { key: 'softphone', label: 'Clavier', icon: '🔢' },
+  { key: 'messages', label: 'Messagerie', icon: '🔵' },
 ];
 
 export function App() {
@@ -135,26 +136,15 @@ export function App() {
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: 3,
-                    fontSize: 11,
-                    fontWeight: active ? 700 : 500,
+                    fontSize: 10,
+                    fontWeight: active ? 600 : 400,
                     flex: 1,
                     color: active ? colors.primary : colors.muted,
+                    // teinte iOS : l'icône prend la couleur active
+                    filter: active ? 'none' : 'grayscale(1) opacity(0.65)',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 18,
-                      width: 46,
-                      height: 30,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 12,
-                      background: active ? '#eef0ff' : 'transparent',
-                    }}
-                  >
-                    {t.icon}
-                  </span>
+                  <span style={{ fontSize: 24, lineHeight: 1 }}>{t.icon}</span>
                   {t.label}
                 </button>
               );
