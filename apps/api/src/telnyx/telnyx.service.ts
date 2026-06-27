@@ -134,11 +134,14 @@ export class TelnyxService {
     });
   }
 
-  /** Renvoi vers un mobile classique (PSTN). */
-  transferToPstn(callControlId: string, e164: string) {
+  /**
+   * Renvoi vers un mobile classique (PSTN). On présente le numéro pro (le DID
+   * appelé) comme caller ID, sinon le numéro pro du compte par défaut.
+   */
+  transferToPstn(callControlId: string, to: string, from?: string) {
     return this.api(`/calls/${callControlId}/actions/transfer`, {
       method: 'POST',
-      body: { to: e164, from: config.telnyx.fromNumber },
+      body: { to, from: from || config.telnyx.fromNumber },
     });
   }
 

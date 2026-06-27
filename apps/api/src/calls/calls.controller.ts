@@ -106,7 +106,8 @@ export class CallsController {
 
         if (isOpen(schedule, holidays)) {
           if (settings?.forwardToMobile && settings.forwardNumber) {
-            await this.telnyx.transferToPstn(callControlId, settings.forwardNumber);
+            // Présente le numéro pro (DID appelé) comme caller ID du renvoi.
+            await this.telnyx.transferToPstn(callControlId, settings.forwardNumber, call?.toE164);
             this.updateByProvider(callControlId, { status: 'forwarded' });
           } else {
             await this.telnyx.transferToUser(callControlId, 'demo-user');
