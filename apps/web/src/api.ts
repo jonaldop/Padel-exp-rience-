@@ -83,6 +83,9 @@ export const api = {
     request(`/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteClient: (id: string) => request(`/clients/${id}`, { method: 'DELETE' }),
 
+  // Admin (back-office propriétaire)
+  adminAccounts: (key: string) => request(`/admin/accounts?key=${encodeURIComponent(key)}`),
+
   // Softphone
   webrtcToken: () => request('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),
 };

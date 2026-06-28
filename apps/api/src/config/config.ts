@@ -18,6 +18,7 @@ export const config = {
   webOrigin: process.env.WEB_ORIGIN || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  adminKey: process.env.ADMIN_KEY || 'standardpro-admin',
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'Standard Pro <onboarding@resend.dev>',

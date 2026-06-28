@@ -448,12 +448,21 @@ export class DbService implements OnModuleInit {
     return true;
   }
 
-  /** Récupération : liste des emails enregistrés (temporaire, protégé par clé). */
-  listUserEmails() {
-    return this.data.users.map((u) => {
-      const acc = this.data.accounts.find((a) => a.id === u.accountId);
-      return { email: u.email, entreprise: acc?.companyName, créé: u.createdAt };
-    });
+  /** Back-office admin : tous les comptes avec un résumé. */
+  adminListAccounts() {
+    return this.data.accounts
+      .map((a) => ({
+        id: a.id,
+        entreprise: a.companyName,
+        plan: a.plan,
+        statut: a.status,
+        créé: a.createdAt,
+        emails: this.data.users.filter((u) => u.accountId === a.id).map((u) => u.email),
+        numeros: this.data.phoneNumbers.filter((n) => n.accountId === a.id).map((n) => n.e164),
+        nbAppels: this.data.calls.filter((c) => c.accountId === a.id).length,
+        nbClients: this.data.clients.filter((c) => c.accountId === a.id).length,
+      }))
+      .sort((x, y) => (y.créé || '').localeCompare(x.créé || ''));
   }
 
   // util pour le seed

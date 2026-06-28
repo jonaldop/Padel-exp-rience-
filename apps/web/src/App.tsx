@@ -4,6 +4,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Numbers } from './pages/Numbers';
 import { Clients } from './pages/Clients';
+import { Admin } from './pages/Admin';
 import { Voicemails } from './pages/Voicemails';
 import { Softphone } from './softphone/Softphone';
 import { colors, GlassBackground } from './ui';
@@ -42,6 +43,9 @@ export function App() {
     setAuthed(false);
     setMe(null);
   }
+
+  // Back-office admin : padel-exp-rience-web.vercel.app/?admin
+  if (new URLSearchParams(window.location.search).has('admin')) return <Admin />;
 
   if (!authed) return <Login onLoggedIn={() => setAuthed(true)} />;
 
