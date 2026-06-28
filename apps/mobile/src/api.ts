@@ -62,8 +62,10 @@ export const api = {
   history: () => request('/calls'),
   voicemails: () => request('/calls/voicemails'),
 
-  // Softphone WebRTC : token court pour connecter le SDK Telnyx.
+  // Softphone WebRTC : token court (sortant) + identifiants connexion (entrant).
   webrtcToken: () => request<{ token: string }>('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),
+  webrtcCredentials: () =>
+    request<{ login: string; password: string }>('/telnyx/webrtc-credentials', { method: 'POST', body: '{}' }),
 
   clients: (search?: string) =>
     request('/clients' + (search ? `?search=${encodeURIComponent(search)}` : '')),

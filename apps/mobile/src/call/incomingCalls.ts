@@ -131,8 +131,10 @@ async function connectClient() {
   client = null;
   try {
     setStatus('connecting');
-    const { token } = await api.webrtcToken();
-    const opts: any = { login_token: token };
+    // Réception entrante : on se connecte avec les IDENTIFIANTS DE CONNEXION
+    // (les tokens jetables ne reçoivent pas d'appels entrants chez Telnyx).
+    const creds = await api.webrtcCredentials();
+    const opts: any = { login: creds.login, password: creds.password };
     if (voipToken) opts.pushNotificationDeviceToken = voipToken;
     const c = new (TelnyxRTC as any)(opts);
     client = c;
