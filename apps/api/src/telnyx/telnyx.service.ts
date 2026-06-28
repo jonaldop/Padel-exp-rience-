@@ -153,6 +153,42 @@ export class TelnyxService {
     return conn.id;
   }
 
+  /**
+   * Enregistre le certificat VoIP Push (iOS) dans Telnyx et l'attache à notre
+   * connexion WebRTC -> permet de SONNER l'app sur appel entrant (PushKit).
+   * Idempotent : réutilise/écrase le credential push nommé 'standard-pro-ios'.
+   */
+  async setupIosPush(certificate: string, privateKey: string): Promise<{ id: string }> {
+    const connId = await this.ensureCredentialConnection();
+    const alias = 'standard-pro-ios';
+
+    // Supprime un éventuel ancien credential du même alias (renouvellement de cert).
+    try {
+      const existing = await this.api<{ data: any[] }>('/mobile_push_credentials?page[size]=250');
+      for (const c of existing.data || []) {
+        if (c.alias === alias) {
+          await this.api(`/mobile_push_credentials/${c.id}`, { method: 'DELETE' });
+        }
+      }
+    } catch {
+      /* pas bloquant */
+    }
+
+    const created = await this.api<{ data: { id: string } }>('/mobile_push_credentials', {
+      method: 'POST',
+      body: { type: 'ios', alias, certificate, private_key: privateKey },
+    });
+    const id = created.data.id;
+
+    // Attache le credential push à la connexion WebRTC (appels entrants -> push).
+    await this.api(`/credential_connections/${connId}`, {
+      method: 'PATCH',
+      body: { ios_push_credential_id: id },
+    });
+    this.logger.log(`Push iOS configuré (${id}) sur la connexion ${connId}`);
+    return { id };
+  }
+
   // ── Provisioning de numéros ────────────────────────────────────────────────
 
   async searchAvailableNumbers(

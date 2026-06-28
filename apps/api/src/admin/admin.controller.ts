@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Headers, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DbService } from '../db/db.service';
+import { TelnyxService } from '../telnyx/telnyx.service';
 import { config } from '../config/config';
 
 /**
@@ -15,6 +16,7 @@ export class AdminController {
   constructor(
     private readonly db: DbService,
     private readonly jwt: JwtService,
+    private readonly telnyx: TelnyxService,
   ) {}
 
   /** Connexion admin : renvoie un token si email + mot de passe corrects. */
@@ -38,6 +40,24 @@ export class AdminController {
     this.authorize(authorization, key || headerKey);
     const accounts = this.db.adminListAccounts();
     return { count: accounts.length, accounts };
+  }
+
+  /** Configure le push VoIP iOS (certificat APNs) dans Telnyx. */
+  @Post('ios-push')
+  async iosPush(
+    @Headers('authorization') authorization: string,
+    @Body() body: { certificate?: string; privateKey?: string },
+  ) {
+    this.authorize(authorization);
+    if (!body.certificate || !body.privateKey) {
+      return { error: 'Certificat et clé privée requis (contenus des fichiers cert.pem et key.pem).' };
+    }
+    try {
+      const res = await this.telnyx.setupIosPush(body.certificate, body.privateKey);
+      return { ok: true, id: res.id };
+    } catch (e) {
+      return { error: (e as Error).message };
+    }
   }
 
   /** Accepte un JWT admin (Bearer) OU l'ancienne clé admin (repli). */

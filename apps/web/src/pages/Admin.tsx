@@ -11,6 +11,23 @@ export function Admin() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [pushCert, setPushCert] = useState('');
+  const [pushKey, setPushKey] = useState('');
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
+  const [pushing, setPushing] = useState(false);
+
+  async function setupPush() {
+    setPushMsg(null);
+    setPushing(true);
+    try {
+      const res: any = await api.adminIosPush(token, pushCert.trim(), pushKey.trim());
+      setPushMsg(res.error ? `⚠️ ${res.error}` : `✅ Push iOS configuré (id ${res.id}).`);
+    } catch (e: any) {
+      setPushMsg(`⚠️ ${e.message}`);
+    } finally {
+      setPushing(false);
+    }
+  }
 
   async function load(tok = token) {
     if (!tok) return;
@@ -103,6 +120,31 @@ export function Admin() {
             <Button onClick={logout} style={{ background: 'transparent', color: colors.muted }}>
               Se déconnecter
             </Button>
+          </div>
+        )}
+
+        {token && (
+          <div style={{ ...glass, borderRadius: 16, padding: 16, marginBottom: 20 }}>
+            <p style={{ fontWeight: 800, marginTop: 0 }}>📲 Configuration push iOS (appels entrants)</p>
+            <p style={{ color: colors.muted, fontSize: 13, marginTop: -6 }}>
+              Colle le contenu de <code>cert.pem</code> et <code>key.pem</code> (issus de ton certificat VoIP Apple) pour activer la réception d'appels dans l'app.
+            </p>
+            <textarea
+              placeholder="Contenu de cert.pem (-----BEGIN CERTIFICATE----- …)"
+              value={pushCert}
+              onChange={(e) => setPushCert(e.target.value)}
+              style={{ width: '100%', minHeight: 90, fontFamily: 'monospace', fontSize: 12, padding: 10, borderRadius: 10, border: `1px solid ${colors.border}`, marginBottom: 8 }}
+            />
+            <textarea
+              placeholder="Contenu de key.pem (-----BEGIN PRIVATE KEY----- …)"
+              value={pushKey}
+              onChange={(e) => setPushKey(e.target.value)}
+              style={{ width: '100%', minHeight: 90, fontFamily: 'monospace', fontSize: 12, padding: 10, borderRadius: 10, border: `1px solid ${colors.border}`, marginBottom: 8 }}
+            />
+            <Button onClick={setupPush} disabled={pushing || !pushCert || !pushKey}>
+              {pushing ? '…' : 'Configurer le push iOS'}
+            </Button>
+            {pushMsg && <p style={{ marginTop: 10, fontWeight: 600 }}>{pushMsg}</p>}
           </div>
         )}
 

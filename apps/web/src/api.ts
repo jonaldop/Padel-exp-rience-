@@ -91,6 +91,12 @@ export const api = {
     }),
   adminAccounts: (token: string) =>
     request('/admin/accounts', { headers: { Authorization: `Bearer ${token}` } }),
+  adminIosPush: (token: string, certificate: string, privateKey: string) =>
+    request('/admin/ios-push', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ certificate, privateKey }),
+    }),
 
   // Softphone
   webrtcToken: () => request('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),
