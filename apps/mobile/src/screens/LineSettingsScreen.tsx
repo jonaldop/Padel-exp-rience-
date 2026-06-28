@@ -48,6 +48,8 @@ function buildSchedule(days: Record<string, DayCfg>): Record<string, string[]> {
     if (c.open) {
       if (c.am[0] && c.am[1]) ranges.push(`${c.am[0]}-${c.am[1]}`);
       if (c.pm[0] && c.pm[1]) ranges.push(`${c.pm[0]}-${c.pm[1]}`);
+      // Jour ouvert mais aucune heure valide -> plage par défaut (sécurité).
+      if (ranges.length === 0) ranges.push('09:00-18:00');
     }
     out[d.key] = ranges;
   }
@@ -92,6 +94,18 @@ export function LineSettingsScreen() {
       const cur = d[key][slot].slice() as [string, string];
       cur[idx] = val;
       return { ...d, [key]: { ...d[key], [slot]: cur } };
+    });
+  }
+  // En activant un jour, on pré-remplit des heures par défaut pour qu'une vraie
+  // plage soit toujours enregistrée (sinon le jour repartait "fermé").
+  function toggleDay(key: string, open: boolean) {
+    setDays((d) => {
+      const c = d[key];
+      if (open) {
+        const am: [string, string] = c.am[0] && c.am[1] ? c.am : ['09:00', '18:00'];
+        return { ...d, [key]: { ...c, open: true, am } };
+      }
+      return { ...d, [key]: { ...c, open: false } };
     });
   }
 
@@ -168,7 +182,7 @@ export function LineSettingsScreen() {
                   <View key={d.key} style={s.day}>
                     <View style={s.rowBetween}>
                       <Text style={s.dayLabel}>{d.label}</Text>
-                      <Switch value={c.open} onValueChange={(v) => setDay(d.key, { open: v })} trackColor={{ true: colors.primary }} />
+                      <Switch value={c.open} onValueChange={(v) => toggleDay(d.key, v)} trackColor={{ true: colors.primary }} />
                     </View>
                     {c.open && (
                       <>
