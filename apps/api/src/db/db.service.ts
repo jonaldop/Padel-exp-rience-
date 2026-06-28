@@ -211,6 +211,11 @@ export class DbService implements OnModuleInit {
     return this.data.phoneNumbers.filter((n) => n.accountId === accountId && n.e164 === e164).length;
   }
 
+  /** True si ce numéro est déjà rattaché à un AUTRE compte (sécurité multi-tenant). */
+  e164OwnedByOtherAccount(accountId: string, e164: string): boolean {
+    return this.data.phoneNumbers.some((n) => n.e164 === e164 && n.accountId !== accountId);
+  }
+
   createPhoneNumber(input: {
     accountId: string;
     e164: string;
@@ -448,20 +453,73 @@ export class DbService implements OnModuleInit {
     return true;
   }
 
-  /** Back-office admin : tous les comptes avec un résumé. */
+  /** Tarifs mensuels des formules (€/mois HT) — sert au back-office. */
+  private static readonly PLAN_PRICES: Record<string, number> = {
+    starter: 0,
+    essentiel: 14.99,
+    pro: 29,
+    business: 49,
+  };
+
+  /** Libellé "à jour" du paiement selon le statut d'abonnement. */
+  private billingLabel(status: string): { aJour: boolean; libelle: string } {
+    switch (status) {
+      case 'active':
+        return { aJour: true, libelle: 'Abonnement actif (à jour)' };
+      case 'trial':
+        return { aJour: true, libelle: 'Période d’essai' };
+      case 'past_due':
+        return { aJour: false, libelle: 'Paiement en retard' };
+      case 'suspended':
+        return { aJour: false, libelle: 'Suspendu' };
+      case 'canceled':
+        return { aJour: false, libelle: 'Résilié' };
+      default:
+        return { aJour: false, libelle: status || 'inconnu' };
+    }
+  }
+
+  /** Back-office admin : tous les comptes avec un résumé détaillé. */
   adminListAccounts() {
     return this.data.accounts
-      .map((a) => ({
-        id: a.id,
-        entreprise: a.companyName,
-        plan: a.plan,
-        statut: a.status,
-        créé: a.createdAt,
-        emails: this.data.users.filter((u) => u.accountId === a.id).map((u) => u.email),
-        numeros: this.data.phoneNumbers.filter((n) => n.accountId === a.id).map((n) => n.e164),
-        nbAppels: this.data.calls.filter((c) => c.accountId === a.id).length,
-        nbClients: this.data.clients.filter((c) => c.accountId === a.id).length,
-      }))
+      .map((a) => {
+        const users = this.data.users.filter((u) => u.accountId === a.id);
+        const numbers = this.data.phoneNumbers.filter((n) => n.accountId === a.id);
+        const calls = this.data.calls.filter((c) => c.accountId === a.id);
+        const clients = this.data.clients.filter((c) => c.accountId === a.id);
+        const billing = this.billingLabel(a.status);
+        const lastCall = calls
+          .map((c) => c.startedAt)
+          .sort((x, y) => (y || '').localeCompare(x || ''))[0];
+        return {
+          id: a.id,
+          entreprise: a.companyName,
+          siret: a.siret || null,
+          plan: a.plan,
+          prixMensuel: DbService.PLAN_PRICES[a.plan] ?? null,
+          statut: a.status,
+          paiementAJour: billing.aJour,
+          paiementLibelle: billing.libelle,
+          créé: a.createdAt,
+          // Utilisateurs (infos client détaillées)
+          utilisateurs: users.map((u) => ({
+            email: u.email,
+            nom: [u.firstName, u.lastName].filter(Boolean).join(' ') || null,
+            telPerso: u.phonePerso || null,
+            role: u.role,
+          })),
+          emails: users.map((u) => u.email),
+          // Numéros avec leur statut
+          numeros: numbers.map((n) => ({ e164: n.e164, type: n.type, statut: n.status })),
+          nbAppels: calls.length,
+          dernierAppel: lastCall || null,
+          nbClients: clients.length,
+          // Aperçu du carnet de clients (limité pour rester lisible)
+          clients: clients
+            .slice(0, 50)
+            .map((c) => ({ nom: c.name, tel: c.phone, email: c.email || null })),
+        };
+      })
       .sort((x, y) => (y.créé || '').localeCompare(x.créé || ''));
   }
 

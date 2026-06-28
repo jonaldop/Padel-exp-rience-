@@ -212,7 +212,22 @@ export class TelnyxService {
       e164: n.phone_number,
       providerNumberId: n.id,
       type: label[n.phone_number_type] || 'géographique',
+      // customer_reference = ID du compte propriétaire chez nous (multi-tenant).
+      ownerRef: n.customer_reference || '',
     }));
+  }
+
+  /** Étiquette un numéro avec le compte propriétaire (customer_reference). */
+  async tagNumberOwner(providerNumberId: string, accountId: string) {
+    if (!this.configured || !providerNumberId || !accountId) return;
+    try {
+      await this.api(`/phone_numbers/${providerNumberId}`, {
+        method: 'PATCH',
+        body: { customer_reference: accountId },
+      });
+    } catch (e) {
+      this.logger.warn(`Tag propriétaire échoué pour ${providerNumberId}: ${(e as Error).message}`);
+    }
   }
 
   /** Statut réel d'un numéro chez Telnyx (active / pending requirements...). */
@@ -227,16 +242,19 @@ export class TelnyxService {
   }
 
   /** Assigne un numéro existant à notre Call Control App (routage entrant). */
-  async routeNumberToApp(providerNumberId: string) {
+  async routeNumberToApp(providerNumberId: string, accountId?: string) {
     const appId = await this.ensureCallControlApp();
+    const body: any = { connection_id: appId };
+    // On étiquette aussi le compte propriétaire (multi-tenant).
+    if (accountId) body.customer_reference = accountId;
     await this.api(`/phone_numbers/${providerNumberId}`, {
       method: 'PATCH',
-      body: { connection_id: appId },
+      body,
     });
   }
 
   /** Achète un numéro et l'attribue à notre Call Control App (routage entrant). */
-  async buyNumber(e164: string): Promise<{ providerNumberId: string | null }> {
+  async buyNumber(e164: string, accountId?: string): Promise<{ providerNumberId: string | null }> {
     // Idempotent : si le numéro est déjà possédé, l'achat échoue -> on continue
     // quand même pour le retrouver et l'assigner au compte.
     try {
@@ -261,9 +279,12 @@ export class TelnyxService {
     }
 
     if (numberId) {
+      const body: any = { connection_id: appId };
+      // Étiquette le compte propriétaire pour isoler les tenants.
+      if (accountId) body.customer_reference = accountId;
       await this.api(`/phone_numbers/${numberId}`, {
         method: 'PATCH',
-        body: { connection_id: appId },
+        body,
       });
       this.logger.log(`Numéro ${e164} acheté et routé vers l'app ${appId}`);
     } else {
