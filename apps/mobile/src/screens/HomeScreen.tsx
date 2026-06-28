@@ -6,6 +6,7 @@ import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass, Delta, Waveform } from '../ui';
 import { formatFr } from '../format';
+import { BUILD_TAG } from '../version';
 
 function isSameDay(iso: string, ref: Date) {
   const d = new Date(iso);
@@ -87,6 +88,8 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
       >
+        <Text style={{ textAlign: 'right', color: colors.muted, fontSize: 11, marginBottom: 2 }}>{BUILD_TAG}</Text>
+
         {/* En-tête */}
         <View style={s.header}>
           <View style={{ flex: 1 }}>
