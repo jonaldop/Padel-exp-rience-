@@ -1,0 +1,54 @@
+name: Build iOS → TestFlight
+
+# Déclenchable à la main depuis GitHub (Actions → "Build iOS → TestFlight" → Run workflow),
+# y compris depuis le navigateur d'un téléphone. Build dans le cloud (EAS), zéro ordinateur.
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: 'Envoyer sur TestFlight après le build ?'
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install deps
+        run: npm install
+
+      - name: Write App Store Connect API key
+        if: ${{ inputs.submit }}
+        run: echo "${{ secrets.ASC_API_KEY_BASE64 }}" | base64 -d > asc-key.p8
+        env:
+          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+
+      - name: Build (+ submit) iOS
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+          EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ "${{ inputs.submit }}" = "true" ]; then
+            eas build --platform ios --profile production --non-interactive --auto-submit
+          else
+            eas build --platform ios --profile production --non-interactive
+          fi

@@ -1,5 +1,5 @@
 {
-  "cli": { "version": ">= 5.0.0" },
+  "cli": { "version": ">= 5.0.0", "appVersionSource": "remote" },
   "build": {
     "development": {
       "developmentClient": true,
@@ -14,6 +14,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascApiKeyPath": "./asc-key.p8",
+        "ascApiKeyId": "$ASC_API_KEY_ID",
+        "ascApiKeyIssuerId": "$ASC_API_KEY_ISSUER_ID"
+      }
+    }
   }
 }
