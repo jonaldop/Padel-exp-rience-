@@ -19,6 +19,11 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   adminKey: process.env.ADMIN_KEY || 'standardpro-admin',
+  // Back-office propriétaire : login + mot de passe (à définir en prod via env).
+  admin: {
+    email: (process.env.ADMIN_EMAIL || 'johan@webmarketing-services.com').toLowerCase(),
+    password: process.env.ADMIN_PASSWORD || 'standardpro-admin',
+  },
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'Joe <onboarding@resend.dev>',

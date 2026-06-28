@@ -1,28 +1,62 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { Button, Card, GlassBackground, Input, colors, glass } from '../ui';
 import { formatFr } from '../format';
 
 export function Admin() {
-  const [key, setKey] = useState(localStorage.getItem('stp_admin_key') || '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [token, setToken] = useState(localStorage.getItem('stp_admin_token') || '');
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  async function load() {
+  async function load(tok = token) {
+    if (!tok) return;
     setError(null);
     setLoading(true);
     try {
-      const res = await api.adminAccounts(key);
-      localStorage.setItem('stp_admin_key', key);
+      const res = await api.adminAccounts(tok);
       setData(res);
+    } catch (e: any) {
+      // Token expiré/invalide -> on redemande le mot de passe
+      localStorage.removeItem('stp_admin_token');
+      setToken('');
+      setData(null);
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function login() {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await api.adminLogin(email, password);
+      localStorage.setItem('stp_admin_token', res.token);
+      setToken(res.token);
+      setPassword('');
+      await load(res.token);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
   }
+
+  function logout() {
+    localStorage.removeItem('stp_admin_token');
+    setToken('');
+    setData(null);
+  }
+
+  // Si un token est déjà présent au chargement, on récupère les comptes.
+  useEffect(() => {
+    if (token) load(token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function toggle(id: string) {
     setOpen((o) => ({ ...o, [id]: !o[id] }));
@@ -38,19 +72,39 @@ export function Admin() {
         <h1 style={{ fontSize: 28, fontWeight: 800 }}>🛠️ Back-office admin</h1>
         <p style={{ color: colors.muted }}>Tous les comptes clients de ton SaaS.</p>
 
-        <div style={{ ...glass, borderRadius: 16, padding: 16, display: 'flex', gap: 8, marginBottom: 20 }}>
-          <Input
-            type="password"
-            placeholder="Clé admin"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && load()}
-            style={{ flex: 1 }}
-          />
-          <Button onClick={load} disabled={loading}>
-            {loading ? '…' : 'Voir les comptes'}
-          </Button>
-        </div>
+        {!token && (
+          <div style={{ ...glass, borderRadius: 16, padding: 16, marginBottom: 20, maxWidth: 420 }}>
+            <p style={{ fontWeight: 700, marginTop: 0, marginBottom: 12 }}>Connexion administrateur</p>
+            <Input
+              type="email"
+              placeholder="Email admin"
+              value={email}
+              autoFocus
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && login()}
+              style={{ width: '100%', marginBottom: 8 }}
+            />
+            <Input
+              type="password"
+              placeholder="Mot de passe"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && login()}
+              style={{ width: '100%', marginBottom: 12 }}
+            />
+            <Button onClick={login} disabled={loading} style={{ width: '100%' }}>
+              {loading ? '…' : 'Se connecter'}
+            </Button>
+          </div>
+        )}
+
+        {token && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <Button onClick={logout} style={{ background: 'transparent', color: colors.muted }}>
+              Se déconnecter
+            </Button>
+          </div>
+        )}
 
         {error && (
           <div style={{ background: colors.redSoft, color: colors.red, padding: 12, borderRadius: 10, marginBottom: 16 }}>
