@@ -21,13 +21,21 @@ const VOICES = [
   { id: 'female', label: 'Standard féminine' },
 ];
 
-/** Aperçu via la synthèse vocale du navigateur (voix de l'appareil). */
-function previewVoice(text: string) {
+/** Aperçu via la synthèse vocale du navigateur (voix de l'appareil, approximatif). */
+function previewVoice(text: string, voiceId?: string) {
   try {
-    const u = new SpeechSynthesisUtterance(text || 'Bonjour, vous êtes bien chez nous.');
+    const u = new SpeechSynthesisUtterance(text || 'Bonjour, vous êtes bien chez nous, laissez un message.');
     u.lang = 'fr-FR';
-    const fr = window.speechSynthesis.getVoices().find((v) => v.lang.startsWith('fr'));
-    if (fr) u.voice = fr;
+    const frVoices = window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith('fr'));
+    const isMale = /mathieu|remi|rémi/i.test(voiceId || '');
+    const maleRx = /thomas|nicolas|henri|paul|male|homme/i;
+    const femaleRx = /aurélie|aurelie|amélie|amelie|marie|audrey|virginie|female|femme/i;
+    const pick =
+      (isMale
+        ? frVoices.find((v) => maleRx.test(v.name))
+        : frVoices.find((v) => femaleRx.test(v.name))) || frVoices[0];
+    if (pick) u.voice = pick;
+    u.pitch = isMale ? 0.9 : 1.05; // accentue la différence si une seule voix dispo
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch {
@@ -332,9 +340,13 @@ function NumberCard({ number, onSaved }: { number: PhoneNumber; onSaved: () => v
               ))}
             </select>
           </Field>
-          <Button variant="soft" onClick={() => previewVoice(s.greetingClosed || '')} style={{ marginBottom: 14 }}>
+          <Button variant="soft" onClick={() => previewVoice(s.greetingClosed || '', s.greetingVoice)} style={{ marginBottom: 6 }}>
             ▶︎ Écouter un aperçu
           </Button>
+          <p style={{ fontSize: 12, color: colors.muted, margin: '0 0 14px', lineHeight: 1.5 }}>
+            ℹ️ Aperçu approximatif (voix de votre téléphone). La vraie voix Telnyx (Léa, Céline,
+            Mathieu…) s'entend en appelant votre numéro <strong>hors horaires</strong>.
+          </p>
 
           <Button onClick={save} full>
             {saved ? '✅ Enregistré' : 'Enregistrer les réglages'}
