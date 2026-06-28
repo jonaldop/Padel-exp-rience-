@@ -24,6 +24,8 @@ export const config = {
     email: (process.env.ADMIN_EMAIL || 'johan@webmarketing-services.com').toLowerCase(),
     password: process.env.ADMIN_PASSWORD || 'standardpro-admin',
   },
+  // Coût télécom moyen estimé par minute (€) pour calculer le coût par client.
+  costPerMinute: parseFloat(process.env.COST_PER_MINUTE || '0.02'),
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'Joe <onboarding@resend.dev>',

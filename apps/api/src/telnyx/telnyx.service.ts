@@ -370,6 +370,21 @@ export class TelnyxService {
     return this.api(`/calls/${callControlId}/actions/transfer`, { method: 'POST', body });
   }
 
+  /** Solde / crédit du compte Telnyx (forfait). */
+  async getBalance(): Promise<{ balance: string; currency: string; creditLimit: string } | null> {
+    if (!this.configured) return null;
+    try {
+      const data = await this.api<{ data: any }>('/balance');
+      return {
+        balance: data.data?.balance ?? data.data?.available_credit ?? '0',
+        currency: data.data?.currency ?? 'USD',
+        creditLimit: data.data?.credit_limit ?? '0',
+      };
+    } catch {
+      return null;
+    }
+  }
+
   /** Nom d'utilisateur SIP de notre connexion WebRTC (cible des appels entrants in-app). */
   async getCredentialSipUser(): Promise<string | null> {
     if (!this.configured) return null;

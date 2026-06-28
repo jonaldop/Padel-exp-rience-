@@ -91,6 +91,14 @@ export const api = {
     }),
   adminAccounts: (token: string) =>
     request('/admin/accounts', { headers: { Authorization: `Bearer ${token}` } }),
+  adminDashboard: (token: string) =>
+    request('/admin/dashboard', { headers: { Authorization: `Bearer ${token}` } }),
+  adminPlans: (token: string) =>
+    request<{ plans: any[] }>('/admin/plans', { headers: { Authorization: `Bearer ${token}` } }),
+  adminUpsertPlan: (token: string, plan: any) =>
+    request('/admin/plans', { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(plan) }),
+  adminDeletePlan: (token: string, key: string) =>
+    request(`/admin/plans/${encodeURIComponent(key)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }),
   adminIosPush: (token: string, certificate: string, privateKey: string) =>
     request('/admin/ios-push', {
       method: 'POST',

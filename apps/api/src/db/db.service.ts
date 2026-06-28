@@ -100,6 +100,15 @@ export interface Client {
   createdAt: string;
 }
 
+export interface Plan {
+  key: string;
+  name: string;
+  monthlyPrice: number;
+  includedMinutes: number;
+  features: string[];
+  active: boolean;
+}
+
 interface Data {
   accounts: Account[];
   users: User[];
@@ -109,7 +118,14 @@ interface Data {
   voicemails: Voicemail[];
   clients: Client[];
   resets: { token: string; userId: string; expiresAt: number }[];
+  plans: Plan[];
 }
+
+const DEFAULT_PLANS: Plan[] = [
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 200, features: ['1 numéro pro', 'Appels & messagerie', 'Horaires & répondeur'], active: true },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 600, features: ['Tout Essentiel', 'Transcription', 'Renvoi avancé'], active: true },
+  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 1500, features: ['Tout Pro', 'Assistant IA', 'Multi-utilisateurs'], active: true },
+];
 
 const DEFAULT_SCHEDULE = JSON.stringify({
   mon: ['09:00-12:00', '14:00-18:00'],
@@ -132,11 +148,17 @@ export class DbService implements OnModuleInit {
     voicemails: [],
     clients: [],
     resets: [],
+    plans: [],
   };
   private readonly file = process.env.DB_FILE || path.resolve(process.cwd(), 'data.json');
 
   onModuleInit() {
     this.load();
+    // Amorce les formules par défaut au premier démarrage.
+    if (!this.data.plans || this.data.plans.length === 0) {
+      this.data.plans = DEFAULT_PLANS.map((p) => ({ ...p }));
+      this.save();
+    }
   }
 
   private load() {
@@ -478,13 +500,47 @@ export class DbService implements OnModuleInit {
     return true;
   }
 
-  /** Tarifs mensuels des formules (€/mois HT) — sert au back-office. */
-  private static readonly PLAN_PRICES: Record<string, number> = {
-    starter: 0,
-    essentiel: 14.99,
-    pro: 29,
-    business: 49,
-  };
+  // ── Formules (plans) ───────────────────────────────────────────────────────
+
+  listPlans(): Plan[] {
+    return [...this.data.plans].sort((a, b) => a.monthlyPrice - b.monthlyPrice);
+  }
+
+  /** Crée ou met à jour une formule (par clé). */
+  upsertPlan(input: Partial<Plan> & { key: string }): Plan {
+    let p = this.data.plans.find((x) => x.key === input.key);
+    if (!p) {
+      p = {
+        key: input.key,
+        name: input.name || input.key,
+        monthlyPrice: input.monthlyPrice ?? 0,
+        includedMinutes: input.includedMinutes ?? 0,
+        features: input.features ?? [],
+        active: input.active ?? true,
+      };
+      this.data.plans.push(p);
+    } else {
+      if (input.name !== undefined) p.name = input.name;
+      if (input.monthlyPrice !== undefined) p.monthlyPrice = input.monthlyPrice;
+      if (input.includedMinutes !== undefined) p.includedMinutes = input.includedMinutes;
+      if (input.features !== undefined) p.features = input.features;
+      if (input.active !== undefined) p.active = input.active;
+    }
+    this.save();
+    return p;
+  }
+
+  deletePlan(key: string): boolean {
+    const before = this.data.plans.length;
+    this.data.plans = this.data.plans.filter((p) => p.key !== key);
+    const removed = this.data.plans.length < before;
+    if (removed) this.save();
+    return removed;
+  }
+
+  private planPrice(key: string): number {
+    return this.data.plans.find((p) => p.key === key)?.monthlyPrice ?? 0;
+  }
 
   /** Libellé "à jour" du paiement selon le statut d'abonnement. */
   private billingLabel(status: string): { aJour: boolean; libelle: string } {
@@ -504,8 +560,8 @@ export class DbService implements OnModuleInit {
     }
   }
 
-  /** Back-office admin : tous les comptes avec un résumé détaillé. */
-  adminListAccounts() {
+  /** Back-office admin : tous les comptes avec un résumé détaillé + coûts. */
+  adminListAccounts(costPerMinute = 0.02) {
     return this.data.accounts
       .map((a) => {
         const users = this.data.users.filter((u) => u.accountId === a.id);
@@ -516,17 +572,25 @@ export class DbService implements OnModuleInit {
         const lastCall = calls
           .map((c) => c.startedAt)
           .sort((x, y) => (y || '').localeCompare(x || ''))[0];
+
+        const totalSeconds = calls.reduce((s, c) => s + (c.durationS || 0), 0);
+        const minutes = Math.round(totalSeconds / 60);
+        const prixMensuel = this.planPrice(a.plan);
+        // Coût réel si Telnyx l'a renseigné, sinon estimation par minute.
+        const realCost = calls.reduce((s, c) => s + (c.costAmount || 0), 0);
+        const coutEstime = realCost > 0 ? realCost : minutes * costPerMinute;
+        const marge = prixMensuel - coutEstime;
+
         return {
           id: a.id,
           entreprise: a.companyName,
           siret: a.siret || null,
           plan: a.plan,
-          prixMensuel: DbService.PLAN_PRICES[a.plan] ?? null,
+          prixMensuel,
           statut: a.status,
           paiementAJour: billing.aJour,
           paiementLibelle: billing.libelle,
           créé: a.createdAt,
-          // Utilisateurs (infos client détaillées)
           utilisateurs: users.map((u) => ({
             email: u.email,
             nom: [u.firstName, u.lastName].filter(Boolean).join(' ') || null,
@@ -534,18 +598,36 @@ export class DbService implements OnModuleInit {
             role: u.role,
           })),
           emails: users.map((u) => u.email),
-          // Numéros avec leur statut
           numeros: numbers.map((n) => ({ e164: n.e164, type: n.type, statut: n.status })),
           nbAppels: calls.length,
           dernierAppel: lastCall || null,
+          minutes,
+          coutEstime: Math.round(coutEstime * 100) / 100,
+          marge: Math.round(marge * 100) / 100,
           nbClients: clients.length,
-          // Aperçu du carnet de clients (limité pour rester lisible)
-          clients: clients
-            .slice(0, 50)
-            .map((c) => ({ nom: c.name, tel: c.phone, email: c.email || null })),
+          clients: clients.slice(0, 50).map((c) => ({ nom: c.name, tel: c.phone, email: c.email || null })),
         };
       })
       .sort((x, y) => (y.créé || '').localeCompare(x.créé || ''));
+  }
+
+  /** Synthèse globale pour le tableau de bord admin. */
+  adminSummary(costPerMinute = 0.02) {
+    const accounts = this.adminListAccounts(costPerMinute);
+    const actifs = accounts.filter((a) => a.statut === 'active' || a.statut === 'trial');
+    const mrr = accounts.reduce((s, a) => s + (a.prixMensuel || 0), 0);
+    const coutTotal = accounts.reduce((s, a) => s + (a.coutEstime || 0), 0);
+    const minutesTotal = accounts.reduce((s, a) => s + (a.minutes || 0), 0);
+    return {
+      nbComptes: accounts.length,
+      nbActifs: actifs.length,
+      mrr: Math.round(mrr * 100) / 100,
+      coutTotal: Math.round(coutTotal * 100) / 100,
+      margeTotale: Math.round((mrr - coutTotal) * 100) / 100,
+      minutesTotal,
+      nbAppels: this.data.calls.length,
+      nbNumeros: this.data.phoneNumbers.length,
+    };
   }
 
   // util pour le seed
