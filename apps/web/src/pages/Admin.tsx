@@ -165,6 +165,8 @@ function Dashboard({ dashboard, eur }: { dashboard: any; eur: (n: number) => str
 function DebugCalls({ token }: { token: string }) {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fixing, setFixing] = useState(false);
+  const [fixResult, setFixResult] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -175,14 +177,32 @@ function DebugCalls({ token }: { token: string }) {
       setLoading(false);
     }
   }
+  async function fixInbound() {
+    setFixing(true);
+    setFixResult(null);
+    try {
+      const res: any = await api.adminFixInbound(token);
+      setFixResult(JSON.stringify(res, null, 2));
+    } catch (e: any) {
+      setFixResult('Erreur: ' + e.message);
+    } finally {
+      setFixing(false);
+    }
+  }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   return (
     <div style={{ ...glass, borderRadius: 16, padding: 16, marginTop: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <div style={{ fontWeight: 800 }}>🩺 Diagnostic appels entrants</div>
-        <Button onClick={load} disabled={loading} style={{ padding: '6px 12px' }}>{loading ? '…' : 'Rafraîchir'}</Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button onClick={fixInbound} disabled={fixing} style={{ padding: '6px 12px' }}>{fixing ? '…' : '🔧 Réparer réception'}</Button>
+          <Button onClick={load} disabled={loading} style={{ padding: '6px 12px' }}>{loading ? '…' : 'Rafraîchir'}</Button>
+        </div>
       </div>
+      {fixResult && (
+        <pre style={{ fontFamily: 'monospace', fontSize: 11, background: 'rgba(0,0,0,0.05)', borderRadius: 8, padding: 10, overflow: 'auto', marginTop: 10 }}>{fixResult}</pre>
+      )}
       <p style={{ color: colors.muted, fontSize: 12.5, marginTop: 6 }}>Décision de routage des derniers appels reçus (pour debug).</p>
       {events.length === 0 ? (
         <div style={{ color: colors.muted, fontSize: 13 }}>Aucun appel entrant récent.</div>

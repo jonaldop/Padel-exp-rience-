@@ -435,6 +435,32 @@ export class TelnyxService {
     return this.api(`/calls/${callControlId}/actions/transfer`, { method: 'POST', body });
   }
 
+  /**
+   * Pose le réglage Inbound (réception vers le client WebRTC enregistré) et
+   * renvoie la config inbound réelle de la connexion + le résultat du PATCH.
+   * Sert à appliquer + diagnostiquer le fix du 403 à la demande.
+   */
+  async configureInbound(): Promise<any> {
+    if (!this.configured) return { error: 'Telnyx non configuré' };
+    const connId = await this.ensureCredentialConnection();
+    const attempts: any[] = [];
+    // On essaie plusieurs valeurs possibles (la 1re qui passe gagne).
+    for (const value of ['sip_username', '+e164_or_sip_username', 'username']) {
+      try {
+        await this.api(`/credential_connections/${connId}`, {
+          method: 'PATCH',
+          body: { inbound: { dnis_number_format: value } },
+        });
+        attempts.push({ value, ok: true });
+        break;
+      } catch (e) {
+        attempts.push({ value, error: (e as Error).message });
+      }
+    }
+    const conn = await this.api<{ data: any }>(`/credential_connections/${connId}`);
+    return { connId, userName: conn.data?.user_name, inbound: conn.data?.inbound, attempts };
+  }
+
   /** Solde / crédit du compte Telnyx (forfait). */
   async getBalance(): Promise<{ balance: string; currency: string; creditLimit: string } | null> {
     if (!this.configured) return null;
