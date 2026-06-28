@@ -93,6 +93,8 @@ export const api = {
     request('/admin/accounts', { headers: { Authorization: `Bearer ${token}` } }),
   adminDashboard: (token: string) =>
     request('/admin/dashboard', { headers: { Authorization: `Bearer ${token}` } }),
+  adminDebugCalls: (token: string) =>
+    request<{ events: any[] }>('/admin/debug-calls', { headers: { Authorization: `Bearer ${token}` } }),
   adminPlans: (token: string) =>
     request<{ plans: any[] }>('/admin/plans', { headers: { Authorization: `Bearer ${token}` } }),
   adminUpsertPlan: (token: string, plan: any) =>
