@@ -193,6 +193,16 @@ export class CallsController {
       }
 
       case 'call.hangup': {
+        // Diagnostic : cause de raccrochage (utile pour la jambe de transfert
+        // vers l'app -> montre si l'INVITE a sonné, été rejeté, 404, etc.).
+        this.db.logInbound({
+          type: 'hangup',
+          from: payload.from,
+          to: payload.to,
+          dir: payload.direction,
+          cause: payload.hangup_cause,
+          sipCause: payload.sip_hangup_cause,
+        });
         const call = this.db.findCallByProviderId(callControlId);
         if (call) {
           const durationS = Math.round((Date.now() - new Date(call.startedAt).getTime()) / 1000);
