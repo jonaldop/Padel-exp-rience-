@@ -114,6 +114,7 @@ export function Admin() {
             {tab === 'dashboard' && dashboard && (
               <>
                 <Dashboard dashboard={dashboard} eur={eur} />
+                <DebugCalls token={token} />
                 <PushSetup token={token} />
               </>
             )}
@@ -157,6 +158,46 @@ function Dashboard({ dashboard, eur }: { dashboard: any; eur: (n: number) => str
         Coût estimé sur la base de {eur(dashboard.costPerMinute)} / minute (modifiable via la variable COST_PER_MINUTE).
         {!t && ' Solde Telnyx indisponible (clé non configurée).'}
       </p>
+    </div>
+  );
+}
+
+function DebugCalls({ token }: { token: string }) {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res: any = await api.adminDebugCalls(token);
+      setEvents(res.events || []);
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  return (
+    <div style={{ ...glass, borderRadius: 16, padding: 16, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontWeight: 800 }}>🩺 Diagnostic appels entrants</div>
+        <Button onClick={load} disabled={loading} style={{ padding: '6px 12px' }}>{loading ? '…' : 'Rafraîchir'}</Button>
+      </div>
+      <p style={{ color: colors.muted, fontSize: 12.5, marginTop: 6 }}>Décision de routage des derniers appels reçus (pour debug).</p>
+      {events.length === 0 ? (
+        <div style={{ color: colors.muted, fontSize: 13 }}>Aucun appel entrant récent.</div>
+      ) : (
+        <div style={{ display: 'grid', gap: 6 }}>
+          {events.map((e, i) => (
+            <div key={i} style={{ fontFamily: 'monospace', fontSize: 12, background: 'rgba(255,255,255,0.6)', borderRadius: 8, padding: 8 }}>
+              <b>{e.decision}</b> · de {e.from} → {e.to} · ouvert={String(e.open)}
+              {e.sipUser ? ` · sip=${e.sipUser}` : ''}
+              {e.transferErr ? ` · ⚠️ ${e.transferErr}` : ''}
+              {' · '}{new Date(e.at).toLocaleTimeString('fr-FR')}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -51,6 +51,13 @@ export class AdminController {
     return { summary, telnyx, costPerMinute: config.costPerMinute };
   }
 
+  /** Diagnostic : décisions de routage des derniers appels entrants. */
+  @Get('debug-calls')
+  debugCalls(@Headers('authorization') authorization: string, @Query('key') key: string) {
+    this.authorize(authorization, key);
+    return { events: this.db.getInboundLog() };
+  }
+
   /** Formules : lister. */
   @Get('plans')
   plans(@Headers('authorization') authorization: string, @Query('key') key: string) {

@@ -101,15 +101,25 @@ export class CallsController {
           ? safeJson(st.weeklySchedule, DEFAULT_SCHEDULE)
           : DEFAULT_SCHEDULE;
         const hol: string[] = st?.holidays ? safeJson(st.holidays, []) : [];
-        const ringApp = isOpen(sched, hol) && st?.ringInApp && !st?.forwardToMobile;
+        const open = isOpen(sched, hol);
+        const ringApp = open && st?.ringInApp && !st?.forwardToMobile;
         if (ringApp) {
           const sipUser = await this.telnyx.getAccountSipUser(number.accountId);
           if (sipUser) {
             this.logger.log(`Sonnerie in-app de ${payload.to} -> sip:${sipUser}`);
-            await this.telnyx.transferToUser(callControlId, sipUser, 25);
+            let transferErr: string | null = null;
+            try {
+              await this.telnyx.transferToUser(callControlId, sipUser, 25);
+            } catch (e) {
+              transferErr = (e as Error).message;
+            }
+            this.db.logInbound({ from: payload.from, to: payload.to, decision: 'ringing-app', open, sipUser, transferErr });
             this.updateByProvider(callControlId, { status: 'ringing-app' });
             break; // ⚠️ surtout pas de answer ici
           }
+          this.db.logInbound({ from: payload.from, to: payload.to, decision: 'sipUser-null', open, ringInApp: true });
+        } else {
+          this.db.logInbound({ from: payload.from, to: payload.to, decision: open ? (st?.forwardToMobile ? 'forward' : 'voicemail') : 'closed-voicemail', open, ringInApp: !!st?.ringInApp, forwardToMobile: !!st?.forwardToMobile });
         }
 
         // Tous les autres cas (répondeur, renvoi, fermé) : on décroche pour

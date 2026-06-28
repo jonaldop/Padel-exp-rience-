@@ -630,6 +630,17 @@ export class DbService implements OnModuleInit {
     };
   }
 
+  // ── Diagnostic appels entrants (en mémoire, non persisté) ──────────────────
+  private debugInbound: any[] = [];
+
+  logInbound(entry: any) {
+    this.debugInbound.unshift({ at: this.now(), ...entry });
+    if (this.debugInbound.length > 40) this.debugInbound.length = 40;
+  }
+  getInboundLog() {
+    return this.debugInbound;
+  }
+
   // util pour le seed
   hasUser(email: string) {
     return this.data.users.some((u) => u.email === email.toLowerCase());
