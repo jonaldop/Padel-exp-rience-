@@ -331,23 +331,50 @@ export class TelnyxService {
 
   // ── WebRTC (softphone) ─────────────────────────────────────────────────────
 
-  async createWebrtcToken(userTag: string): Promise<{ token: string }> {
+  /**
+   * Identifiant WebRTC STABLE par compte (réutilisé, pas recréé à chaque fois).
+   * On a besoin que son `sip_username` soit fixe pour pouvoir router les appels
+   * entrants vers le bon client (cf. getAccountSipUser).
+   */
+  private async ensureTelephonyCredential(tag: string): Promise<{ id: string; sipUsername: string | null }> {
+    const connectionId = await this.ensureCredentialConnection();
+    const name = `webrtc-${tag}`;
+    const list = await this.api<{ data: any[] }>('/telephony_credentials?page[size]=250');
+    let cred = list.data?.find((c) => c.name === name);
+    if (!cred) {
+      const created = await this.api<{ data: any }>('/telephony_credentials', {
+        method: 'POST',
+        body: { connection_id: connectionId, name },
+      });
+      cred = created.data;
+    }
+    return { id: cred.id, sipUsername: cred.sip_username || null };
+  }
+
+  async createWebrtcToken(tag: string): Promise<{ token: string }> {
     if (!this.configured) {
       throw new ServiceUnavailableException('Telnyx non configuré : token WebRTC indisponible');
     }
-    const connectionId = await this.ensureCredentialConnection();
-    const cred = await this.api<{ data: { id: string } }>('/telephony_credentials', {
-      method: 'POST',
-      body: { connection_id: connectionId, name: `webrtc-${userTag}` },
-    });
+    const cred = await this.ensureTelephonyCredential(tag);
     const tokenRes = await fetch(
-      `${config.telnyx.apiBase}/telephony_credentials/${cred.data.id}/token`,
+      `${config.telnyx.apiBase}/telephony_credentials/${cred.id}/token`,
       { method: 'POST', headers: { Authorization: `Bearer ${config.telnyx.apiKey}` } },
     );
     if (!tokenRes.ok) {
       throw new Error(`Telnyx token error: ${tokenRes.status} ${await tokenRes.text()}`);
     }
     return { token: (await tokenRes.text()).trim() };
+  }
+
+  /** Nom SIP du client WebRTC d'un compte (cible des appels entrants in-app). */
+  async getAccountSipUser(accountId: string): Promise<string | null> {
+    if (!this.configured) return null;
+    try {
+      const cred = await this.ensureTelephonyCredential(accountId);
+      return cred.sipUsername;
+    } catch {
+      return null;
+    }
   }
 
   // ── Call Control : actions sur un appel en cours ───────────────────────────

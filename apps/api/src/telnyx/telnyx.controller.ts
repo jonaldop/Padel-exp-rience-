@@ -13,7 +13,9 @@ export class TelnyxController {
   @Post('webrtc-token')
   async webrtcToken(@CurrentUser() user: JwtPayload) {
     try {
-      return await this.telnyx.createWebrtcToken(user.sub);
+      // Identifiant WebRTC par COMPTE (stable) : le webhook peut ainsi router
+      // les appels entrants vers le bon client (getAccountSipUser).
+      return await this.telnyx.createWebrtcToken(user.accountId);
     } catch (e) {
       // Remonte le détail Telnyx au client pour diagnostic
       throw new ServiceUnavailableException((e as Error).message);

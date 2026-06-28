@@ -103,7 +103,7 @@ export class CallsController {
         const hol: string[] = st?.holidays ? safeJson(st.holidays, []) : [];
         const ringApp = isOpen(sched, hol) && st?.ringInApp && !st?.forwardToMobile;
         if (ringApp) {
-          const sipUser = await this.telnyx.getCredentialSipUser();
+          const sipUser = await this.telnyx.getAccountSipUser(number.accountId);
           if (sipUser) {
             this.logger.log(`Sonnerie in-app de ${payload.to} -> sip:${sipUser}`);
             await this.telnyx.transferToUser(callControlId, sipUser, 25);
