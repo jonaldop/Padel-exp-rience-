@@ -21,7 +21,7 @@ export function CallScreen() {
   const callerId: string | undefined = route.params?.callerId;
   const name: string | undefined = route.params?.name;
 
-  const { status, error, muted, seconds, hangup, toggleMute } = useTelnyxCall(destination, callerId);
+  const { status, error, muted, speaker, seconds, hangup, toggleMute, toggleSpeaker } = useTelnyxCall(destination, callerId);
 
   // Quand l'appel se termine, on referme l'écran.
   useEffect(() => {
@@ -63,7 +63,10 @@ export function CallScreen() {
             <Text style={{ fontSize: 30 }}>📞</Text>
           </TouchableOpacity>
 
-          <View style={s.ctrl} />
+          <TouchableOpacity style={[s.ctrl, speaker && s.ctrlOn]} onPress={toggleSpeaker} disabled={status !== 'active'}>
+            <Text style={s.ctrlIcon}>{speaker ? '🔊' : '🔈'}</Text>
+            <Text style={s.ctrlLabel}>{speaker ? 'Haut-parleur' : 'Écouteur'}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </LinearGradient>

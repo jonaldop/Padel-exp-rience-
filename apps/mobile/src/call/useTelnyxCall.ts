@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TelnyxRTC, Call, CallState } from '@telnyx/react-native-voice-sdk';
+import InCallManager from 'react-native-incall-manager';
 import { api } from '../api';
 
 export type UiStatus = 'connecting' | 'ringing' | 'active' | 'ended' | 'error';
@@ -16,6 +17,7 @@ export function useTelnyxCall(destination: string, callerIdNumber?: string) {
   const [status, setStatus] = useState<UiStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
+  const [speaker, setSpeaker] = useState(false);
   const [seconds, setSeconds] = useState(0);
 
   // Chrono une fois l'appel actif
@@ -28,6 +30,7 @@ export function useTelnyxCall(destination: string, callerIdNumber?: string) {
   const cleanup = useCallback(() => {
     try { callRef.current?.hangup(); } catch { /* noop */ }
     try { clientRef.current?.disconnect(); } catch { /* noop */ }
+    try { InCallManager.stop(); } catch { /* noop */ }
     callRef.current = null;
     clientRef.current = null;
   }, []);
@@ -36,6 +39,7 @@ export function useTelnyxCall(destination: string, callerIdNumber?: string) {
     try {
       setError(null);
       setStatus('connecting');
+      try { InCallManager.start({ media: 'audio' }); } catch { /* noop */ }
       const { token } = await api.webrtcToken();
       const client = new TelnyxRTC({ login_token: token });
       clientRef.current = client;
@@ -82,6 +86,14 @@ export function useTelnyxCall(destination: string, callerIdNumber?: string) {
     if (muted) { c.unmute(); setMuted(false); } else { c.mute(); setMuted(true); }
   }, [muted]);
 
+  const toggleSpeaker = useCallback(() => {
+    setSpeaker((on) => {
+      const next = !on;
+      try { InCallManager.setForceSpeakerphoneOn(next); } catch { /* noop */ }
+      return next;
+    });
+  }, []);
+
   const sendDtmf = useCallback((d: string) => {
     try { callRef.current?.dtmf(d); } catch { /* noop */ }
   }, []);
@@ -92,5 +104,5 @@ export function useTelnyxCall(destination: string, callerIdNumber?: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { status, error, muted, seconds, hangup, toggleMute, sendDtmf };
+  return { status, error, muted, speaker, seconds, hangup, toggleMute, toggleSpeaker, sendDtmf };
 }
