@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { api } from '../api';
 import { colors, gradients } from '../theme';
 import { GradientBg } from '../ui';
-import { toE164Fr } from '../format';
+import { toE164Fr, formatFr } from '../format';
 
 const KEYS = [
   { d: '1', s: '' }, { d: '2', s: 'ABC' }, { d: '3', s: 'DEF' },
@@ -15,20 +17,27 @@ const KEYS = [
 
 export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
   const insets = useSafeAreaInsets();
+  const nav = useNavigation<any>();
   const [number, setNumber] = useState('');
+  const [proNumber, setProNumber] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (initialNumber) setNumber(initialNumber);
   }, [initialNumber]);
 
+  // Récupère le numéro pro du compte (caller ID présenté au correspondant).
+  useEffect(() => {
+    api.myNumbers().then((n: any[]) => setProNumber(n?.[0]?.e164)).catch(() => {});
+  }, []);
+
   function call() {
     if (!number) return;
-    // MVP natif : appel via la ligne du téléphone (SIM).
-    // ➜ Prochaine étape : appel PRO via WebRTC Telnyx + CallKit (build dédié).
-    const e164 = toE164Fr(number);
-    Linking.openURL(`tel:${e164}`).catch(() =>
-      Alert.alert('Erreur', "Impossible de lancer l'appel."),
-    );
+    if (!proNumber) {
+      Alert.alert('Aucun numéro pro', "Configurez d'abord un numéro pro dans votre espace.");
+      return;
+    }
+    // Appel PRO en VoIP (WebRTC) : audio dans l'app, numéro pro en présentation.
+    nav.navigate('Appel', { number: toE164Fr(number), callerId: proNumber });
   }
 
   return (
@@ -57,7 +66,9 @@ export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
           </TouchableOpacity>
         </View>
         <Text style={s.note}>
-          Appel via votre ligne. L'appel PRO (numéro pro + audio in-app) arrive dans une prochaine version.
+          {proNumber
+            ? `Appel PRO via Internet — votre correspondant voit le ${formatFr(proNumber)}.`
+            : 'Appel PRO via Internet (numéro pro en présentation).'}
         </Text>
       </View>
     </GradientBg>

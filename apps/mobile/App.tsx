@@ -15,6 +15,7 @@ import { DialerScreen } from './src/screens/DialerScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { PlusScreen } from './src/screens/PlusScreen';
+import { CallScreen } from './src/screens/CallScreen';
 import { TabBar } from './src/components/TabBar';
 
 const Tab = createBottomTabNavigator();
@@ -89,6 +90,11 @@ export default function App() {
               name="Clients"
               component={ClientsRoute}
               options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
+            />
+            <Stack.Screen
+              name="Appel"
+              component={CallScreen}
+              options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
             />
           </Stack.Navigator>
         </NavigationContainer>
