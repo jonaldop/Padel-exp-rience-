@@ -75,23 +75,27 @@ export function Softphone({ initialNumber }: { initialNumber?: string }) {
   const callNow = () => (registered && number ? dial(toE164(number), proNumber) : connect());
 
   const stage = (children: React.ReactNode) => (
-    <div
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        borderRadius: 30,
-        padding: '22px 16px 26px',
+    <>
+      {/* Élément audio caché qui joue le son de l'appel (sonnerie + voix) */}
+      <audio id="telnyx-remote-audio" autoPlay playsInline style={{ display: 'none' }} />
+      <div
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 30,
+          padding: '22px 16px 26px',
         background: 'linear-gradient(160deg,#dCe9ff 0%,#e9e4ff 50%,#ffe6f3 100%)',
         minHeight: 540,
         maxWidth: 380,
         margin: '0 auto',
       }}
     >
-      <Blob color="#7aa8ff" style={{ top: -60, left: -50 }} />
-      <Blob color="#c9a7ff" style={{ top: 120, right: -70 }} />
-      <Blob color="#ffb3d9" style={{ bottom: -60, left: 40 }} />
-      <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
-    </div>
+        <Blob color="#7aa8ff" style={{ top: -60, left: -50 }} />
+        <Blob color="#c9a7ff" style={{ top: 120, right: -70 }} />
+        <Blob color="#ffb3d9" style={{ bottom: -60, left: 40 }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
+      </div>
+    </>
   );
 
   // ---- Appel entrant ----

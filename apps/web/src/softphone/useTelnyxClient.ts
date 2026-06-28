@@ -23,6 +23,9 @@ export function useTelnyxClient() {
       const { token } = await api.webrtcToken();
       const client = new TelnyxRTC({ login_token: token });
 
+      // Élément audio qui joue le son distant (sonnerie + voix). SANS ça, aucun son.
+      (client as any).remoteElement = 'telnyx-remote-audio';
+
       client.on('telnyx.ready', () => setRegistered(true));
       client.on('telnyx.error', (e: any) => setError(e?.error?.message || 'Erreur Telnyx'));
       client.on('telnyx.notification', (n: any) => {
@@ -74,6 +77,7 @@ export function useTelnyxClient() {
     callRef.current = clientRef.current.newCall({
       destinationNumber: destination,
       callerNumber, // présente le numéro pro
+      remoteElement: 'telnyx-remote-audio',
       audio: true,
       video: false,
     } as any);
