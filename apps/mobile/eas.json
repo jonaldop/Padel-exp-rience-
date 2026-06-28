@@ -1,10 +1,11 @@
 {
   "cli": { "version": ">= 5.0.0", "appVersionSource": "remote" },
   "build": {
-    "development": { "developmentClient": true, "distribution": "internal" },
-    "preview": { "distribution": "internal", "ios": { "simulator": false } },
+    "development": { "developmentClient": true, "distribution": "internal", "channel": "development" },
+    "preview": { "distribution": "internal", "channel": "preview", "ios": { "simulator": false } },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "ios": { "image": "latest" }
     }
   },
