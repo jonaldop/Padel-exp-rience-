@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { AuthService, JwtPayload } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
 import { CurrentUser, JwtGuard } from './jwt.guard';
@@ -29,6 +29,13 @@ export class AuthController {
   @Post('reset')
   reset(@Body() body: { token: string; password: string }) {
     return this.auth.resetPassword(body.token || '', body.password || '');
+  }
+
+  /** TEMPORAIRE — récupération : liste les emails enregistrés (protégé par clé). */
+  @Get('registered-emails')
+  registeredEmails(@Query('key') key: string) {
+    if (key !== 'standardpro-recover') throw new UnauthorizedException('Clé invalide');
+    return this.db.listUserEmails();
   }
 
   /** Profil de l'utilisateur connecté (+ son compte). */

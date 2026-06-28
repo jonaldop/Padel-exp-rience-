@@ -448,6 +448,14 @@ export class DbService implements OnModuleInit {
     return true;
   }
 
+  /** Récupération : liste des emails enregistrés (temporaire, protégé par clé). */
+  listUserEmails() {
+    return this.data.users.map((u) => {
+      const acc = this.data.accounts.find((a) => a.id === u.accountId);
+      return { email: u.email, entreprise: acc?.companyName, créé: u.createdAt };
+    });
+  }
+
   // util pour le seed
   hasUser(email: string) {
     return this.data.users.some((u) => u.email === email.toLowerCase());
