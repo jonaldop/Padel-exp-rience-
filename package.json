@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "SaaS standard téléphonique pro VoIP + IA — monorepo",
   "workspaces": [
-    "apps/*"
+    "apps/api",
+    "apps/web"
   ],
   "scripts": {
     "dev:api": "npm run dev --workspace apps/api",
