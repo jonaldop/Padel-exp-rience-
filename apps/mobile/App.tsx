@@ -20,6 +20,7 @@ import { LineSettingsScreen } from './src/screens/LineSettingsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PlanScreen } from './src/screens/PlanScreen';
 import { TabBar } from './src/components/TabBar';
+import { startIncomingCalls, stopIncomingCalls } from './src/call/incomingCalls';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -60,8 +61,15 @@ export default function App() {
     });
   }, []);
 
+  // Active la réception d'appels entrants une fois connecté (iOS).
+  useEffect(() => {
+    if (authed) startIncomingCalls();
+    else stopIncomingCalls();
+  }, [authed]);
+
   async function logout() {
     await auth.set(null);
+    stopIncomingCalls();
     setAuthed(false);
   }
 
