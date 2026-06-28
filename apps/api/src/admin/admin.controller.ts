@@ -51,6 +51,17 @@ export class AdminController {
     return { summary, telnyx, costPerMinute: config.costPerMinute };
   }
 
+  /** Applique + diagnostique le réglage Inbound (fix 403 réception WebRTC). */
+  @Post('fix-inbound')
+  async fixInbound(@Headers('authorization') authorization: string) {
+    this.authorize(authorization);
+    try {
+      return await this.telnyx.configureInbound();
+    } catch (e) {
+      return { error: (e as Error).message };
+    }
+  }
+
   /** Diagnostic : décisions de routage des derniers appels entrants. */
   @Get('debug-calls')
   debugCalls(@Headers('authorization') authorization: string, @Query('key') key: string) {
