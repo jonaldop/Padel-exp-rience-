@@ -7,8 +7,17 @@
     "scheme": "standardpro",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
-    "plugins": ["@config-plugins/react-native-webrtc"],
+    "plugins": [
+      "@config-plugins/react-native-webrtc",
+      [
+        "expo-contacts",
+        { "contactsPermission": "Joe accède à vos contacts pour les ajouter à votre carnet de clients." }
+      ]
+    ],
     "runtimeVersion": { "policy": "appVersion" },
+    "updates": {
+      "url": "https://u.expo.dev/a72e68a8-b32b-460d-a3fa-7f0ffd2d9db8"
+    },
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -20,13 +29,14 @@
       "bundleIdentifier": "com.webmarketingservices.standardpro",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "L'application utilise le micro pour passer et recevoir vos appels professionnels.",
+        "NSContactsUsageDescription": "Joe accède à vos contacts pour les ajouter à votre carnet de clients.",
         "UIBackgroundModes": ["audio", "voip"],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.webmarketingservices.standardpro",
-      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"],
+      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "READ_CONTACTS"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -36,7 +46,10 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiUrl": "https://padel-exp-rience-production.up.railway.app"
+      "apiUrl": "https://padel-exp-rience-production.up.railway.app",
+      "eas": {
+        "projectId": "a72e68a8-b32b-460d-a3fa-7f0ffd2d9db8"
+      }
     }
   }
 }

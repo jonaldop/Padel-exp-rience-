@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Contacts from 'expo-contacts';
 import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
@@ -23,6 +24,8 @@ export function ClientsScreen({ onCall }: { onCall: (phone: string) => void }) {
 
   useFocusEffect(useCallback(() => { load(search); }, [load]));
 
+  const [importing, setImporting] = useState(false);
+
   async function add() {
     if (!phone) return;
     try {
@@ -31,6 +34,33 @@ export function ClientsScreen({ onCall }: { onCall: (phone: string) => void }) {
       load(search);
     } catch (e: any) {
       Alert.alert('Erreur', e.message);
+    }
+  }
+
+  async function importFromPhone() {
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Accès refusé', "Autorisez l'accès aux contacts dans les réglages pour les importer.");
+        return;
+      }
+      setImporting(true);
+      const { data } = await Contacts.getContactsAsync({ fields: [Contacts.Fields.PhoneNumbers] });
+      const items = (data || [])
+        .map((c) => ({ name: c.name || '', phone: c.phoneNumbers?.[0]?.number || '' }))
+        .filter((c) => c.phone)
+        .map((c) => ({ name: c.name || c.phone, phone: c.phone.replace(/\s/g, '') }));
+      if (items.length === 0) {
+        Alert.alert('Aucun contact', 'Aucun contact avec numéro trouvé.');
+        return;
+      }
+      const res = await api.importClients(items);
+      Alert.alert('Import terminé', `${res.imported} contact(s) ajouté(s) à votre carnet.`);
+      load(search);
+    } catch (e: any) {
+      Alert.alert('Erreur', e.message || "Impossible d'importer les contacts.");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -50,6 +80,10 @@ export function ClientsScreen({ onCall }: { onCall: (phone: string) => void }) {
             <Text style={{ color: '#fff', fontSize: 22, fontWeight: '600' }}>＋</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={s.importBtn} onPress={importFromPhone} disabled={importing}>
+          <Text style={s.importTxt}>{importing ? 'Import en cours…' : '📇 Importer mes contacts du téléphone'}</Text>
+        </TouchableOpacity>
 
         <FlatList
           data={list}
@@ -111,6 +145,11 @@ const s = StyleSheet.create({
     width: 48, backgroundColor: colors.primary, borderRadius: 14, alignItems: 'center',
     justifyContent: 'center',
   },
+  importBtn: {
+    backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 14, padding: 12, alignItems: 'center',
+    marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)',
+  },
+  importTxt: { color: colors.primary, fontWeight: '700', fontSize: 14.5 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingVertical: 12 },
   avatar: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: '#E8EEFF', alignItems: 'center',

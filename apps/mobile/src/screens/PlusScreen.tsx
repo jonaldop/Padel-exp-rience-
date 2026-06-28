@@ -19,8 +19,11 @@ export function PlusScreen({ onLogout }: { onLogout: () => void }) {
   }, []);
 
   const items: { icon: string; label: string; sub: string; onPress: () => void }[] = [
+    { icon: '⚙️', label: 'Réglages de la ligne', sub: 'Horaires, répondeur, renvoi d\'appel', onPress: () => nav.navigate('Reglages') },
     { icon: '📊', label: 'Statistiques', sub: 'Appels, taux de réponse, heures actives', onPress: () => nav.navigate('Statistiques') },
     { icon: '👥', label: 'Clients', sub: 'Votre carnet de contacts', onPress: () => nav.navigate('Clients') },
+    { icon: '🙍', label: 'Mes informations', sub: 'Prénom, nom, téléphone perso', onPress: () => nav.navigate('Profil') },
+    { icon: '💳', label: 'Ma formule', sub: 'Voir et changer d\'abonnement', onPress: () => nav.navigate('Formule') },
   ];
 
   return (

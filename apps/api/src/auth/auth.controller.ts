@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthService, JwtPayload } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
 import { CurrentUser, JwtGuard } from './jwt.guard';
@@ -43,8 +43,32 @@ export class AuthController {
         role: dbUser.role,
         firstName: dbUser.firstName,
         lastName: dbUser.lastName,
+        phonePerso: dbUser.phonePerso,
       },
       account: dbUser?.account,
     };
+  }
+
+  /** Met à jour les infos perso (prénom, nom, téléphone perso). */
+  @UseGuards(JwtGuard)
+  @Patch('profile')
+  updateProfile(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { firstName?: string; lastName?: string; phonePerso?: string },
+  ) {
+    const u = this.db.updateUserProfile(user.sub, body);
+    if (!u) return { error: 'Utilisateur introuvable' };
+    return { firstName: u.firstName, lastName: u.lastName, phonePerso: u.phonePerso };
+  }
+
+  /** Change la formule d'abonnement du compte. */
+  @UseGuards(JwtGuard)
+  @Patch('plan')
+  updatePlan(@CurrentUser() user: JwtPayload, @Body() body: { plan: string }) {
+    const allowed = ['starter', 'essentiel', 'pro', 'business'];
+    if (!allowed.includes(body.plan)) return { error: 'Formule inconnue' };
+    const a = this.db.updateAccountPlan(user.accountId, body.plan);
+    if (!a) return { error: 'Compte introuvable' };
+    return { plan: a.plan };
   }
 }

@@ -50,7 +50,15 @@ export const api = {
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   me: () => request('/auth/me'),
 
+  // Profil + formule
+  updateProfile: (data: { firstName?: string; lastName?: string; phonePerso?: string }) =>
+    request('/auth/profile', { method: 'PATCH', body: JSON.stringify(data) }),
+  updatePlan: (plan: string) =>
+    request('/auth/plan', { method: 'PATCH', body: JSON.stringify({ plan }) }),
+
   myNumbers: () => request('/numbers'),
+  updateNumberSettings: (id: string, patch: any) =>
+    request(`/numbers/${id}/settings`, { method: 'PATCH', body: JSON.stringify(patch) }),
   history: () => request('/calls'),
   voicemails: () => request('/calls/voicemails'),
 
@@ -61,6 +69,11 @@ export const api = {
     request('/clients' + (search ? `?search=${encodeURIComponent(search)}` : '')),
   addClient: (data: { name: string; phone: string }) =>
     request('/clients', { method: 'POST', body: JSON.stringify(data) }),
+  importClients: (items: { name: string; phone: string }[]) =>
+    request<{ imported: number }>('/clients/import', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    }),
 };
 
 export { API_URL };

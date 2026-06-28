@@ -205,6 +205,29 @@ export class DbService implements OnModuleInit {
     return { ...user, account };
   }
 
+  /** Met à jour les infos perso de l'utilisateur (profil). */
+  updateUserProfile(
+    userId: string,
+    patch: { firstName?: string; lastName?: string; phonePerso?: string },
+  ): User | null {
+    const u = this.data.users.find((x) => x.id === userId);
+    if (!u) return null;
+    for (const k of ['firstName', 'lastName', 'phonePerso'] as const) {
+      if (patch[k] !== undefined) u[k] = patch[k];
+    }
+    this.save();
+    return u;
+  }
+
+  /** Change la formule d'abonnement du compte. */
+  updateAccountPlan(accountId: string, plan: string): Account | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return null;
+    a.plan = plan;
+    this.save();
+    return a;
+  }
+
   // ── Numéros & réglages ─────────────────────────────────────────────────────
 
   countByE164(accountId: string, e164: string): number {

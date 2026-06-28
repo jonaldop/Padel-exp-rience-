@@ -16,6 +16,7 @@
     "@react-navigation/native-stack": "^6.11.0",
     "@telnyx/react-native-voice-sdk": "1.0.0",
     "expo": "~51.0.28",
+    "expo-contacts": "~13.0.5",
     "expo-linear-gradient": "~13.0.2",
     "expo-updates": "~0.25.28",
     "expo-secure-store": "~13.0.2",

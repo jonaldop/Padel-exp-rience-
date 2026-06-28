@@ -16,6 +16,9 @@ import { MessagesScreen } from './src/screens/MessagesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { PlusScreen } from './src/screens/PlusScreen';
 import { CallScreen } from './src/screens/CallScreen';
+import { LineSettingsScreen } from './src/screens/LineSettingsScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
+import { PlanScreen } from './src/screens/PlanScreen';
 import { TabBar } from './src/components/TabBar';
 
 const Tab = createBottomTabNavigator();
@@ -89,6 +92,21 @@ export default function App() {
             <Stack.Screen
               name="Clients"
               component={ClientsRoute}
+              options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
+            />
+            <Stack.Screen
+              name="Reglages"
+              component={LineSettingsScreen}
+              options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
+            />
+            <Stack.Screen
+              name="Profil"
+              component={ProfileScreen}
+              options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
+            />
+            <Stack.Screen
+              name="Formule"
+              component={PlanScreen}
               options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
             />
             <Stack.Screen
