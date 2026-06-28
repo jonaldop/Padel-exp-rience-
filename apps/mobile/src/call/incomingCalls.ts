@@ -1,6 +1,10 @@
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { TelnyxRTC } from '@telnyx/react-native-voice-sdk';
 import { api } from '../api';
+
+function loadInCall(): any {
+  try { return require('react-native-incall-manager').default; } catch { return null; }
+}
 
 /**
  * Réception d'appels ENTRANTS dans l'app (VoIP) — iOS d'abord.
@@ -75,17 +79,40 @@ function endCallKit() {
   currentCall = null;
 }
 
-/** Affiche l'écran d'appel iOS (sonnerie) pour un appel entrant reçu en foreground. */
+function answerCurrent() {
+  try {
+    const InCall = loadInCall();
+    InCall?.startRingtone?.('_BUNDLE_');
+    InCall?.stopRingtone?.();
+    InCall?.start?.({ media: 'audio' });
+  } catch { /* noop */ }
+  try { currentCall?.answer(); } catch { /* noop */ }
+}
+
+/** Affiche l'appel entrant (CallKit + alerte in-app fiable) en foreground. */
 function presentIncoming(call: any) {
   currentCall = call;
   currentUuid = uuidv4();
   const from = String(callerNumberOf(call));
+
+  // 1) Écran d'appel système (utile surtout app fermée / arrière-plan).
   if (CallKeep) {
-    try {
-      CallKeep.displayIncomingCall(currentUuid, from, from, 'generic', false);
-    } catch { /* noop */ }
+    try { CallKeep.displayIncomingCall(currentUuid, from, from, 'generic', false); } catch { /* noop */ }
   }
-  // Quand l'appel se termine, on retire l'écran CallKit.
+
+  // 2) Alerte in-app : visible et fiable quand l'app est ouverte.
+  try {
+    Alert.alert(
+      'Appel entrant',
+      from,
+      [
+        { text: 'Refuser', style: 'cancel', onPress: () => { try { currentCall?.hangup(); } catch {} endCallKit(); } },
+        { text: 'Répondre', onPress: () => answerCurrent() },
+      ],
+      { cancelable: false },
+    );
+  } catch { /* noop */ }
+
   try {
     call.on?.('telnyx.call.state', (_c: any, state: string) => {
       if (state === 'ended' || state === 'dropped') endCallKit();
