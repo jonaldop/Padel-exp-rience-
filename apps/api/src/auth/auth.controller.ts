@@ -21,6 +21,16 @@ export class AuthController {
     return this.auth.login(dto.email, dto.password);
   }
 
+  @Post('forgot')
+  forgot(@Body() body: { email: string }) {
+    return this.auth.forgotPassword(body.email || '');
+  }
+
+  @Post('reset')
+  reset(@Body() body: { token: string; password: string }) {
+    return this.auth.resetPassword(body.token || '', body.password || '');
+  }
+
   /** Profil de l'utilisateur connecté (+ son compte). */
   @UseGuards(JwtGuard)
   @Get('me')

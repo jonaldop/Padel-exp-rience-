@@ -46,6 +46,10 @@ export const api = {
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 
   me: () => request('/auth/me'),
+  forgot: (email: string) =>
+    request('/auth/forgot', { method: 'POST', body: JSON.stringify({ email }) }),
+  reset: (token: string, password: string) =>
+    request('/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
 
   // Numéros
   availableNumbers: (type?: string, contains?: string) => {

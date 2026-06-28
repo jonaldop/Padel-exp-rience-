@@ -107,6 +107,7 @@ interface Data {
   calls: Call[];
   voicemails: Voicemail[];
   clients: Client[];
+  resets: { token: string; userId: string; expiresAt: number }[];
 }
 
 const DEFAULT_SCHEDULE = JSON.stringify({
@@ -129,6 +130,7 @@ export class DbService implements OnModuleInit {
     calls: [],
     voicemails: [],
     clients: [],
+    resets: [],
   };
   private readonly file = process.env.DB_FILE || path.resolve(process.cwd(), 'data.json');
 
@@ -417,6 +419,33 @@ export class DbService implements OnModuleInit {
     const removed = this.data.clients.length < before;
     if (removed) this.save();
     return removed;
+  }
+
+  // ── Réinitialisation de mot de passe ───────────────────────────────────────
+
+  createPasswordReset(userId: string): string {
+    const token = randomUUID() + randomUUID().replace(/-/g, '');
+    const expiresAt = Date.now() + 30 * 60 * 1000; // 30 min
+    this.data.resets = this.data.resets.filter((r) => r.userId !== userId); // 1 actif/user
+    this.data.resets.push({ token, userId, expiresAt });
+    this.save();
+    return token;
+  }
+
+  consumePasswordReset(token: string): string | null {
+    const r = this.data.resets.find((x) => x.token === token);
+    if (!r || r.expiresAt < Date.now()) return null;
+    this.data.resets = this.data.resets.filter((x) => x.token !== token);
+    this.save();
+    return r.userId;
+  }
+
+  setUserPassword(userId: string, passwordHash: string): boolean {
+    const u = this.data.users.find((x) => x.id === userId);
+    if (!u) return false;
+    u.passwordHash = passwordHash;
+    this.save();
+    return true;
   }
 
   // util pour le seed
