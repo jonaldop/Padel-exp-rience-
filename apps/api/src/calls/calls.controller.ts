@@ -92,6 +92,28 @@ export class CallsController {
           status: 'ringing',
           providerCallId: callControlId,
         });
+
+        // Sonnerie in-app : on transfère SANS décrocher (l'appelant entend la
+        // sonnerie, ça ne se connecte que si on répond dans l'app). Décrocher
+        // d'abord donnerait l'impression que "ça décroche tout seul".
+        const st = number.settings;
+        const sched: WeeklySchedule = st?.weeklySchedule
+          ? safeJson(st.weeklySchedule, DEFAULT_SCHEDULE)
+          : DEFAULT_SCHEDULE;
+        const hol: string[] = st?.holidays ? safeJson(st.holidays, []) : [];
+        const ringApp = isOpen(sched, hol) && st?.ringInApp && !st?.forwardToMobile;
+        if (ringApp) {
+          const sipUser = await this.telnyx.getCredentialSipUser();
+          if (sipUser) {
+            this.logger.log(`Sonnerie in-app de ${payload.to} -> sip:${sipUser}`);
+            await this.telnyx.transferToUser(callControlId, sipUser, 25);
+            this.updateByProvider(callControlId, { status: 'ringing-app' });
+            break; // ⚠️ surtout pas de answer ici
+          }
+        }
+
+        // Tous les autres cas (répondeur, renvoi, fermé) : on décroche pour
+        // pouvoir jouer le message / renvoyer (logique sur call.answered).
         await this.telnyx.answer(callControlId);
         break;
       }
@@ -102,6 +124,9 @@ export class CallsController {
         // SORTANT est décroché, on jouait le répondeur par-dessus (bug du "ça
         // bascule sur mon répondeur"). Si pas de fiche d'appel -> on ignore.
         if (!call || call.direction !== 'inbound') break;
+        // Sonnerie in-app déjà déclenchée sur call.initiated : l'app a décroché
+        // le transfert -> rien à faire ici (sinon on jouerait le répondeur).
+        if (call.status === 'ringing-app') break;
         const settings = call?.phoneNumber?.settings;
         const schedule: WeeklySchedule = settings?.weeklySchedule
           ? safeJson(settings.weeklySchedule, DEFAULT_SCHEDULE)
@@ -110,21 +135,11 @@ export class CallsController {
 
         if (isOpen(schedule, holidays)) {
           const fwd = toE164Fr(settings?.forwardNumber || '');
-          const sipUser =
-            !settings?.forwardToMobile && settings?.ringInApp
-              ? await this.telnyx.getCredentialSipUser()
-              : null;
           if (settings?.forwardToMobile && fwd) {
             // Renvoi vers le mobile (fiable). Présente le n° pro comme caller ID.
             this.logger.log(`Renvoi de ${call.toE164} vers ${fwd}`);
             await this.telnyx.transferToPstn(callControlId, fwd, call?.toE164);
             this.updateByProvider(callControlId, { status: 'forwarded' });
-          } else if (sipUser) {
-            // Fait SONNER l'app (WebRTC/PushKit). Si pas de réponse (timeout),
-            // on bascule sur la messagerie (géré à l'événement de fin de transfert).
-            this.logger.log(`Sonnerie in-app de ${call.toE164} -> sip:${sipUser}`);
-            await this.telnyx.transferToUser(callControlId, sipUser, 25);
-            this.updateByProvider(callControlId, { status: 'ringing-app' });
           } else if (settings?.voicemailEnabled !== false) {
             // Pas de renvoi configuré : on prend un message (le softphone web ne
             // peut pas sonner de façon fiable -> ce sera l'app native + CallKit).
