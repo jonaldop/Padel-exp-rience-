@@ -190,8 +190,12 @@ function DebugCalls({ token }: { token: string }) {
         <div style={{ display: 'grid', gap: 6 }}>
           {events.map((e, i) => (
             <div key={i} style={{ fontFamily: 'monospace', fontSize: 12, background: 'rgba(255,255,255,0.6)', borderRadius: 8, padding: 8 }}>
-              <b>{e.decision}</b> · de {e.from} → {e.to} · ouvert={String(e.open)}
+              <b>{e.decision || e.type || '?'}</b> · de {e.from} → {e.to}
+              {e.dir ? ` · ${e.dir}` : ''}
+              {typeof e.open !== 'undefined' ? ` · ouvert=${String(e.open)}` : ''}
               {e.sipUser ? ` · sip=${e.sipUser}` : ''}
+              {e.cause ? ` · cause=${e.cause}` : ''}
+              {e.sipCause ? ` · sip=${e.sipCause}` : ''}
               {e.transferErr ? ` · ⚠️ ${e.transferErr}` : ''}
               {' · '}{new Date(e.at).toLocaleTimeString('fr-FR')}
             </div>
