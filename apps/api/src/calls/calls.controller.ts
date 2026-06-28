@@ -109,16 +109,25 @@ export class CallsController {
         const holidays: string[] = settings?.holidays ? safeJson(settings.holidays, []) : [];
 
         if (isOpen(schedule, holidays)) {
-          if (settings?.forwardToMobile && settings.forwardNumber) {
-            // Présente le numéro pro (DID appelé) comme caller ID du renvoi.
-            await this.telnyx.transferToPstn(callControlId, settings.forwardNumber, call?.toE164);
+          const fwd = toE164Fr(settings?.forwardNumber || '');
+          if (settings?.forwardToMobile && fwd) {
+            // Renvoi vers le mobile (fiable). Présente le n° pro comme caller ID.
+            this.logger.log(`Renvoi de ${call.toE164} vers ${fwd}`);
+            await this.telnyx.transferToPstn(callControlId, fwd, call?.toE164);
             this.updateByProvider(callControlId, { status: 'forwarded' });
+          } else if (settings?.voicemailEnabled !== false) {
+            // Pas de renvoi configuré : on prend un message (le softphone web ne
+            // peut pas sonner de façon fiable -> ce sera l'app native + CallKit).
+            await this.telnyx.speak(
+              callControlId,
+              settings?.greetingOpen ||
+                'Bonjour, merci de laisser un message, nous vous rappellerons.',
+              settings?.greetingVoice || 'Polly.Lea-Neural',
+            );
+            await this.telnyx.recordStart(callControlId);
+            this.updateByProvider(callControlId, { status: 'voicemail' });
           } else {
-            await this.telnyx.transferToUser(callControlId, 'demo-user');
-            this.updateByProvider(callControlId, {
-              status: 'answered',
-              answeredAt: new Date().toISOString(),
-            });
+            await this.telnyx.hangup(callControlId);
           }
         } else {
           await this.telnyx.speak(
@@ -173,6 +182,17 @@ export class CallsController {
     const call = this.db.findCallByProviderId(providerCallId);
     if (call) this.db.updateCall(call.id, patch);
   }
+}
+
+/** Normalise un numéro FR en E.164 : 06... -> +336..., 0033... -> +33..., défaut FR. */
+function toE164Fr(raw: string): string {
+  const d = (raw || '').replace(/[^\d+]/g, '');
+  if (!d) return '';
+  if (d.startsWith('+')) return d;
+  if (d.startsWith('0033')) return '+' + d.slice(2);
+  if (d.startsWith('33')) return '+' + d;
+  if (d.startsWith('0')) return '+33' + d.slice(1);
+  return '+33' + d;
 }
 
 function safeJson<T>(s: string, fallback: T): T {
