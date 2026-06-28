@@ -1,57 +1,49 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { api, auth } from './src/api';
 import { colors } from './src/theme';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { HomeScreen } from './src/screens/HomeScreen';
 import { RecentsScreen } from './src/screens/RecentsScreen';
 import { ClientsScreen } from './src/screens/ClientsScreen';
 import { DialerScreen } from './src/screens/DialerScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
+import { StatsScreen } from './src/screens/StatsScreen';
+import { PlusScreen } from './src/screens/PlusScreen';
+import { TabBar } from './src/components/TabBar';
 
 const Tab = createBottomTabNavigator();
-
-function ClientsTab() {
-  const navigation = useNavigation<any>();
-  return <ClientsScreen onCall={(phone) => navigation.navigate('Clavier', { number: phone })} />;
-}
+const Stack = createNativeStackNavigator();
 
 function DialerTab() {
   const route = useRoute<any>();
   return <DialerScreen initialNumber={route.params?.number} />;
 }
 
-function ProfileScreen({ onLogout }: { onLogout: () => void }) {
-  const [me, setMe] = useState<any>(null);
-  useEffect(() => {
-    api.me().then(setMe).catch(() => {});
-  }, []);
-  return (
-    <View style={ps.container}>
-      <Text style={ps.title}>Compte</Text>
-      <View style={ps.card}>
-        <Text style={ps.label}>Entreprise</Text>
-        <Text style={ps.value}>{me?.account?.companyName || '—'}</Text>
-        <Text style={[ps.label, { marginTop: 14 }]}>Email</Text>
-        <Text style={ps.value}>{me?.user?.email || '—'}</Text>
-      </View>
-      <TouchableOpacity style={ps.logout} onPress={onLogout}>
-        <Text style={{ color: colors.red, fontWeight: '700', fontSize: 16 }}>Déconnexion</Text>
-      </TouchableOpacity>
-    </View>
-  );
+function ClientsRoute() {
+  const navigation = useNavigation<any>();
+  return <ClientsScreen onCall={(phone) => navigation.navigate('Clavier', { number: phone })} />;
 }
 
-const ICONS: Record<string, string> = {
-  Récents: '🕓',
-  Clients: '👤',
-  Clavier: '🔢',
-  Messagerie: '🎙️',
-  Compte: '⚙️',
-};
+function Tabs({ onLogout }: { onLogout: () => void }) {
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <TabBar {...props} />}
+      screenOptions={{ headerShown: false }}
+    >
+      <Tab.Screen name="Accueil" component={HomeScreen} />
+      <Tab.Screen name="Appels" component={RecentsScreen} />
+      <Tab.Screen name="Clavier" component={DialerTab} />
+      <Tab.Screen name="Messages" component={MessagesScreen} />
+      <Tab.Screen name="Plus">{() => <PlusScreen onLogout={onLogout} />}</Tab.Screen>
+    </Tab.Navigator>
+  );
+}
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -84,43 +76,23 @@ export default function App() {
         <LoginScreen onLoggedIn={() => setAuthed(true)} />
       ) : (
         <NavigationContainer>
-          <Tab.Navigator
-            screenOptions={({ route }) => ({
-              headerShown: false,
-              tabBarActiveTintColor: colors.primary,
-              tabBarInactiveTintColor: colors.muted,
-              tabBarIcon: ({ color }) => (
-                <Text style={{ fontSize: 20, opacity: color === colors.primary ? 1 : 0.6 }}>
-                  {ICONS[route.name]}
-                </Text>
-              ),
-            })}
-          >
-            <Tab.Screen name="Récents" component={RecentsScreen} />
-            <Tab.Screen name="Clients" component={ClientsTab} />
-            <Tab.Screen name="Clavier" component={DialerTab} />
-            <Tab.Screen name="Messagerie" component={MessagesScreen} />
-            <Tab.Screen name="Compte">
-              {() => <ProfileScreen onLogout={logout} />}
-            </Tab.Screen>
-          </Tab.Navigator>
+          <Stack.Navigator>
+            <Stack.Screen name="Tabs" options={{ headerShown: false }}>
+              {() => <Tabs onLogout={logout} />}
+            </Stack.Screen>
+            <Stack.Screen
+              name="Statistiques"
+              component={StatsScreen}
+              options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
+            />
+            <Stack.Screen
+              name="Clients"
+              component={ClientsRoute}
+              options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
+            />
+          </Stack.Navigator>
         </NavigationContainer>
       )}
     </SafeAreaProvider>
   );
 }
-
-const ps = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, padding: 16, paddingTop: 60 },
-  title: { fontSize: 30, fontWeight: '800', marginBottom: 16 },
-  card: {
-    backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1,
-    borderColor: colors.border,
-  },
-  label: { fontSize: 13, color: colors.muted },
-  value: { fontSize: 17, fontWeight: '600', marginTop: 2 },
-  logout: {
-    backgroundColor: colors.card, borderRadius: 14, padding: 16, alignItems: 'center',
-    marginTop: 16, borderWidth: 1, borderColor: colors.border,
-  },
-});

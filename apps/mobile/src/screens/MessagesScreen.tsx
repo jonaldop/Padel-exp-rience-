@@ -1,57 +1,60 @@
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, RefreshControl, Linking } from 'react-native';
+import { Text, FlatList, StyleSheet, RefreshControl, Linking, View, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { colors } from '../theme';
+import { GradientBg, Glass } from '../ui';
 import { formatFr } from '../format';
 
 export function MessagesScreen() {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
-    api.voicemails().then(setItems).catch(() => {}).finally(() => setLoading(false));
+    api.voicemails().then((v) => setItems(Array.isArray(v) ? v : [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
-    <View style={s.container}>
-      <Text style={s.title}>Messagerie</Text>
+    <GradientBg>
       <FlatList
         data={items}
         keyExtractor={(v) => v.id}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 130 }}
+        ListHeaderComponent={<Text style={s.title}>Messagerie</Text>}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
         ListEmptyComponent={<Text style={s.empty}>Aucun message vocal.</Text>}
         renderItem={({ item: vm }) => (
-          <View style={s.row}>
-            <Text style={{ fontSize: 20, marginRight: 12 }}>🎙️</Text>
+          <Glass style={s.row}>
+            <View style={s.icon}><Text style={{ fontSize: 16 }}>🎙️</Text></View>
             <View style={{ flex: 1 }}>
               <Text style={s.num}>{vm.call ? formatFr(vm.call.fromE164) : 'Inconnu'}</Text>
               <Text style={s.sub}>{new Date(vm.createdAt).toLocaleString('fr-FR')}</Text>
               {vm.transcriptionText ? <Text style={s.txt}>« {vm.transcriptionText} »</Text> : null}
             </View>
             {vm.audioUrl ? (
-              <Text style={s.play} onPress={() => Linking.openURL(vm.audioUrl)}>▶︎</Text>
+              <TouchableOpacity style={s.play} onPress={() => Linking.openURL(vm.audioUrl)}>
+                <Text style={{ fontSize: 16, color: colors.primary }}>▶︎</Text>
+              </TouchableOpacity>
             ) : null}
-          </View>
+          </Glass>
         )}
       />
-    </View>
+    </GradientBg>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 8 },
-  title: { fontSize: 30, fontWeight: '800', marginVertical: 12 },
-  row: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 14,
-    padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border,
-  },
-  num: { fontSize: 16, fontWeight: '700' },
-  sub: { fontSize: 13, color: colors.muted },
+  title: { fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 14, paddingHorizontal: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingVertical: 12 },
+  icon: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F3EAFF', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  num: { fontSize: 16, fontWeight: '700', color: colors.text },
+  sub: { fontSize: 13, color: colors.muted, marginTop: 1 },
   txt: { fontSize: 14, marginTop: 6, color: colors.text },
-  play: { fontSize: 22, color: colors.primary, paddingHorizontal: 10 },
-  empty: { color: colors.muted, textAlign: 'center', marginTop: 40 },
+  play: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E8EEFF', alignItems: 'center', justifyContent: 'center' },
+  empty: { color: colors.muted, textAlign: 'center', marginTop: 60 },
 });
