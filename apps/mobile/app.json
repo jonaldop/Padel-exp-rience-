@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Standard Pro",
+    "slug": "standard-pro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "standardpro",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.standardpro.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "L'application utilise le micro pour passer et recevoir vos appels professionnels.",
+        "UIBackgroundModes": ["audio", "voip"]
+      }
+    },
+    "android": {
+      "package": "com.standardpro.app",
+      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"]
+    },
+    "extra": {
+      "apiUrl": "https://padel-exp-rience-production.up.railway.app"
+    }
+  }
+}
