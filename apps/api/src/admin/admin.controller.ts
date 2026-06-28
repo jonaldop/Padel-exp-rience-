@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, Query, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DbService } from '../db/db.service';
 import { TelnyxService } from '../telnyx/telnyx.service';
@@ -38,8 +38,42 @@ export class AdminController {
     @Headers('x-admin-key') headerKey: string,
   ) {
     this.authorize(authorization, key || headerKey);
-    const accounts = this.db.adminListAccounts();
+    const accounts = this.db.adminListAccounts(config.costPerMinute);
     return { count: accounts.length, accounts };
+  }
+
+  /** Tableau de bord : synthèse + solde Telnyx. */
+  @Get('dashboard')
+  async dashboard(@Headers('authorization') authorization: string, @Query('key') key: string) {
+    this.authorize(authorization, key);
+    const summary = this.db.adminSummary(config.costPerMinute);
+    const telnyx = await this.telnyx.getBalance();
+    return { summary, telnyx, costPerMinute: config.costPerMinute };
+  }
+
+  /** Formules : lister. */
+  @Get('plans')
+  plans(@Headers('authorization') authorization: string, @Query('key') key: string) {
+    this.authorize(authorization, key);
+    return { plans: this.db.listPlans() };
+  }
+
+  /** Formules : créer / modifier. */
+  @Patch('plans')
+  upsertPlan(
+    @Headers('authorization') authorization: string,
+    @Body() body: { key: string; name?: string; monthlyPrice?: number; includedMinutes?: number; features?: string[]; active?: boolean },
+  ) {
+    this.authorize(authorization);
+    if (!body.key) return { error: 'Clé de formule requise' };
+    return this.db.upsertPlan(body);
+  }
+
+  /** Formules : supprimer. */
+  @Delete('plans/:key')
+  deletePlan(@Headers('authorization') authorization: string, @Param('key') key: string) {
+    this.authorize(authorization);
+    return { deleted: this.db.deletePlan(key) };
   }
 
   /** Configure le push VoIP iOS (certificat APNs) dans Telnyx. */
