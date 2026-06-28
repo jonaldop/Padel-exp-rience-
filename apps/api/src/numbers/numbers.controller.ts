@@ -136,6 +136,7 @@ export class NumbersController {
       'voicemailEnabled',
       'recordingEnabled',
       'aiEnabled',
+      'ringInApp',
     ]) {
       if (body[k] !== undefined) patch[k] = body[k];
     }

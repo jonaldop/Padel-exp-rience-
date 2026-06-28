@@ -50,6 +50,7 @@ export interface PhoneSettings {
   voicemailEnabled: boolean;
   recordingEnabled: boolean;
   aiEnabled: boolean;
+  ringInApp?: boolean;
 }
 export interface PhoneNumber {
   id: string;
@@ -280,6 +281,7 @@ export class DbService implements OnModuleInit {
       voicemailEnabled: true,
       recordingEnabled: false,
       aiEnabled: false,
+      ringInApp: false,
     };
     this.data.phoneNumbers.push(num);
     this.data.settings.push(settings);

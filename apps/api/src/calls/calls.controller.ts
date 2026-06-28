@@ -110,11 +110,21 @@ export class CallsController {
 
         if (isOpen(schedule, holidays)) {
           const fwd = toE164Fr(settings?.forwardNumber || '');
+          const sipUser =
+            !settings?.forwardToMobile && settings?.ringInApp
+              ? await this.telnyx.getCredentialSipUser()
+              : null;
           if (settings?.forwardToMobile && fwd) {
             // Renvoi vers le mobile (fiable). Présente le n° pro comme caller ID.
             this.logger.log(`Renvoi de ${call.toE164} vers ${fwd}`);
             await this.telnyx.transferToPstn(callControlId, fwd, call?.toE164);
             this.updateByProvider(callControlId, { status: 'forwarded' });
+          } else if (sipUser) {
+            // Fait SONNER l'app (WebRTC/PushKit). Si pas de réponse (timeout),
+            // on bascule sur la messagerie (géré à l'événement de fin de transfert).
+            this.logger.log(`Sonnerie in-app de ${call.toE164} -> sip:${sipUser}`);
+            await this.telnyx.transferToUser(callControlId, sipUser, 25);
+            this.updateByProvider(callControlId, { status: 'ringing-app' });
           } else if (settings?.voicemailEnabled !== false) {
             // Pas de renvoi configuré : on prend un message (le softphone web ne
             // peut pas sonner de façon fiable -> ce sera l'app native + CallKit).

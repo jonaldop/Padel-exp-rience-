@@ -364,11 +364,22 @@ export class TelnyxService {
     return this.api(`/calls/${callControlId}/actions/speak`, { method: 'POST', body });
   }
 
-  transferToUser(callControlId: string, sipUsername: string) {
-    return this.api(`/calls/${callControlId}/actions/transfer`, {
-      method: 'POST',
-      body: { to: `sip:${sipUsername}@sip.telnyx.com` },
-    });
+  transferToUser(callControlId: string, sipUsername: string, timeoutSecs?: number) {
+    const body: any = { to: `sip:${sipUsername}@sip.telnyx.com` };
+    if (timeoutSecs) body.timeout_secs = timeoutSecs;
+    return this.api(`/calls/${callControlId}/actions/transfer`, { method: 'POST', body });
+  }
+
+  /** Nom d'utilisateur SIP de notre connexion WebRTC (cible des appels entrants in-app). */
+  async getCredentialSipUser(): Promise<string | null> {
+    if (!this.configured) return null;
+    try {
+      const id = await this.ensureCredentialConnection();
+      const data = await this.api<{ data: any }>(`/credential_connections/${id}`);
+      return data.data?.user_name || null;
+    } catch {
+      return null;
+    }
   }
 
   /** Renvoi vers un mobile classique (PSTN). Présente le numéro pro en caller ID. */
