@@ -120,30 +120,40 @@ function presentIncoming(call: any) {
   } catch { /* noop */ }
 }
 
+let connecting = false;
+
 async function connectClient() {
+  if (connecting || stopping) return; // une seule connexion à la fois
+  connecting = true;
+  // Ferme proprement l'ancienne connexion avant d'en ouvrir une nouvelle
+  // (sinon le même identifiant s'enregistre en double et ne se stabilise pas).
+  try { client?.disconnect(); } catch { /* noop */ }
+  client = null;
   try {
     setStatus('connecting');
     const { token } = await api.webrtcToken();
     const opts: any = { login_token: token };
     if (voipToken) opts.pushNotificationDeviceToken = voipToken;
-    client = new (TelnyxRTC as any)(opts);
-    client.on('telnyx.client.ready', () => setStatus('connected'));
-    client.on('telnyx.call.incoming', (call: any) => {
-      presentIncoming(call);
-    });
-    // En cas d'erreur/déconnexion, on tente de se reconnecter (la ligne ne
-    // doit pas rester "hors ligne" : elle doit pouvoir recevoir en continu).
-    client.on('telnyx.client.error', () => { setStatus('connecting'); scheduleReconnect(); });
-    client.on('telnyx.client.disconnected', () => { setStatus('connecting'); scheduleReconnect(); });
-    client.on('telnyx.socket.close', () => { setStatus('connecting'); scheduleReconnect(); });
-    await client.connect();
+    const c = new (TelnyxRTC as any)(opts);
+    client = c;
+    c.on('telnyx.client.ready', () => { connecting = false; setStatus('connected'); });
+    c.on('telnyx.call.incoming', (call: any) => presentIncoming(call));
+    const onDrop = () => {
+      connecting = false;
+      if (client === c) { setStatus('connecting'); scheduleReconnect(); }
+    };
+    c.on('telnyx.client.error', onDrop);
+    c.on('telnyx.client.disconnected', onDrop);
+    c.on('telnyx.socket.close', onDrop);
+    await c.connect();
   } catch {
+    connecting = false;
     scheduleReconnect();
   }
 }
 
 function scheduleReconnect() {
-  if (stopping || reconnectTimer) return;
+  if (stopping || reconnectTimer || connecting) return;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     if (!stopping) connectClient();
@@ -215,8 +225,8 @@ export function startIncomingCalls() {
   // Filet de sécurité : si la ligne tombe (et qu'aucun événement d'erreur n'a
   // déclenché la reconnexion), on se reconnecte tout seul.
   heartbeat = setInterval(() => {
-    if (!stopping && lineStatus !== 'connected' && !reconnectTimer) connectClient();
-  }, 20000);
+    if (!stopping && !connecting && lineStatus !== 'connected' && !reconnectTimer) connectClient();
+  }, 30000);
 }
 
 export function stopIncomingCalls() {

@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import { api, auth } from './src/api';
 import { colors } from './src/theme';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -59,6 +60,22 @@ export default function App() {
       setAuthed(!!t);
       setReady(true);
     });
+  }, []);
+
+  // Mise à jour automatique au démarrage (applique l'OTA sans double réouverture).
+  useEffect(() => {
+    (async () => {
+      try {
+        if (__DEV__ || !Updates.isEnabled) return;
+        const res = await Updates.checkForUpdateAsync();
+        if (res.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        /* pas bloquant */
+      }
+    })();
   }, []);
 
   // Active la réception d'appels entrants une fois connecté (iOS).
