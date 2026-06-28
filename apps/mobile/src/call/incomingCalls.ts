@@ -17,6 +17,9 @@ let currentCall: any = null;
 let currentUuid: string | null = null;
 let voipToken: string | null = null;
 let started = false;
+let stopping = false;
+let reconnectTimer: any = null;
+let heartbeat: any = null;
 let CallKeep: any = null;
 let VoipPush: any = null;
 
@@ -101,16 +104,29 @@ async function connectClient() {
     client.on('telnyx.call.incoming', (call: any) => {
       presentIncoming(call);
     });
-    client.on('telnyx.client.error', () => setStatus('offline'));
+    // En cas d'erreur/déconnexion, on tente de se reconnecter (la ligne ne
+    // doit pas rester "hors ligne" : elle doit pouvoir recevoir en continu).
+    client.on('telnyx.client.error', () => { setStatus('connecting'); scheduleReconnect(); });
+    client.on('telnyx.client.disconnected', () => { setStatus('connecting'); scheduleReconnect(); });
+    client.on('telnyx.socket.close', () => { setStatus('connecting'); scheduleReconnect(); });
     await client.connect();
   } catch {
-    setStatus('offline'); // on retentera au prochain lancement
+    scheduleReconnect();
   }
+}
+
+function scheduleReconnect() {
+  if (stopping || reconnectTimer) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (!stopping) connectClient();
+  }, 4000);
 }
 
 export function startIncomingCalls() {
   if (started || Platform.OS !== 'ios') { setStatus('unsupported'); return; }
   started = true;
+  stopping = false;
 
   CallKeep = loadCallKeep();
   VoipPush = loadVoipPush();
@@ -168,9 +184,18 @@ export function startIncomingCalls() {
 
   // Connexion initiale (reçoit les appels quand l'app est ouverte)
   connectClient();
+
+  // Filet de sécurité : si la ligne tombe (et qu'aucun événement d'erreur n'a
+  // déclenché la reconnexion), on se reconnecte tout seul.
+  heartbeat = setInterval(() => {
+    if (!stopping && lineStatus !== 'connected' && !reconnectTimer) connectClient();
+  }, 20000);
 }
 
 export function stopIncomingCalls() {
+  stopping = true;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
   try { currentCall?.hangup(); } catch { /* noop */ }
   try { client?.disconnect(); } catch { /* noop */ }
   endCallKit();
