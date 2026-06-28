@@ -205,6 +205,10 @@ export class DbService implements OnModuleInit {
 
   // ── Numéros & réglages ─────────────────────────────────────────────────────
 
+  countByE164(accountId: string, e164: string): number {
+    return this.data.phoneNumbers.filter((n) => n.accountId === accountId && n.e164 === e164).length;
+  }
+
   createPhoneNumber(input: {
     accountId: string;
     e164: string;
@@ -214,6 +218,13 @@ export class DbService implements OnModuleInit {
     status?: string;
     greetingClosed?: string;
   }): PhoneNumber & { settings: PhoneSettings } {
+    // Anti-doublon : si ce numéro existe déjà pour ce compte, on le renvoie tel quel.
+    const existing = this.data.phoneNumbers.find(
+      (n) => n.accountId === input.accountId && n.e164 === input.e164,
+    );
+    if (existing) {
+      return { ...existing, settings: this.settingsOf(existing.id) };
+    }
     const num: PhoneNumber = {
       id: randomUUID(),
       accountId: input.accountId,
@@ -264,7 +275,10 @@ export class DbService implements OnModuleInit {
   }
 
   findPhoneNumberByE164(e164: string) {
-    const n = this.data.phoneNumbers.find((x) => x.e164 === e164);
+    // En cas de doublons, prend le plus récemment configuré (aligné sur l'UI).
+    const n = this.data.phoneNumbers
+      .filter((x) => x.e164 === e164)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     if (!n) return null;
     const account = this.data.accounts.find((a) => a.id === n.accountId)!;
     return { ...n, settings: this.settingsOf(n.id), account };

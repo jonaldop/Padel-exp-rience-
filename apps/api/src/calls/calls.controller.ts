@@ -98,6 +98,10 @@ export class CallsController {
 
       case 'call.answered': {
         const call = this.db.findCallByProviderId(callControlId);
+        // ⚠️ Ne traiter QUE les appels entrants qu'on gère. Sinon, quand un appel
+        // SORTANT est décroché, on jouait le répondeur par-dessus (bug du "ça
+        // bascule sur mon répondeur"). Si pas de fiche d'appel -> on ignore.
+        if (!call || call.direction !== 'inbound') break;
         const settings = call?.phoneNumber?.settings;
         const schedule: WeeklySchedule = settings?.weeklySchedule
           ? safeJson(settings.weeklySchedule, DEFAULT_SCHEDULE)
