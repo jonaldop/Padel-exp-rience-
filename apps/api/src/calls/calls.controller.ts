@@ -104,7 +104,9 @@ export class CallsController {
         const open = isOpen(sched, hol);
         const ringApp = open && st?.ringInApp && !st?.forwardToMobile;
         if (ringApp) {
-          const sipUser = await this.telnyx.getAccountSipUser(number.accountId);
+          // L'app se connecte avec les identifiants de la CONNEXION -> on route
+          // l'appel vers le user_name de la connexion (joignable en entrant).
+          const sipUser = await this.telnyx.getCredentialSipUser();
           if (sipUser) {
             this.logger.log(`Sonnerie in-app de ${payload.to} -> sip:${sipUser}`);
             let transferErr: string | null = null;

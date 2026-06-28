@@ -1,5 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { config } from '../config/config';
 
 /**
@@ -349,6 +349,32 @@ export class TelnyxService {
       cred = created.data;
     }
     return { id: cred.id, sipUsername: cred.sip_username || null };
+  }
+
+  /**
+   * Identifiants de connexion (login + mot de passe) pour la réception d'appels
+   * ENTRANTS en WebRTC. Contrairement aux "telephony credentials" jetables (qui
+   * ne reçoivent PAS d'appels entrants chez Telnyx), la connexion elle-même est
+   * joignable via sip:<user_name>@sip.telnyx.com.
+   *
+   * Le mot de passe est déterministe (dérivé d'un secret) et (re)posé sur la
+   * connexion, pour qu'on puisse le redonner à l'app sans le stocker.
+   */
+  private webrtcCreds?: { login: string; password: string };
+  async ensureWebrtcCredentials(): Promise<{ login: string; password: string }> {
+    if (!this.configured) {
+      throw new ServiceUnavailableException('Telnyx non configuré');
+    }
+    if (this.webrtcCreds) return this.webrtcCreds;
+    const connId = await this.ensureCredentialConnection();
+    const conn = await this.api<{ data: any }>(`/credential_connections/${connId}`);
+    const login = conn.data?.user_name;
+    const password = 'Sp' + createHash('sha256').update(config.jwtSecret + connId).digest('hex').slice(0, 24);
+    // (Re)pose le mot de passe connu sur la connexion.
+    await this.api(`/credential_connections/${connId}`, { method: 'PATCH', body: { password } });
+    this.webrtcCreds = { login, password };
+    this.logger.log('Identifiants WebRTC (connexion) prêts pour la réception entrante');
+    return this.webrtcCreds;
   }
 
   async createWebrtcToken(tag: string): Promise<{ token: string }> {
