@@ -97,7 +97,8 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
           >
             📞
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Standard Pro</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Joe</h1>
+          <p style={{ color: colors.muted, marginTop: 2, fontSize: 13, fontWeight: 600 }}>Ta ligne pro</p>
           <p style={{ color: colors.muted, marginTop: 6, fontSize: 15 }}>{titles[mode]}</p>
         </div>
 

@@ -21,7 +21,7 @@ export const config = {
   adminKey: process.env.ADMIN_KEY || 'standardpro-admin',
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
-    from: process.env.EMAIL_FROM || 'Standard Pro <onboarding@resend.dev>',
+    from: process.env.EMAIL_FROM || 'Joe <onboarding@resend.dev>',
     get configured() {
       return Boolean(process.env.RESEND_API_KEY);
     },

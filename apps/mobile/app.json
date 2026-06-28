@@ -1,12 +1,18 @@
 {
   "expo": {
-    "name": "Standard Pro",
+    "name": "Joe",
     "slug": "standard-pro",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "standardpro",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.webmarketingservices.standardpro",
@@ -18,7 +24,14 @@
     },
     "android": {
       "package": "com.webmarketingservices.standardpro",
-      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"]
+      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "extra": {
       "apiUrl": "https://padel-exp-rience-production.up.railway.app"

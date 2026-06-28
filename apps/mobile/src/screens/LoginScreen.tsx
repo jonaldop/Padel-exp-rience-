@@ -45,7 +45,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
       <View style={s.logo}>
         <Text style={{ fontSize: 34 }}>📞</Text>
       </View>
-      <Text style={s.title}>Standard Pro</Text>
+      <Text style={s.title}>Joe</Text>
       <Text style={s.subtitle}>
         {mode === 'login' ? 'Connexion à votre espace' : 'Créez votre compte'}
       </Text>

@@ -104,7 +104,7 @@ export class AuthService {
       body: JSON.stringify({
         from: config.email.from,
         to,
-        subject: 'Réinitialisation de votre mot de passe — Standard Pro',
+        subject: 'Réinitialisation de votre mot de passe — Joe',
         html: `<p>Bonjour,</p>
 <p>Vous avez demandé à réinitialiser votre mot de passe.</p>
 <p><a href="${resetUrl}">Cliquez ici pour choisir un nouveau mot de passe</a> (lien valable 30 minutes).</p>

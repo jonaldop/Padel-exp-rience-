@@ -1,16 +1,22 @@
 {
-  "name": "Standard Pro — Standard téléphonique",
-  "short_name": "Standard Pro",
-  "description": "Votre standard téléphonique professionnel : numéro pro, appels, répondeur, messagerie.",
+  "name": "Joe — Ta ligne pro",
+  "short_name": "Joe",
+  "description": "Votre ligne pro : numéro professionnel, appels, répondeur, messagerie.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f7f8fa",
-  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "theme_color": "#5b34d6",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

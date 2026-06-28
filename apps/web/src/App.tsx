@@ -65,7 +65,7 @@ export function App() {
       >
         📞
       </div>
-      <strong style={{ fontSize: 17, letterSpacing: '-0.02em' }}>Standard Pro</strong>
+      <strong style={{ fontSize: 17, letterSpacing: '-0.02em' }}>Joe</strong>
     </div>
   );
 
