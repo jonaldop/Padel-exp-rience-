@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -7,6 +7,7 @@ import { colors } from '../theme';
 import { GradientBg, Glass, Delta, Waveform } from '../ui';
 import { formatFr } from '../format';
 import { BUILD_TAG } from '../version';
+import { setLineStatusListener, LineStatus } from '../call/incomingCalls';
 
 function isSameDay(iso: string, ref: Date) {
   const d = new Date(iso);
@@ -59,7 +60,13 @@ export function HomeScreen() {
   const [vms, setVms] = useState<any[]>([]);
   const [ai, setAi] = useState(false);
   const [proNumber, setProNumber] = useState<string>('');
+  const [lineStatus, setLineStatus] = useState<LineStatus>('offline');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLineStatusListener(setLineStatus);
+    return () => setLineStatusListener(null);
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -101,6 +108,16 @@ export function HomeScreen() {
                 <Text style={s.proChipTxt}>📞 Ligne pro · {formatFr(proNumber)}</Text>
               </View>
             )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, marginRight: 6, backgroundColor:
+                lineStatus === 'connected' ? colors.green : lineStatus === 'connecting' ? colors.amber : lineStatus === 'unsupported' ? colors.muted : colors.red }} />
+              <Text style={{ fontSize: 12.5, color: colors.muted }}>
+                {lineStatus === 'connected' ? 'Ligne connectée — prête à recevoir'
+                  : lineStatus === 'connecting' ? 'Connexion de la ligne…'
+                  : lineStatus === 'unsupported' ? 'Réception in-app indisponible (ce build)'
+                  : 'Ligne hors ligne'}
+              </Text>
+            </View>
           </View>
           <View style={s.bell}>
             <Text style={{ fontSize: 18 }}>🔔</Text>

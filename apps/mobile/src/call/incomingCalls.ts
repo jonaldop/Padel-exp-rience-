@@ -20,6 +20,22 @@ let started = false;
 let CallKeep: any = null;
 let VoipPush: any = null;
 
+export type LineStatus = 'offline' | 'connecting' | 'connected' | 'unsupported';
+let lineStatus: LineStatus = 'offline';
+let statusListener: ((s: LineStatus) => void) | null = null;
+
+export function getLineStatus(): LineStatus {
+  return lineStatus;
+}
+export function setLineStatusListener(cb: ((s: LineStatus) => void) | null) {
+  statusListener = cb;
+  if (cb) cb(lineStatus);
+}
+function setStatus(s: LineStatus) {
+  lineStatus = s;
+  try { statusListener?.(s); } catch { /* noop */ }
+}
+
 function loadCallKeep(): any {
   try { return require('react-native-callkeep').default; } catch { return null; }
 }
@@ -76,29 +92,32 @@ function presentIncoming(call: any) {
 
 async function connectClient() {
   try {
+    setStatus('connecting');
     const { token } = await api.webrtcToken();
     const opts: any = { login_token: token };
     if (voipToken) opts.pushNotificationDeviceToken = voipToken;
     client = new (TelnyxRTC as any)(opts);
+    client.on('telnyx.client.ready', () => setStatus('connected'));
     client.on('telnyx.call.incoming', (call: any) => {
       presentIncoming(call);
     });
-    client.on('telnyx.client.error', () => {});
+    client.on('telnyx.client.error', () => setStatus('offline'));
     await client.connect();
   } catch {
-    /* pas bloquant : on retentera au prochain lancement */
+    setStatus('offline'); // on retentera au prochain lancement
   }
 }
 
 export function startIncomingCalls() {
-  if (started || Platform.OS !== 'ios') return;
+  if (started || Platform.OS !== 'ios') { setStatus('unsupported'); return; }
   started = true;
 
   CallKeep = loadCallKeep();
   VoipPush = loadVoipPush();
   if (!CallKeep || !VoipPush) {
     started = false;
-    return; // modules pas dans ce build -> on n'active pas (pas d'erreur)
+    setStatus('unsupported'); // modules pas dans ce build
+    return;
   }
 
   try {
@@ -157,4 +176,5 @@ export function stopIncomingCalls() {
   endCallKit();
   client = null;
   started = false;
+  setStatus('offline');
 }
