@@ -53,7 +53,11 @@ export class AdminController {
       return { error: 'Certificat et clé privée requis (contenus des fichiers cert.pem et key.pem).' };
     }
     try {
-      const res = await this.telnyx.setupIosPush(body.certificate, body.privateKey);
+      // Tolérant : reconstruit un PEM propre même si l'en-tête/pied manque ou
+      // si des lignes parasites ("Bag Attributes"…) traînent.
+      const cert = normalizePem(body.certificate, 'cert');
+      const key = normalizePem(body.privateKey, 'key');
+      const res = await this.telnyx.setupIosPush(cert, key);
       return { ok: true, id: res.id };
     } catch (e) {
       return { error: (e as Error).message };
@@ -73,4 +77,26 @@ export class AdminController {
     if (key && key === config.adminKey) return;
     throw new UnauthorizedException('Accès admin refusé');
   }
+}
+
+/**
+ * Reconstruit un bloc PEM propre à partir d'un collage approximatif :
+ * - si un bloc -----BEGIN…END----- existe, on le garde tel quel ;
+ * - sinon on enveloppe le base64 (en-tête déduit du type cert/clé).
+ */
+function normalizePem(raw: string, kind: 'cert' | 'key'): string {
+  const text = (raw || '').trim();
+  const block = text.match(/-----BEGIN [\s\S]*?-----END [^-]+-----/);
+  if (block) return block[0].trim() + '\n';
+
+  const b64 = text.replace(/[^A-Za-z0-9+/=]/g, '');
+  if (!b64) return text;
+  const wrapped = (b64.match(/.{1,64}/g) || []).join('\n');
+
+  let label = 'CERTIFICATE';
+  if (kind === 'key') {
+    // Clés RSA PKCS#1 (DER) commencent par MII…IBAAK ; PKCS#8 -> "PRIVATE KEY".
+    label = /^MII[A-Za-z0-9+/]{0,6}IBAAK/.test(b64) ? 'RSA PRIVATE KEY' : 'PRIVATE KEY';
+  }
+  return `-----BEGIN ${label}-----\n${wrapped}\n-----END ${label}-----\n`;
 }
