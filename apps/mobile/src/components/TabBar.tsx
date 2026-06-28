@@ -1,26 +1,17 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, gradients, glass } from '../theme';
 
-const ICONS: Record<string, string> = {
-  Accueil: '🏠',
-  Appels: '📞',
-  Messages: '💬',
-  Plus: '☰',
+// Icônes style iOS (Ionicons) : pleine si actif, contour sinon.
+const ICONS: Record<string, { on: any; off: any }> = {
+  Accueil: { on: 'home', off: 'home-outline' },
+  Appels: { on: 'call', off: 'call-outline' },
+  Messages: { on: 'chatbubble', off: 'chatbubble-outline' },
+  Plus: { on: 'ellipsis-horizontal', off: 'ellipsis-horizontal' },
 };
-
-/** Grille 3x3 (clavier) dessinée en points blancs, pour le FAB central. */
-function DialpadGlyph() {
-  return (
-    <View style={s.dialpad}>
-      {Array.from({ length: 9 }).map((_, i) => (
-        <View key={i} style={s.dot} />
-      ))}
-    </View>
-  );
-}
 
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -44,7 +35,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             return (
               <TouchableOpacity key={route.key} onPress={onPress} activeOpacity={0.85} style={s.fabSlot}>
                 <LinearGradient colors={gradients.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.fab}>
-                  <DialpadGlyph />
+                  <Ionicons name="keypad" size={26} color="#fff" />
                 </LinearGradient>
               </TouchableOpacity>
             );
@@ -53,7 +44,11 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           return (
             <TouchableOpacity key={route.key} onPress={onPress} activeOpacity={0.7} style={s.item}>
               <View>
-                <Text style={{ fontSize: 21, opacity: focused ? 1 : 0.45 }}>{ICONS[route.name] || '•'}</Text>
+                <Ionicons
+                  name={(focused ? ICONS[route.name]?.on : ICONS[route.name]?.off) || 'ellipse-outline'}
+                  size={23}
+                  color={focused ? colors.primary : colors.muted}
+                />
                 {!!badge && (
                   <View style={s.badge}>
                     <Text style={s.badgeTxt}>{badge}</Text>
