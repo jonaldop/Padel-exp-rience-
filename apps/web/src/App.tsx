@@ -44,8 +44,12 @@ export function App() {
     setMe(null);
   }
 
-  // Back-office admin : padel-exp-rience-web.vercel.app/?admin
-  if (new URLSearchParams(window.location.search).has('admin')) return <Admin />;
+  // Back-office admin SÉPARÉ (URL dédiée) : /admin (ou ?admin pour compat).
+  // Il a sa propre connexion (ADMIN_EMAIL/PASSWORD) et son propre jeton, donc
+  // indépendant de l'espace client — un admin peut aussi avoir un compte client.
+  const path = window.location.pathname.replace(/\/+$/, '');
+  const isAdmin = path === '/admin' || new URLSearchParams(window.location.search).has('admin');
+  if (isAdmin) return <Admin />;
 
   if (!authed) return <Login onLoggedIn={() => setAuthed(true)} />;
 
