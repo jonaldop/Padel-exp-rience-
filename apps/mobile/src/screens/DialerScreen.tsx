@@ -8,6 +8,19 @@ import { colors, gradients } from '../theme';
 import { GradientBg } from '../ui';
 import { toE164Fr, formatFr } from '../format';
 
+/** Affichage lisible du numéro en cours de composition (groupes de 2). */
+function formatDial(raw: string): string {
+  if (!raw) return '';
+  let prefix = '';
+  let rest = raw;
+  if (raw.startsWith('+')) {
+    prefix = raw.slice(0, 3); // ex. +33
+    rest = raw.slice(3);
+  }
+  const grouped = rest.replace(/(.{2})/g, '$1 ').trim();
+  return (prefix ? prefix + ' ' : '') + grouped;
+}
+
 const KEYS = [
   { d: '1', s: '' }, { d: '2', s: 'ABC' }, { d: '3', s: 'DEF' },
   { d: '4', s: 'GHI' }, { d: '5', s: 'JKL' }, { d: '6', s: 'MNO' },
@@ -44,7 +57,9 @@ export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
     <GradientBg>
       <View style={[s.container, { paddingTop: insets.top + 20, paddingBottom: 130 }]}>
         <View style={s.display}>
-          <Text style={s.number}>{number || 'Composer'}</Text>
+          <Text style={s.number} numberOfLines={1} adjustsFontSizeToFit>
+            {number ? formatDial(number) : 'Composer'}
+          </Text>
         </View>
         <View style={s.pad}>
           {KEYS.map((k) => (
@@ -77,8 +92,8 @@ export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
 
 const s = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  display: { height: 70, justifyContent: 'center' },
-  number: { fontSize: 36, fontWeight: '500', letterSpacing: 2, color: colors.text },
+  display: { height: 70, width: '100%', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
+  number: { fontSize: 36, fontWeight: '600', letterSpacing: 1, color: colors.text, textAlign: 'center' },
   pad: { width: 300, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   key: {
     width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center',

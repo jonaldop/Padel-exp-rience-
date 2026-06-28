@@ -5,14 +5,17 @@ import { useNavigation } from '@react-navigation/native';
 import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
+import { formatFr } from '../format';
 
 export function PlusScreen({ onLogout }: { onLogout: () => void }) {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const [me, setMe] = useState<any>(null);
+  const [proNumber, setProNumber] = useState<string>('');
 
   useEffect(() => {
     api.me().then(setMe).catch(() => {});
+    api.myNumbers().then((n: any[]) => setProNumber(n?.[0]?.e164 || '')).catch(() => {});
   }, []);
 
   const items: { icon: string; label: string; sub: string; onPress: () => void }[] = [
@@ -34,6 +37,7 @@ export function PlusScreen({ onLogout }: { onLogout: () => void }) {
           <View style={{ flex: 1 }}>
             <Text style={s.company}>{me?.account?.companyName || '—'}</Text>
             <Text style={s.email}>{me?.user?.email || '—'}</Text>
+            {!!proNumber && <Text style={s.proLine}>📞 Ligne pro : {formatFr(proNumber)}</Text>}
             <View style={s.planPill}>
               <Text style={s.planTxt}>Formule {me?.account?.plan || 'starter'}</Text>
             </View>
@@ -71,6 +75,7 @@ const s = StyleSheet.create({
   avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   company: { fontSize: 18, fontWeight: '800', color: colors.text },
   email: { fontSize: 13.5, color: colors.muted, marginTop: 2 },
+  proLine: { fontSize: 13.5, color: colors.primary, fontWeight: '700', marginTop: 4 },
   planPill: { alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#EFEAFF', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   planTxt: { fontSize: 12.5, fontWeight: '700', color: colors.primary },
   item: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 14 },

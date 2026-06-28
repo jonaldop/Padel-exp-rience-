@@ -57,6 +57,7 @@ export function HomeScreen() {
   const [calls, setCalls] = useState<any[]>([]);
   const [vms, setVms] = useState<any[]>([]);
   const [ai, setAi] = useState(false);
+  const [proNumber, setProNumber] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(() => {
@@ -65,7 +66,10 @@ export function HomeScreen() {
       api.me().then(setMe).catch(() => {}),
       api.history().then((c) => setCalls(Array.isArray(c) ? c : [])).catch(() => {}),
       api.voicemails().then((v) => setVms(Array.isArray(v) ? v : [])).catch(() => {}),
-      api.myNumbers().then((n: any[]) => setAi(Boolean(n?.[0]?.settings?.aiEnabled))).catch(() => {}),
+      api.myNumbers().then((n: any[]) => {
+        setAi(Boolean(n?.[0]?.settings?.aiEnabled));
+        setProNumber(n?.[0]?.e164 || '');
+      }).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -89,6 +93,11 @@ export function HomeScreen() {
             <Text style={s.hello}>Bonjour 👋</Text>
             <Text style={s.name}>Bienvenue{name ? `, ${name}` : ''}</Text>
             <Text style={s.sub}>Voici l'activité de votre ligne aujourd'hui.</Text>
+            {!!proNumber && (
+              <View style={s.proChip}>
+                <Text style={s.proChipTxt}>📞 Ligne pro · {formatFr(proNumber)}</Text>
+              </View>
+            )}
           </View>
           <View style={s.bell}>
             <Text style={{ fontSize: 18 }}>🔔</Text>
@@ -225,6 +234,12 @@ const s = StyleSheet.create({
   hello: { fontSize: 15, color: colors.muted },
   name: { fontSize: 26, fontWeight: '800', color: colors.text, marginTop: 2 },
   sub: { fontSize: 14, color: colors.muted, marginTop: 4 },
+  proChip: {
+    alignSelf: 'flex-start', marginTop: 10, backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)',
+  },
+  proChipTxt: { fontSize: 13.5, fontWeight: '700', color: colors.primary },
   bell: {
     width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.7)',
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)',
