@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.webmarketingservices.standardpro",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "L'application utilise le micro pour passer et recevoir vos appels professionnels.",
-        "UIBackgroundModes": ["audio", "voip"]
+        "UIBackgroundModes": ["audio", "voip"],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
