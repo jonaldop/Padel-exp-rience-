@@ -9,14 +9,14 @@
     "newArchEnabled": false,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.standardpro.app",
+      "bundleIdentifier": "com.webmarketingservices.standardpro",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "L'application utilise le micro pour passer et recevoir vos appels professionnels.",
         "UIBackgroundModes": ["audio", "voip"]
       }
     },
     "android": {
-      "package": "com.standardpro.app",
+      "package": "com.webmarketingservices.standardpro",
       "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"]
     },
     "extra": {
