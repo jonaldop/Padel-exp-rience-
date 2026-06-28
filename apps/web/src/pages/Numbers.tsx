@@ -265,6 +265,18 @@ function NumberCard({ number, onSaved }: { number: PhoneNumber; onSaved: () => v
   const [hours, setHours] = useState<Record<string, DayState>>(parseSchedule(number.settings.weeklySchedule));
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  async function checkStatus() {
+    setChecking(true);
+    try {
+      const r = await api.numberStatus(number.id);
+      setLiveStatus(r.status);
+    } finally {
+      setChecking(false);
+    }
+  }
 
   async function save() {
     await api.updateSettings(number.id, { ...s, weeklySchedule: buildSchedule(hours) });
@@ -294,6 +306,28 @@ function NumberCard({ number, onSaved }: { number: PhoneNumber; onSaved: () => v
           {open ? 'Fermer' : 'Régler'}
         </Button>
       </div>
+
+      {/* Statut réel Telnyx */}
+      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <Button variant="ghost" onClick={checkStatus} style={{ padding: '7px 12px', fontSize: 13 }}>
+          {checking ? '…' : '🔄 Vérifier le statut'}
+        </Button>
+        {liveStatus && (
+          liveStatus === 'active' ? (
+            <Badge color={colors.green} bg={colors.greenSoft}>✅ Actif — appels OK</Badge>
+          ) : (
+            <Badge color={colors.amber} bg={colors.amberSoft}>
+              ⏳ {liveStatus} — documents en attente
+            </Badge>
+          )
+        )}
+      </div>
+      {liveStatus && liveStatus !== 'active' && (
+        <p style={{ fontSize: 12, color: colors.muted, marginTop: 6, marginBottom: 0 }}>
+          Tant que le statut n'est pas « active », les appels sortants sont refusés. Complétez les
+          documents réglementaires dans Telnyx (identité, adresse FR, justificatif &lt; 3 mois).
+        </p>
+      )}
 
       {open && (
         <div className="fade-up" style={{ marginTop: 16, borderTop: `1px solid ${colors.border}`, paddingTop: 16 }}>

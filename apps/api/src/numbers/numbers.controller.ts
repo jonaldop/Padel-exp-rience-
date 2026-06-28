@@ -29,6 +29,16 @@ export class NumbersController {
     return this.db.listPhoneNumbers(user.accountId);
   }
 
+  /** Statut réel d'un numéro chez Telnyx (active / pending requirements...). */
+  @Get(':id/status')
+  async status(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    const n = this.db.findPhoneNumber(user.accountId, id);
+    if (!n) return { status: 'unknown' };
+    if (!n.providerNumberId || !this.telnyx.configured) return { status: n.status };
+    const live = await this.telnyx.getNumberStatus(n.providerNumberId);
+    return { status: live?.status || n.status };
+  }
+
   /** Importer dans le compte les numéros déjà possédés sur Telnyx (resync). */
   @Post('import')
   async import(@CurrentUser() user: JwtPayload) {

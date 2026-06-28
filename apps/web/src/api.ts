@@ -56,6 +56,7 @@ export const api = {
     return request('/numbers/available' + (qs ? `?${qs}` : ''));
   },
   myNumbers: () => request('/numbers'),
+  numberStatus: (id: string) => request(`/numbers/${id}/status`),
   buyNumber: (e164: string, type?: string) =>
     request('/numbers/buy', { method: 'POST', body: JSON.stringify({ e164, type }) }),
   importNumbers: () => request('/numbers/import', { method: 'POST', body: '{}' }),

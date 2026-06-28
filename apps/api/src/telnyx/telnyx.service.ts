@@ -215,6 +215,17 @@ export class TelnyxService {
     }));
   }
 
+  /** Statut réel d'un numéro chez Telnyx (active / pending requirements...). */
+  async getNumberStatus(providerNumberId: string): Promise<{ status: string } | null> {
+    if (!this.configured || !providerNumberId) return null;
+    try {
+      const data = await this.api<{ data: any }>(`/phone_numbers/${providerNumberId}`);
+      return { status: data.data?.status || 'unknown' };
+    } catch {
+      return null;
+    }
+  }
+
   /** Assigne un numéro existant à notre Call Control App (routage entrant). */
   async routeNumberToApp(providerNumberId: string) {
     const appId = await this.ensureCallControlApp();
