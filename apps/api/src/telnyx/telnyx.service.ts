@@ -137,6 +137,8 @@ export class TelnyxService {
           password,
           webhook_event_url: `${config.publicApiUrl}/calls/webhook`,
           outbound: { outbound_voice_profile_id: profileId },
+          // Réception entrante vers le client WebRTC enregistré (sinon 403).
+          inbound: { dnis_number_format: 'sip_username' },
         },
       });
       conn = created.data;
@@ -372,6 +374,16 @@ export class TelnyxService {
     const password = 'Sp' + createHash('sha256').update(config.jwtSecret + connId).digest('hex').slice(0, 24);
     // (Re)pose le mot de passe connu sur la connexion.
     await this.api(`/credential_connections/${connId}`, { method: 'PATCH', body: { password } });
+    // INDISPENSABLE pour la réception entrante : route l'appel vers le client
+    // enregistré par son SIP username (sinon Telnyx renvoie 403). (Support Telnyx)
+    try {
+      await this.api(`/credential_connections/${connId}`, {
+        method: 'PATCH',
+        body: { inbound: { dnis_number_format: 'sip_username' } },
+      });
+    } catch (e) {
+      this.logger.warn(`Réglage inbound (sip_username) non appliqué: ${(e as Error).message}`);
+    }
     this.webrtcCreds = { login, password };
     this.logger.log('Identifiants WebRTC (connexion) prêts pour la réception entrante');
     return this.webrtcCreds;
