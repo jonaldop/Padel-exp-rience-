@@ -5,24 +5,73 @@ import { api } from '../api';
 /**
  * Réception d'appels ENTRANTS dans l'app (VoIP) — iOS d'abord.
  *
- * Chaîne : VoIP Push (PushKit) -> CallKit (écran d'appel système) -> SDK Telnyx
- * (processVoIPNotification) -> on décroche en WebRTC.
+ * Chaîne : transfert serveur -> SIP WebRTC -> le client connecté reçoit l'appel
+ * (ou VoIP Push si app fermée) -> on AFFICHE l'écran d'appel système (CallKit)
+ * -> on décroche en WebRTC.
  *
- * ⚠️ Brique délicate à fiabiliser sur appareil réel. Tout est encapsulé dans
- * des try/catch pour ne JAMAIS casser le reste de l'app si un module manque.
+ * Tout est encapsulé dans des try/catch pour ne JAMAIS casser le reste de l'app.
  */
 
 let client: any = null;
 let currentCall: any = null;
+let currentUuid: string | null = null;
 let voipToken: string | null = null;
 let started = false;
+let CallKeep: any = null;
+let VoipPush: any = null;
 
-// Imports paresseux : si les modules natifs ne sont pas dans le build, on ignore.
 function loadCallKeep(): any {
   try { return require('react-native-callkeep').default; } catch { return null; }
 }
 function loadVoipPush(): any {
   try { return require('react-native-voip-push-notification').default; } catch { return null; }
+}
+
+// UUID v4 simple (runtime app : Math.random est OK ici).
+function uuidv4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function callerNumberOf(call: any): string {
+  const o = call?.options || {};
+  return (
+    o.remoteCallerNumber ||
+    o.remoteCallerIdNumber ||
+    o.callerNumber ||
+    o.callerIdNumber ||
+    call?.remoteCallerNumber ||
+    'Appel entrant'
+  );
+}
+
+function endCallKit() {
+  if (CallKeep && currentUuid) {
+    try { CallKeep.endCall(currentUuid); } catch { /* noop */ }
+  }
+  currentUuid = null;
+  currentCall = null;
+}
+
+/** Affiche l'écran d'appel iOS (sonnerie) pour un appel entrant reçu en foreground. */
+function presentIncoming(call: any) {
+  currentCall = call;
+  currentUuid = uuidv4();
+  const from = String(callerNumberOf(call));
+  if (CallKeep) {
+    try {
+      CallKeep.displayIncomingCall(currentUuid, from, from, 'generic', false);
+    } catch { /* noop */ }
+  }
+  // Quand l'appel se termine, on retire l'écran CallKit.
+  try {
+    call.on?.('telnyx.call.state', (_c: any, state: string) => {
+      if (state === 'ended' || state === 'dropped') endCallKit();
+    });
+  } catch { /* noop */ }
 }
 
 async function connectClient() {
@@ -32,7 +81,7 @@ async function connectClient() {
     if (voipToken) opts.pushNotificationDeviceToken = voipToken;
     client = new (TelnyxRTC as any)(opts);
     client.on('telnyx.call.incoming', (call: any) => {
-      currentCall = call;
+      presentIncoming(call);
     });
     client.on('telnyx.client.error', () => {});
     await client.connect();
@@ -45,8 +94,8 @@ export function startIncomingCalls() {
   if (started || Platform.OS !== 'ios') return;
   started = true;
 
-  const CallKeep = loadCallKeep();
-  const VoipPush = loadVoipPush();
+  CallKeep = loadCallKeep();
+  VoipPush = loadVoipPush();
   if (!CallKeep || !VoipPush) {
     started = false;
     return; // modules pas dans ce build -> on n'active pas (pas d'erreur)
@@ -74,41 +123,38 @@ export function startIncomingCalls() {
     }).catch(() => {});
     CallKeep.setAvailable(true);
 
-    // Décrocher / raccrocher depuis l'écran d'appel système (CallKit)
+    // Décrocher depuis l'écran d'appel système
     CallKeep.addEventListener('answerCall', () => {
-      try { currentCall?.answer(); } catch {}
+      try { currentCall?.answer(); } catch { /* noop */ }
     });
+    // Raccrocher / refuser
     CallKeep.addEventListener('endCall', () => {
-      try { currentCall?.hangup(); } catch {}
-      try { client?.disconnect(); } catch {}
+      try { currentCall?.hangup(); } catch { /* noop */ }
+      endCallKit();
     });
-  } catch {
-    /* noop */
-  }
+  } catch { /* noop */ }
 
   try {
-    // Token VoIP (PushKit) -> on (re)connecte le client avec ce token
     VoipPush.addEventListener('register', (token: string) => {
       voipToken = token;
       connectClient();
     });
-    // Push d'appel entrant reçu -> on passe la charge utile au SDK Telnyx
     VoipPush.addEventListener('notification', (notification: any) => {
-      try { client?.processVoIPNotification?.(notification); } catch {}
+      // Push reçu (app en arrière-plan) -> le SDK établit l'appel ; l'écran
+      // CallKit est déjà affiché par l'AppDelegate (reportNewIncomingCall).
+      try { client?.processVoIPNotification?.(notification); } catch { /* noop */ }
     });
     VoipPush.registerVoipToken();
-  } catch {
-    /* noop */
-  }
+  } catch { /* noop */ }
 
-  // Connexion initiale (au cas où le token arrive plus tard, on reconnectera)
+  // Connexion initiale (reçoit les appels quand l'app est ouverte)
   connectClient();
 }
 
 export function stopIncomingCalls() {
-  try { currentCall?.hangup(); } catch {}
-  try { client?.disconnect(); } catch {}
+  try { currentCall?.hangup(); } catch { /* noop */ }
+  try { client?.disconnect(); } catch { /* noop */ }
+  endCallKit();
   client = null;
-  currentCall = null;
   started = false;
 }
