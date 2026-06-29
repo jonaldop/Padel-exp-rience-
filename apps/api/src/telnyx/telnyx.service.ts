@@ -139,6 +139,7 @@ export class TelnyxService {
           outbound: { outbound_voice_profile_id: profileId },
           // Réception entrante vers le client WebRTC enregistré (sinon 403).
           inbound: { dnis_number_format: 'sip_username' },
+          sip_uri_calling_preference: 'internal',
         },
       });
       conn = created.data;
@@ -379,10 +380,10 @@ export class TelnyxService {
     try {
       await this.api(`/credential_connections/${connId}`, {
         method: 'PATCH',
-        body: { inbound: { dnis_number_format: 'sip_username' } },
+        body: { inbound: { dnis_number_format: 'sip_username' }, sip_uri_calling_preference: 'internal' },
       });
     } catch (e) {
-      this.logger.warn(`Réglage inbound (sip_username) non appliqué: ${(e as Error).message}`);
+      this.logger.warn(`Réglage réception (sip_username/internal) non appliqué: ${(e as Error).message}`);
     }
     this.webrtcCreds = { login, password };
     this.logger.log('Identifiants WebRTC (connexion) prêts pour la réception entrante');
@@ -444,21 +445,26 @@ export class TelnyxService {
     if (!this.configured) return { error: 'Telnyx non configuré' };
     const connId = await this.ensureCredentialConnection();
     const attempts: any[] = [];
-    // On essaie plusieurs valeurs possibles (la 1re qui passe gagne).
-    for (const value of ['sip_username', '+e164_or_sip_username', 'username']) {
-      try {
-        await this.api(`/credential_connections/${connId}`, {
-          method: 'PATCH',
-          body: { inbound: { dnis_number_format: value } },
-        });
-        attempts.push({ value, ok: true });
-        break;
-      } catch (e) {
-        attempts.push({ value, error: (e as Error).message });
-      }
+    // 1) Format de destination = SIP username (route vers le client enregistré).
+    // 2) sip_uri_calling_preference = internal (autorise le transfert SIP entre
+    //    connexions du même compte). Les DEUX sont nécessaires (support Telnyx).
+    try {
+      await this.api(`/credential_connections/${connId}`, {
+        method: 'PATCH',
+        body: { inbound: { dnis_number_format: 'sip_username' }, sip_uri_calling_preference: 'internal' },
+      });
+      attempts.push({ ok: true });
+    } catch (e) {
+      attempts.push({ error: (e as Error).message });
     }
     const conn = await this.api<{ data: any }>(`/credential_connections/${connId}`);
-    return { connId, userName: conn.data?.user_name, inbound: conn.data?.inbound, attempts };
+    return {
+      connId,
+      userName: conn.data?.user_name,
+      sip_uri_calling_preference: conn.data?.sip_uri_calling_preference,
+      inbound: conn.data?.inbound,
+      attempts,
+    };
   }
 
   /** Solde / crédit du compte Telnyx (forfait). */
