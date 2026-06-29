@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
-import { formatFr } from '../format';
+import { formatFr, toE164Fr } from '../format';
 import { loadContacts, lookupContact } from '../contacts';
 
 const statusMeta: Record<string, { txt: string; color: string }> = {
@@ -15,6 +15,8 @@ const statusMeta: Record<string, { txt: string; color: string }> = {
   voicemail: { txt: 'Messagerie', color: colors.amber },
   forwarded: { txt: 'Renvoyé', color: colors.primary },
   failed: { txt: 'Échec', color: colors.red },
+  'ringing-app': { txt: 'Reçu', color: colors.green },
+  ringing: { txt: 'Reçu', color: colors.green },
 };
 
 export function RecentsScreen() {
@@ -22,12 +24,19 @@ export function RecentsScreen() {
   const nav = useNavigation<any>();
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [proNumber, setProNumber] = useState<string | undefined>(undefined);
 
   const load = useCallback(() => {
     setLoading(true);
     loadContacts();
+    api.myNumbers().then((n: any[]) => setProNumber(n?.[0]?.e164)).catch(() => {});
     api.history().then((c) => setCalls(Array.isArray(c) ? c : [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  // Rappel direct depuis la liste (appel PRO via Internet, numéro pro présenté).
+  const callBack = useCallback((num: string, name?: string) => {
+    nav.navigate('Appel', { number: toE164Fr(num), callerId: proNumber, name });
+  }, [nav, proNumber]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -63,7 +72,7 @@ export function RecentsScreen() {
               <Text style={{ color: st.color, fontWeight: '700', marginRight: 10 }}>{st.txt}</Text>
               <TouchableOpacity
                 style={s.callBack}
-                onPress={() => nav.navigate('Clavier', { number: inbound ? c.fromE164 : c.toE164 })}
+                onPress={() => callBack(num, contactName || undefined)}
               >
                 <Text style={{ fontSize: 15 }}>📞</Text>
               </TouchableOpacity>

@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass, Delta, Waveform } from '../ui';
-import { formatFr } from '../format';
+import { formatFr, toE164Fr } from '../format';
 import { BUILD_TAG } from '../version';
 import { setLineStatusListener, LineStatus } from '../call/incomingCalls';
 import { loadContacts, lookupContact } from '../contacts';
@@ -51,6 +51,8 @@ const STATUS_LABEL: Record<string, string> = {
   missed: 'Appel manqué',
   failed: 'Échec',
   voicemail: 'Message vocal',
+  'ringing-app': 'Reçu',
+  ringing: 'Reçu',
 };
 
 export function HomeScreen() {
@@ -210,7 +212,7 @@ export function HomeScreen() {
                 </Text>
                 <TouchableOpacity
                   style={[s.callBack, { backgroundColor: isMissed ? '#FDEBEA' : '#E7F7EE' }]}
-                  onPress={() => nav.navigate('Clavier', { number: inbound ? c.fromE164 : c.toE164 })}
+                  onPress={() => nav.navigate('Appel', { number: toE164Fr(rawNum), callerId: proNumber || undefined, name: lookupContact(rawNum) || undefined })}
                 >
                   <Text style={{ fontSize: 15 }}>📞</Text>
                 </TouchableOpacity>

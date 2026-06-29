@@ -8,17 +8,26 @@ import { colors, gradients } from '../theme';
 import { GradientBg } from '../ui';
 import { toE164Fr, formatFr } from '../format';
 
-/** Affichage lisible du numéro en cours de composition (groupes de 2). */
+/** Affichage lisible du numéro en cours de composition, format FR. */
 function formatDial(raw: string): string {
   if (!raw) return '';
-  let prefix = '';
-  let rest = raw;
-  if (raw.startsWith('+')) {
-    prefix = raw.slice(0, 3); // ex. +33
-    rest = raw.slice(3);
+  // Numéro français en E.164 (+33...) : +33 6 23 45 39 61 (progressif).
+  if (raw.startsWith('+33')) {
+    const sub = raw.slice(3).replace(/\D/g, '');
+    if (!sub) return '+33';
+    const lead = sub[0];
+    const rest = sub.slice(1).replace(/(\d{2})(?=\d)/g, '$1 ').trim();
+    return `+33 ${lead}${rest ? ' ' + rest : ''}`.trim();
   }
-  const grouped = rest.replace(/(.{2})/g, '$1 ').trim();
-  return (prefix ? prefix + ' ' : '') + grouped;
+  // Autre indicatif international : +XX puis paires.
+  if (raw.startsWith('+')) {
+    const cc = raw.slice(0, 3);
+    const rest = raw.slice(3).replace(/(\d{2})(?=\d)/g, '$1 ').trim();
+    return `${cc} ${rest}`.trim();
+  }
+  // National (0X XX XX XX XX), progressif pendant la frappe.
+  const d = raw.replace(/\D/g, '');
+  return d.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
 }
 
 const KEYS = [
