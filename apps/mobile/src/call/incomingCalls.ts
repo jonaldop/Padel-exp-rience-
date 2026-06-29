@@ -1,9 +1,34 @@
-import { Platform, Alert } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 import { TelnyxRTC } from '@telnyx/react-native-voice-sdk';
 import { api } from '../api';
+import { navigate, goBackIfPossible } from '../nav';
 
 function loadInCall(): any {
   try { return require('react-native-incall-manager').default; } catch { return null; }
+}
+
+// ── État de l'appel entrant (pour l'écran d'appel) ──────────────────────────
+export type IncomingState = 'idle' | 'ringing' | 'active' | 'ended';
+let incomingState: IncomingState = 'idle';
+let incomingListener: ((s: IncomingState, from: string) => void) | null = null;
+let currentFrom = '';
+
+export function setIncomingListener(cb: ((s: IncomingState, from: string) => void) | null) {
+  incomingListener = cb;
+  if (cb) cb(incomingState, currentFrom);
+}
+function setIncoming(s: IncomingState) {
+  incomingState = s;
+  try { incomingListener?.(s, currentFrom); } catch { /* noop */ }
+}
+
+function startRinging() {
+  try { loadInCall()?.startRingtone?.('_DEFAULT_'); } catch { /* noop */ }
+  try { Vibration.vibrate([0, 1000, 2000], true); } catch { /* noop */ }
+}
+function stopRinging() {
+  try { loadInCall()?.stopRingtone?.(); } catch { /* noop */ }
+  try { Vibration.cancel(); } catch { /* noop */ }
 }
 
 /**
@@ -79,58 +104,49 @@ function endCallKit() {
   currentCall = null;
 }
 
-let currentFrom = '';
+/** Décrocher l'appel entrant (depuis l'écran d'appel). */
+export function answerIncoming() {
+  stopRinging();
+  try { loadInCall()?.start?.({ media: 'audio' }); } catch { /* noop */ }
+  try { currentCall?.answer(); } catch { /* noop */ }
+  setIncoming('active');
+}
 
-function hangupCurrent() {
+/** Refuser / raccrocher l'appel entrant. */
+export function declineIncoming() {
+  stopRinging();
   try { currentCall?.hangup(); } catch { /* noop */ }
   try { loadInCall()?.stop?.(); } catch { /* noop */ }
   endCallKit();
+  setIncoming('ended');
 }
 
-function answerCurrent() {
-  try { loadInCall()?.start?.({ media: 'audio' }); } catch { /* noop */ }
-  try { currentCall?.answer(); } catch { /* noop */ }
-  // Écran "en communication" minimal (audio géré par WebRTC/InCallManager).
-  setTimeout(() => {
-    try {
-      Alert.alert(
-        'En communication',
-        currentFrom,
-        [{ text: 'Raccrocher', style: 'destructive', onPress: () => hangupCurrent() }],
-        { cancelable: false },
-      );
-    } catch { /* noop */ }
-  }, 400);
-}
-
-/** Affiche l'appel entrant (CallKit + alerte in-app fiable) en foreground. */
+/** Affiche un VRAI écran d'appel entrant (plein écran + sonnerie + vibreur). */
 function presentIncoming(call: any) {
   currentCall = call;
   currentUuid = uuidv4();
-  const from = String(callerNumberOf(call));
-  currentFrom = from;
+  currentFrom = String(callerNumberOf(call));
 
-  // 1) Écran d'appel système (utile surtout app fermée / arrière-plan).
+  // Sonnerie + vibreur + écran d'appel plein écran (app ouverte).
+  startRinging();
+  setIncoming('ringing');
+  navigate('AppelEntrant', { from: currentFrom });
+
+  // Écran d'appel système iOS (surtout utile app fermée via push).
   if (CallKeep) {
-    try { CallKeep.displayIncomingCall(currentUuid, from, from, 'generic', false); } catch { /* noop */ }
+    try { CallKeep.displayIncomingCall(currentUuid, currentFrom, currentFrom, 'generic', false); } catch { /* noop */ }
   }
-
-  // 2) Alerte in-app : visible et fiable quand l'app est ouverte.
-  try {
-    Alert.alert(
-      'Appel entrant',
-      from,
-      [
-        { text: 'Refuser', style: 'cancel', onPress: () => { try { currentCall?.hangup(); } catch {} endCallKit(); } },
-        { text: 'Répondre', onPress: () => answerCurrent() },
-      ],
-      { cancelable: false },
-    );
-  } catch { /* noop */ }
 
   try {
     call.on?.('telnyx.call.state', (_c: any, state: string) => {
-      if (state === 'ended' || state === 'dropped') endCallKit();
+      if (state === 'active' || state === 'held') {
+        stopRinging();
+        setIncoming('active');
+      } else if (state === 'ended' || state === 'dropped') {
+        stopRinging();
+        endCallKit();
+        setIncoming('ended');
+      }
     });
   } catch { /* noop */ }
 }

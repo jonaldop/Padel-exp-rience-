@@ -17,11 +17,13 @@ import { MessagesScreen } from './src/screens/MessagesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { PlusScreen } from './src/screens/PlusScreen';
 import { CallScreen } from './src/screens/CallScreen';
+import { IncomingCallScreen } from './src/screens/IncomingCallScreen';
 import { LineSettingsScreen } from './src/screens/LineSettingsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PlanScreen } from './src/screens/PlanScreen';
 import { TabBar } from './src/components/TabBar';
 import { startIncomingCalls, stopIncomingCalls } from './src/call/incomingCalls';
+import { navigationRef } from './src/nav';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -104,11 +106,16 @@ export default function App() {
       {!authed ? (
         <LoginScreen onLoggedIn={() => setAuthed(true)} />
       ) : (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <Stack.Navigator>
             <Stack.Screen name="Tabs" options={{ headerShown: false }}>
               {() => <Tabs onLogout={logout} />}
             </Stack.Screen>
+            <Stack.Screen
+              name="AppelEntrant"
+              component={IncomingCallScreen}
+              options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
+            />
             <Stack.Screen
               name="Statistiques"
               component={StatsScreen}
