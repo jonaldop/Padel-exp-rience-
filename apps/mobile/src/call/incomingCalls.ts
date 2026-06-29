@@ -127,13 +127,20 @@ function endCallKit() {
  * erreurs : si on ne le fait pas, un échec micro/SDP passe inaperçu et la ligne
  * du correspondant n'est jamais connectée alors que notre écran affiche "actif".
  */
-export async function answerIncoming() {
+export async function answerIncoming(viaCallKit = false) {
   stopRinging();
   if (!currentCall) { setIncoming('ended'); return; }
   setIncoming('connecting');
-  // Audio en mode appel (écouteur, pas haut-parleur) avant d'ouvrir le micro.
-  try { loadInCall()?.start?.({ media: 'audio' }); } catch { /* noop */ }
-  try { loadInCall()?.setForceSpeakerphoneOn?.(false); } catch { /* noop */ }
+  // ⚠️ Session audio :
+  //  - App au 1er plan (notre écran, PAS de CallKit) : c'est NOUS qui ouvrons la
+  //    session audio via InCallManager.
+  //  - Réveil par push / écran verrouillé (écran CallKit natif) : c'est iOS/CallKit
+  //    qui DÉTIENT la session audio. Démarrer InCallManager ici casse l'audio
+  //    WebRTC vers l'appelant ("je décroche mais l'appelant n'a pas de son").
+  if (!viaCallKit) {
+    try { loadInCall()?.start?.({ media: 'audio' }); } catch { /* noop */ }
+    try { loadInCall()?.setForceSpeakerphoneOn?.(false); } catch { /* noop */ }
+  }
   try {
     await currentCall.answer();
     setIncoming('active');
@@ -262,8 +269,14 @@ export function startIncomingCalls() {
     }).catch(() => {});
     CallKeep.setAvailable(true);
 
-    // Décrocher depuis l'écran d'appel système (même logique robuste).
-    CallKeep.addEventListener('answerCall', () => { answerIncoming(); });
+    // Décrocher depuis l'écran d'appel système CallKit (app fermée / verrouillée).
+    // viaCallKit=true -> on laisse iOS gérer la session audio (pas d'InCallManager).
+    CallKeep.addEventListener('answerCall', () => { answerIncoming(true); });
+    // iOS a activé la session audio CallKit : l'audio WebRTC peut circuler. On
+    // s'assure juste que ce n'est pas forcé sur le haut-parleur.
+    CallKeep.addEventListener('didActivateAudioSession', () => {
+      try { loadInCall()?.setForceSpeakerphoneOn?.(false); } catch { /* noop */ }
+    });
     // Raccrocher / refuser
     CallKeep.addEventListener('endCall', () => {
       try { currentCall?.hangup(); } catch { /* noop */ }
