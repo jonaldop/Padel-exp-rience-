@@ -1,0 +1,40 @@
+name: EAS Update (OTA)
+
+# Publie une mise à jour OTA (JS) sur le canal production, dans le cloud.
+# Déclenchable à la main / via API. Le code publié est celui de la branche
+# choisie au déclenchement (ref).
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Message de la mise à jour'
+        type: string
+        default: 'update'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install deps
+        run: npm install
+
+      - name: Publish OTA update
+        run: eas update --branch production --message "${{ inputs.message }}" --non-interactive
