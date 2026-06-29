@@ -55,6 +55,9 @@ export const api = {
     request('/auth/profile', { method: 'PATCH', body: JSON.stringify(data) }),
   updatePlan: (plan: string) =>
     request('/auth/plan', { method: 'PATCH', body: JSON.stringify({ plan }) }),
+  // Forfaits disponibles (public) + consommation du compte.
+  plans: () => request<{ plans: any[] }>('/plans'),
+  usage: () => request<any>('/auth/usage'),
 
   myNumbers: () => request('/numbers'),
   updateNumberSettings: (id: string, patch: any) =>
