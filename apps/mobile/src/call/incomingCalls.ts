@@ -128,14 +128,12 @@ function presentIncoming(call: any) {
   currentFrom = String(callerNumberOf(call));
 
   // Sonnerie + vibreur + écran d'appel plein écran (app ouverte).
+  // NB: on n'affiche PAS CallKit ici (ça créait une 2e bannière + un conflit
+  // audio qui empêchait de décrocher). CallKit est géré nativement par
+  // l'AppDelegate quand l'app est fermée (push VoIP).
   startRinging();
   setIncoming('ringing');
   navigate('AppelEntrant', { from: currentFrom });
-
-  // Écran d'appel système iOS (surtout utile app fermée via push).
-  if (CallKeep) {
-    try { CallKeep.displayIncomingCall(currentUuid, currentFrom, currentFrom, 'generic', false); } catch { /* noop */ }
-  }
 
   try {
     call.on?.('telnyx.call.state', (_c: any, state: string) => {
