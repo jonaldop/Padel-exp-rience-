@@ -9,7 +9,7 @@ function loadInCall(): any {
 }
 
 // ── État de l'appel entrant (pour l'écran d'appel) ──────────────────────────
-export type IncomingState = 'idle' | 'ringing' | 'active' | 'ended';
+export type IncomingState = 'idle' | 'ringing' | 'connecting' | 'active' | 'ended';
 let incomingState: IncomingState = 'idle';
 let incomingListener: ((s: IncomingState, from: string) => void) | null = null;
 let currentFrom = '';
@@ -26,6 +26,20 @@ function setIncoming(s: IncomingState) {
 function startRinging() {
   try { loadInCall()?.startRingtone?.('_DEFAULT_'); } catch { /* noop */ }
   try { Vibration.vibrate([0, 1000, 2000], true); } catch { /* noop */ }
+}
+
+/**
+ * Demande/active l'autorisation micro EN AMONT (au démarrage), via un
+ * getUserMedia bref aussitôt coupé. Sans ça, l'autorisation est demandée
+ * pendant le 1er décroché : getUserMedia échoue, l'answer WebRTC n'est jamais
+ * envoyé -> "je réponds mais le correspondant n'est pas connecté".
+ */
+async function warmUpMic() {
+  try {
+    const { mediaDevices } = require('react-native-webrtc');
+    const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+    try { stream.getTracks().forEach((t: any) => t.stop()); } catch { /* noop */ }
+  } catch { /* noop : refusé / module absent -> géré au décroché */ }
 }
 function stopRinging() {
   try { loadInCall()?.stopRingtone?.(); } catch { /* noop */ }
@@ -105,12 +119,30 @@ function endCallKit() {
   currentCall = null;
 }
 
-/** Décrocher l'appel entrant (depuis l'écran d'appel). */
-export function answerIncoming() {
+/**
+ * Décrocher l'appel entrant (depuis l'écran d'appel).
+ *
+ * IMPORTANT : answer() est ASYNCHRONE (il attache le micro via getUserMedia,
+ * crée l'answer SDP et l'envoie à Telnyx). Il FAUT l'attendre et capter ses
+ * erreurs : si on ne le fait pas, un échec micro/SDP passe inaperçu et la ligne
+ * du correspondant n'est jamais connectée alors que notre écran affiche "actif".
+ */
+export async function answerIncoming() {
   stopRinging();
+  if (!currentCall) { setIncoming('ended'); return; }
+  setIncoming('connecting');
+  // Audio en mode appel (écouteur, pas haut-parleur) avant d'ouvrir le micro.
   try { loadInCall()?.start?.({ media: 'audio' }); } catch { /* noop */ }
-  try { currentCall?.answer(); } catch { /* noop */ }
-  setIncoming('active');
+  try { loadInCall()?.setForceSpeakerphoneOn?.(false); } catch { /* noop */ }
+  try {
+    await currentCall.answer();
+    setIncoming('active');
+  } catch {
+    // Cause la plus fréquente : micro non autorisé -> on coupe proprement.
+    try { currentCall?.hangup?.(); } catch { /* noop */ }
+    endCallKit();
+    setIncoming('ended');
+  }
 }
 
 /** Refuser / raccrocher l'appel entrant. */
@@ -198,6 +230,7 @@ export function startIncomingCalls() {
   started = true;
   stopping = false;
   loadContacts(); // précharge le répertoire pour identifier les appelants
+  warmUpMic();    // déclenche l'autorisation micro AVANT le 1er appel
 
   CallKeep = loadCallKeep();
   VoipPush = loadVoipPush();
@@ -229,10 +262,8 @@ export function startIncomingCalls() {
     }).catch(() => {});
     CallKeep.setAvailable(true);
 
-    // Décrocher depuis l'écran d'appel système
-    CallKeep.addEventListener('answerCall', () => {
-      try { currentCall?.answer(); } catch { /* noop */ }
-    });
+    // Décrocher depuis l'écran d'appel système (même logique robuste).
+    CallKeep.addEventListener('answerCall', () => { answerIncoming(); });
     // Raccrocher / refuser
     CallKeep.addEventListener('endCall', () => {
       try { currentCall?.hangup(); } catch { /* noop */ }

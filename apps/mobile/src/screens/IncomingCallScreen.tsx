@@ -39,6 +39,7 @@ export function IncomingCallScreen() {
 
   const statusText =
     state === 'ringing' ? 'Appel entrant…'
+    : state === 'connecting' ? 'Connexion…'
     : state === 'active' ? mmss(seconds)
     : 'Appel terminé';
 
