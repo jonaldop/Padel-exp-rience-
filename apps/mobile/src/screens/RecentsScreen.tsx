@@ -6,6 +6,7 @@ import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 import { formatFr } from '../format';
+import { loadContacts, lookupContact } from '../contacts';
 
 const statusMeta: Record<string, { txt: string; color: string }> = {
   completed: { txt: 'Terminé', color: colors.green },
@@ -24,6 +25,7 @@ export function RecentsScreen() {
 
   const load = useCallback(() => {
     setLoading(true);
+    loadContacts();
     api.history().then((c) => setCalls(Array.isArray(c) ? c : [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -42,13 +44,15 @@ export function RecentsScreen() {
           const inbound = c.direction === 'inbound';
           const st = statusMeta[c.status] || { txt: c.status, color: colors.muted };
           const isMissed = ['missed', 'failed'].includes(c.status);
+          const num = inbound ? c.fromE164 : c.toE164;
+          const contactName = lookupContact(num);
           return (
             <Glass style={s.row}>
               <View style={[s.icon, { backgroundColor: isMissed ? '#FDEBEA' : '#E8EEFF' }]}>
                 <Text style={{ fontSize: 15 }}>{inbound ? '↙️' : '↗️'}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.num}>{formatFr(inbound ? c.fromE164 : c.toE164)}</Text>
+                <Text style={s.num}>{contactName || formatFr(num)}</Text>
                 <Text style={s.sub}>
                   {inbound ? 'Entrant' : 'Sortant'} ·{' '}
                   {new Date(c.startedAt).toLocaleString('fr-FR', {

@@ -19,6 +19,7 @@ export function IncomingCallScreen() {
   const route = useRoute<any>();
   const [state, setState] = useState<IncomingState>('ringing');
   const [from, setFrom] = useState<string>(route.params?.from || '');
+  const name: string | undefined = route.params?.name;
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
@@ -46,9 +47,10 @@ export function IncomingCallScreen() {
       <View style={[s.container, { paddingTop: insets.top + 70, paddingBottom: insets.bottom + 50 }]}>
         <View style={{ alignItems: 'center' }}>
           <View style={s.avatar}><Text style={{ fontSize: 44 }}>👤</Text></View>
-          <Text style={s.name}>{formatFr(from) || from || 'Inconnu'}</Text>
+          <Text style={s.name}>{name || formatFr(from) || from || 'Inconnu'}</Text>
+          {!!name && <Text style={s.sub}>{formatFr(from)}</Text>}
           <Text style={s.status}>{statusText}</Text>
-          <Text style={s.sub}>Ligne pro</Text>
+          {!name && <Text style={s.sub}>Ligne pro</Text>}
         </View>
 
         {state === 'ringing' ? (

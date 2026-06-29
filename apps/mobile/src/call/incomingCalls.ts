@@ -2,6 +2,7 @@ import { Platform, Vibration } from 'react-native';
 import { TelnyxRTC } from '@telnyx/react-native-voice-sdk';
 import { api } from '../api';
 import { navigate, goBackIfPossible } from '../nav';
+import { loadContacts, lookupContact } from '../contacts';
 
 function loadInCall(): any {
   try { return require('react-native-incall-manager').default; } catch { return null; }
@@ -133,7 +134,8 @@ function presentIncoming(call: any) {
   // l'AppDelegate quand l'app est fermée (push VoIP).
   startRinging();
   setIncoming('ringing');
-  navigate('AppelEntrant', { from: currentFrom });
+  const name = lookupContact(currentFrom); // nom depuis le répertoire natif
+  navigate('AppelEntrant', { from: currentFrom, name });
 
   try {
     call.on?.('telnyx.call.state', (_c: any, state: string) => {
@@ -195,6 +197,7 @@ export function startIncomingCalls() {
   if (started || Platform.OS !== 'ios') { setStatus('unsupported'); return; }
   started = true;
   stopping = false;
+  loadContacts(); // précharge le répertoire pour identifier les appelants
 
   CallKeep = loadCallKeep();
   VoipPush = loadVoipPush();

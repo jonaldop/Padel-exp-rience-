@@ -8,6 +8,7 @@ import { GradientBg, Glass, Delta, Waveform } from '../ui';
 import { formatFr } from '../format';
 import { BUILD_TAG } from '../version';
 import { setLineStatusListener, LineStatus } from '../call/incomingCalls';
+import { loadContacts, lookupContact } from '../contacts';
 
 function isSameDay(iso: string, ref: Date) {
   const d = new Date(iso);
@@ -70,6 +71,7 @@ export function HomeScreen() {
 
   const load = useCallback(() => {
     setLoading(true);
+    loadContacts();
     Promise.all([
       api.me().then(setMe).catch(() => {}),
       api.history().then((c) => setCalls(Array.isArray(c) ? c : [])).catch(() => {}),
@@ -189,7 +191,8 @@ export function HomeScreen() {
         ) : (
           recent.map((c) => {
             const inbound = c.direction === 'inbound';
-            const num = formatFr(inbound ? c.fromE164 : c.toE164);
+            const rawNum = inbound ? c.fromE164 : c.toE164;
+            const num = lookupContact(rawNum) || formatFr(rawNum);
             const isMissed = ['missed', 'failed', 'no_answer'].includes(c.status);
             return (
               <Glass key={c.id} style={s.callRow}>
