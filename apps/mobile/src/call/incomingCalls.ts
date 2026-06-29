@@ -79,14 +79,28 @@ function endCallKit() {
   currentCall = null;
 }
 
+let currentFrom = '';
+
+function hangupCurrent() {
+  try { currentCall?.hangup(); } catch { /* noop */ }
+  try { loadInCall()?.stop?.(); } catch { /* noop */ }
+  endCallKit();
+}
+
 function answerCurrent() {
-  try {
-    const InCall = loadInCall();
-    InCall?.startRingtone?.('_BUNDLE_');
-    InCall?.stopRingtone?.();
-    InCall?.start?.({ media: 'audio' });
-  } catch { /* noop */ }
+  try { loadInCall()?.start?.({ media: 'audio' }); } catch { /* noop */ }
   try { currentCall?.answer(); } catch { /* noop */ }
+  // Écran "en communication" minimal (audio géré par WebRTC/InCallManager).
+  setTimeout(() => {
+    try {
+      Alert.alert(
+        'En communication',
+        currentFrom,
+        [{ text: 'Raccrocher', style: 'destructive', onPress: () => hangupCurrent() }],
+        { cancelable: false },
+      );
+    } catch { /* noop */ }
+  }, 400);
 }
 
 /** Affiche l'appel entrant (CallKit + alerte in-app fiable) en foreground. */
@@ -94,6 +108,7 @@ function presentIncoming(call: any) {
   currentCall = call;
   currentUuid = uuidv4();
   const from = String(callerNumberOf(call));
+  currentFrom = from;
 
   // 1) Écran d'appel système (utile surtout app fermée / arrière-plan).
   if (CallKeep) {
