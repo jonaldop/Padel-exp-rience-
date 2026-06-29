@@ -8,6 +8,7 @@ import { api } from '../api';
 import { colors, gradients } from '../theme';
 import { GradientBg } from '../ui';
 import { toE164Fr, formatFr } from '../format';
+import { loadContacts, lookupContact } from '../contacts';
 
 /** Affichage lisible du numéro en cours de composition, format FR. */
 function formatDial(raw: string): string {
@@ -51,7 +52,11 @@ export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
   // Récupère le numéro pro du compte (caller ID présenté au correspondant).
   useEffect(() => {
     api.myNumbers().then((n: any[]) => setProNumber(n?.[0]?.e164)).catch(() => {});
+    loadContacts(); // pour identifier le contact pendant la composition
   }, []);
+
+  // Nom du contact correspondant au numéro composé (comme iOS).
+  const contactName = number ? lookupContact(number) : null;
 
   function call() {
     if (!number) return;
@@ -60,13 +65,14 @@ export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
       return;
     }
     // Appel PRO en VoIP (WebRTC) : audio dans l'app, numéro pro en présentation.
-    nav.navigate('Appel', { number: toE164Fr(number), callerId: proNumber });
+    nav.navigate('Appel', { number: toE164Fr(number), callerId: proNumber, name: contactName || undefined });
   }
 
   return (
     <GradientBg>
       <View style={[s.container, { paddingTop: insets.top + 20, paddingBottom: 130 }]}>
         <View style={s.display}>
+          {!!contactName && <Text style={s.contactName} numberOfLines={1}>{contactName}</Text>}
           <Text style={s.number} numberOfLines={1} adjustsFontSizeToFit>
             {number ? formatDial(number) : 'Composer'}
           </Text>
@@ -102,7 +108,8 @@ export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
 
 const s = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  display: { height: 70, width: '100%', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
+  display: { minHeight: 84, width: '100%', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
+  contactName: { fontSize: 18, fontWeight: '700', color: colors.primary, textAlign: 'center', marginBottom: 4 },
   number: { fontSize: 36, fontWeight: '600', letterSpacing: 1, color: colors.text, textAlign: 'center' },
   pad: { width: 300, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   key: {
