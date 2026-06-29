@@ -69,6 +69,21 @@ let heartbeat: any = null;
 let appStateSub: any = null;
 let CallKeep: any = null;
 let VoipPush: any = null;
+let outboundActive = false; // un appel SORTANT est en cours sur le client partagé
+
+/**
+ * Le client WebRTC déjà connecté (pour la réception). On le RÉUTILISE pour les
+ * appels sortants au lieu d'en ouvrir un 2e : le SDK Telnyx a un état GLOBAL
+ * (voice_sdk_id) partagé entre instances -> deux clients se télescopent et la
+ * 2e connexion WebSocket tombe en timeout. Un seul client = pas de conflit.
+ */
+export function getCallClient(): any | null {
+  return client && lineStatus === 'connected' ? client : null;
+}
+/** Marque un appel sortant en cours : empêche la reco de couper le client partagé. */
+export function setOutboundActive(active: boolean) {
+  outboundActive = active;
+}
 
 export type LineStatus = 'offline' | 'connecting' | 'connected' | 'unsupported';
 let lineStatus: LineStatus = 'offline';
@@ -242,11 +257,11 @@ let connecting = false;
 
 async function connectClient(pushPayload?: any) {
   if (connecting || stopping) return; // une seule connexion à la fois
-  // ⚠️ NE JAMAIS reconstruire le client pendant un appel : ça détruirait la
-  // connexion WebSocket qui porte l'appel en cours -> impossible d'envoyer
-  // "answer"/"hangup" à Telnyx (l'appelant reste connecté, ou ça sonne dans le
-  // vide jusqu'au timeout = 487). Un appel poussé arrive avec currentCall=null.
-  if (currentCall && !pushPayload) return;
+  // ⚠️ NE JAMAIS reconstruire le client pendant un appel (entrant OU sortant) :
+  // ça détruirait la connexion WebSocket qui porte l'appel en cours -> impossible
+  // d'envoyer "answer"/"hangup" à Telnyx (l'appelant reste connecté, ou ça sonne
+  // dans le vide jusqu'au timeout = 487). Un appel poussé arrive avec currentCall=null.
+  if ((currentCall || outboundActive) && !pushPayload) return;
   connecting = true;
   // Ferme proprement l'ancienne connexion avant d'en ouvrir une nouvelle
   // (sinon le même identifiant s'enregistre en double et ne se stabilise pas).
@@ -287,10 +302,10 @@ async function connectClient(pushPayload?: any) {
 }
 
 function scheduleReconnect() {
-  if (stopping || reconnectTimer || connecting || currentCall) return; // pas de reco pendant un appel
+  if (stopping || reconnectTimer || connecting || currentCall || outboundActive) return; // pas de reco pendant un appel
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    if (!stopping && !currentCall) connectClient();
+    if (!stopping && !currentCall && !outboundActive) connectClient();
   }, 2000); // reconnexion rapide : la ligne reste prête à sonner
 }
 
@@ -381,7 +396,7 @@ export function startIncomingCalls() {
   // déclenché la reconnexion), on se reconnecte tout seul.
   heartbeat = setInterval(() => {
     // Surtout pas de reconnexion pendant un appel (ça tuerait la ligne de l'appel).
-    if (!stopping && !connecting && !currentCall && lineStatus !== 'connected' && !reconnectTimer) {
+    if (!stopping && !connecting && !currentCall && !outboundActive && lineStatus !== 'connected' && !reconnectTimer) {
       connectClient();
     }
   }, 12000); // vérif plus fréquente : la ligne se remet prête vite après une coupure
