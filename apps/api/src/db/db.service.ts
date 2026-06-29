@@ -100,6 +100,15 @@ export interface Client {
   createdAt: string;
 }
 
+export interface Device {
+  id: string;
+  accountId: string;
+  userId: string;
+  token: string; // Expo push token
+  platform: string;
+  createdAt: string;
+}
+
 export interface Message {
   id: string;
   accountId: string;
@@ -134,6 +143,7 @@ interface Data {
   resets: { token: string; userId: string; expiresAt: number }[];
   plans: Plan[];
   messages: Message[];
+  devices: Device[];
 }
 
 const DEFAULT_PLANS: Plan[] = [
@@ -165,6 +175,7 @@ export class DbService implements OnModuleInit {
     resets: [],
     plans: [],
     messages: [],
+    devices: [],
   };
   private readonly file = process.env.DB_FILE || path.resolve(process.cwd(), 'data.json');
 
@@ -499,6 +510,27 @@ export class DbService implements OnModuleInit {
   /** Nombre total de SMS entrants non lus (pour le badge). */
   unreadMessages(accountId: string) {
     return this.data.messages.filter((m) => m.accountId === accountId && m.direction === 'inbound' && !m.isRead).length;
+  }
+
+  // ── Devices (notifications push) ───────────────────────────────────────────
+
+  /** Enregistre/rafraîchit le token push d'un appareil (dédoublonné par token). */
+  registerDevice(accountId: string, userId: string, token: string, platform: string) {
+    if (!token) return null;
+    let d = this.data.devices.find((x) => x.token === token);
+    if (d) {
+      d.accountId = accountId; d.userId = userId; d.platform = platform;
+    } else {
+      d = { id: randomUUID(), accountId, userId, token, platform, createdAt: this.now() };
+      this.data.devices.push(d);
+    }
+    this.save();
+    return d;
+  }
+
+  /** Tokens push de tous les appareils d'un compte. */
+  devicesForAccount(accountId: string): string[] {
+    return this.data.devices.filter((d) => d.accountId === accountId).map((d) => d.token);
   }
 
   // ── Clients (carnet de contacts) ───────────────────────────────────────────

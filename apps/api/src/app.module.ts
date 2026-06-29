@@ -6,11 +6,12 @@ import { NumbersModule } from './numbers/numbers.module';
 import { CallsModule } from './calls/calls.module';
 import { ClientsModule } from './clients/clients.module';
 import { AdminModule } from './admin/admin.module';
+import { PushModule } from './push/push.module';
 import { HealthController } from './health.controller';
 import { PlansController } from './plans.controller';
 
 @Module({
-  imports: [DbModule, AuthModule, TelnyxModule, NumbersModule, CallsModule, ClientsModule, AdminModule],
+  imports: [DbModule, AuthModule, TelnyxModule, NumbersModule, CallsModule, ClientsModule, AdminModule, PushModule],
   controllers: [HealthController, PlansController],
 })
 export class AppModule {}

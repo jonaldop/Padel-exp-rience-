@@ -11,6 +11,7 @@
       "@config-plugins/react-native-webrtc",
       "@config-plugins/react-native-callkeep",
       "./plugins/with-voip-push",
+      "expo-notifications",
       [
         "expo-contacts",
         { "contactsPermission": "Joe accède à vos contacts pour les ajouter à votre carnet de clients." }

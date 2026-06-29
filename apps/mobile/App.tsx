@@ -24,6 +24,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PlanScreen } from './src/screens/PlanScreen';
 import { TabBar } from './src/components/TabBar';
 import { startIncomingCalls, stopIncomingCalls } from './src/call/incomingCalls';
+import { registerPush } from './src/push';
 import { navigationRef } from './src/nav';
 
 const Tab = createBottomTabNavigator();
@@ -81,9 +82,9 @@ export default function App() {
     })();
   }, []);
 
-  // Active la réception d'appels entrants une fois connecté (iOS).
+  // Active la réception d'appels entrants + les notifications push une fois connecté.
   useEffect(() => {
-    if (authed) startIncomingCalls();
+    if (authed) { startIncomingCalls(); registerPush(); }
     else stopIncomingCalls();
   }, [authed]);
 

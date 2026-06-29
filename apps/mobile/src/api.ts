@@ -59,6 +59,10 @@ export const api = {
   plans: () => request<{ plans: any[] }>('/plans'),
   usage: () => request<any>('/auth/usage'),
 
+  // Notifications push : enregistrer le token du device.
+  registerDevice: (token: string, platform: string) =>
+    request('/push/register', { method: 'POST', body: JSON.stringify({ token, platform }) }),
+
   myNumbers: () => request('/numbers'),
   updateNumberSettings: (id: string, patch: any) =>
     request(`/numbers/${id}/settings`, { method: 'PATCH', body: JSON.stringify(patch) }),

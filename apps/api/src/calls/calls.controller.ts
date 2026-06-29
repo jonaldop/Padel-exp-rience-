@@ -4,6 +4,7 @@ import { DbService } from '../db/db.service';
 import { isOpen, DEFAULT_SCHEDULE, WeeklySchedule } from './business-hours';
 import { CurrentUser, JwtGuard } from '../auth/jwt.guard';
 import { JwtPayload } from '../auth/auth.service';
+import { PushService } from '../push/push.service';
 
 /**
  * - Webhook Call Control de Telnyx : route les appels ENTRANTS selon les
@@ -18,6 +19,7 @@ export class CallsController {
   constructor(
     private readonly telnyx: TelnyxService,
     private readonly db: DbService,
+    private readonly push: PushService,
   ) {}
 
   // ── Endpoints authentifiés (dashboard / softphone) ─────────────────────────
@@ -188,6 +190,12 @@ export class CallsController {
         const url = payload.public_recording_urls?.mp3 || payload.recording_urls?.mp3;
         if (call) {
           this.db.createVoicemail({ callId: call.id, audioUrl: url });
+          // Notif push : nouveau message vocal.
+          this.push.notifyAccount(call.accountId, {
+            title: 'Nouveau message vocal 🎙️',
+            body: `De ${call.fromE164}`,
+            data: { screen: 'Messages' },
+          });
           // TODO (V2) : enqueue transcription Whisper/Deepgram (ticket AI-1)
         }
         break;
@@ -218,7 +226,18 @@ export class CallsController {
             endedAt: new Date().toISOString(),
             durationS,
           });
-          // TODO : si missed -> notification push + email (ticket FLOW-6)
+          // Notif push appel manqué : cas clair (status resté 'ringing') OU appel
+          // in-app non décroché (ringing-app + cause "sans réponse" côté SIP).
+          const cause = `${payload.hangup_cause || ''} ${payload.sip_hangup_cause || ''}`;
+          const inAppNoAnswer =
+            call.status === 'ringing-app' && /487|480|408|cancel|timeout|no_?answer|unspecified/i.test(cause);
+          if (call.direction === 'inbound' && (finalStatus === 'missed' || inAppNoAnswer)) {
+            this.push.notifyAccount(call.accountId, {
+              title: 'Appel manqué 📞',
+              body: `De ${call.fromE164}`,
+              data: { screen: 'Appels' },
+            });
+          }
         }
         break;
       }
