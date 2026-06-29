@@ -1,4 +1,4 @@
-import { Platform, Vibration } from 'react-native';
+import { Platform, Vibration, AppState } from 'react-native';
 import { TelnyxRTC } from '@telnyx/react-native-voice-sdk';
 import { api } from '../api';
 import { navigate, goBackIfPossible } from '../nav';
@@ -66,6 +66,7 @@ let started = false;
 let stopping = false;
 let reconnectTimer: any = null;
 let heartbeat: any = null;
+let appStateSub: any = null;
 let CallKeep: any = null;
 let VoipPush: any = null;
 
@@ -172,6 +173,12 @@ export async function answerIncoming(viaCallKit = false) {
   try {
     await currentCall.answer();
     setIncoming('active');
+    // Décroché via CallKit (app fermée/verrouillée) : on ramène l'utilisateur
+    // SUR l'écran d'appel actif (sinon il atterrit sur l'accueil, "pas sur l'appel").
+    if (viaCallKit) {
+      try { CallKeep?.backToForeground?.(); } catch { /* noop */ }
+      try { navigate('AppelEntrant', { from: currentFrom, name: lookupContact(currentFrom) }); } catch { /* noop */ }
+    }
   } catch {
     // Cause la plus fréquente : micro non autorisé -> on coupe proprement.
     try { currentCall?.hangup?.(); } catch { /* noop */ }
@@ -207,6 +214,13 @@ function presentIncoming(call: any) {
     navigate('AppelEntrant', { from: currentFrom, name });
   } else {
     setIncoming('ringing'); // état interne, CallKit gère l'affichage
+    // L'écran iOS natif n'affiche que le numéro (le nom du contact est dans le
+    // répertoire du tél, pas dans le push). Une fois résolu, on met à jour le
+    // nom affiché sur l'écran d'appel iOS.
+    if (name) {
+      const uuid = callKitUuid || currentUuid;
+      try { if (uuid) CallKeep?.updateDisplay?.(uuid, name, currentFrom); } catch { /* noop */ }
+    }
   }
 
   try {
@@ -277,7 +291,7 @@ function scheduleReconnect() {
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     if (!stopping && !currentCall) connectClient();
-  }, 4000);
+  }, 2000); // reconnexion rapide : la ligne reste prête à sonner
 }
 
 export function startIncomingCalls() {
@@ -370,13 +384,24 @@ export function startIncomingCalls() {
     if (!stopping && !connecting && !currentCall && lineStatus !== 'connected' && !reconnectTimer) {
       connectClient();
     }
-  }, 30000);
+  }, 12000); // vérif plus fréquente : la ligne se remet prête vite après une coupure
+
+  // Reconnexion immédiate quand l'app revient au 1er plan : si la socket a été
+  // gelée en arrière-plan, on la réveille tout de suite (ligne prête à sonner).
+  appStateSub = AppState.addEventListener('change', (state) => {
+    if (state === 'active' && !stopping && !currentCall && lineStatus !== 'connected') {
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      connectClient();
+    }
+  });
 }
 
 export function stopIncomingCalls() {
   stopping = true;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+  try { appStateSub?.remove?.(); } catch { /* noop */ }
+  appStateSub = null;
   try { currentCall?.hangup(); } catch { /* noop */ }
   try { client?.disconnect(); } catch { /* noop */ }
   endCallKit();
