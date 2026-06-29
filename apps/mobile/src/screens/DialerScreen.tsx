@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api';
 import { colors, gradients } from '../theme';
 import { GradientBg } from '../ui';
@@ -82,11 +83,11 @@ export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
           <View style={{ width: 74 }} />
           <TouchableOpacity activeOpacity={0.85} onPress={call}>
             <LinearGradient colors={gradients.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.callBtn}>
-              <Text style={{ fontSize: 30 }}>📞</Text>
+              <Ionicons name="call" size={30} color="#fff" />
             </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity style={{ width: 74, alignItems: 'center' }} onPress={() => setNumber((n) => n.slice(0, -1))}>
-            {!!number && <Text style={{ fontSize: 26, color: colors.muted }}>⌫</Text>}
+            {!!number && <Ionicons name="backspace-outline" size={28} color={colors.muted} />}
           </TouchableOpacity>
         </View>
         <Text style={s.note}>

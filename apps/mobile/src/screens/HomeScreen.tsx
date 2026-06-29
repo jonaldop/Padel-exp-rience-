@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { api } from '../api';
 import { colors } from '../theme';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { GradientBg, Glass, Delta, Waveform } from '../ui';
 import { formatFr, toE164Fr } from '../format';
 import { BUILD_TAG } from '../version';
@@ -199,7 +200,11 @@ export function HomeScreen() {
             return (
               <Glass key={c.id} style={s.callRow}>
                 <View style={[s.callIcon, { backgroundColor: isMissed ? '#FDEBEA' : '#E8EEFF' }]}>
-                  <Text style={{ fontSize: 15 }}>{isMissed ? '↙️' : inbound ? '↙️' : '↗️'}</Text>
+                  <MaterialIcons
+                    name={isMissed ? 'call-missed' : inbound ? 'call-received' : 'call-made'}
+                    size={16}
+                    color={isMissed ? colors.red : inbound ? colors.green : colors.primary}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.callNum}>{num}</Text>
@@ -214,7 +219,7 @@ export function HomeScreen() {
                   style={[s.callBack, { backgroundColor: isMissed ? '#FDEBEA' : '#E7F7EE' }]}
                   onPress={() => nav.navigate('Appel', { number: toE164Fr(rawNum), callerId: proNumber || undefined, name: lookupContact(rawNum) || undefined })}
                 >
-                  <Text style={{ fontSize: 15 }}>📞</Text>
+                  <Ionicons name="call" size={16} color={colors.green} />
                 </TouchableOpacity>
               </Glass>
             );

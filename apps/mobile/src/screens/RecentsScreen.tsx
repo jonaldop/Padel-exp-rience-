@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
@@ -58,7 +59,11 @@ export function RecentsScreen() {
           return (
             <Glass style={s.row}>
               <View style={[s.icon, { backgroundColor: isMissed ? '#FDEBEA' : '#E8EEFF' }]}>
-                <Text style={{ fontSize: 15 }}>{inbound ? '↙️' : '↗️'}</Text>
+                <MaterialIcons
+                  name={isMissed ? 'call-missed' : inbound ? 'call-received' : 'call-made'}
+                  size={17}
+                  color={isMissed ? colors.red : inbound ? colors.green : colors.primary}
+                />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.num}>{contactName || formatFr(num)}</Text>
@@ -74,7 +79,7 @@ export function RecentsScreen() {
                 style={s.callBack}
                 onPress={() => callBack(num, contactName || undefined)}
               >
-                <Text style={{ fontSize: 15 }}>📞</Text>
+                <Ionicons name="call" size={17} color={colors.green} />
               </TouchableOpacity>
             </Glass>
           );
