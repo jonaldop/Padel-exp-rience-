@@ -59,6 +59,7 @@ function stopRinging() {
 let client: any = null;
 let currentCall: any = null;
 let currentUuid: string | null = null;
+let callKitUuid: string | null = null; // uuid RÉEL de l'appel CallKit (généré côté natif)
 let voipToken: string | null = null;
 let started = false;
 let stopping = false;
@@ -106,17 +107,34 @@ function callerNumberOf(call: any): string {
     o.remoteCallerIdNumber ||
     o.callerNumber ||
     o.callerIdNumber ||
+    // ⚠️ SDK Telnyx : pour un appel ENTRANT, le numéro de l'APPELANT est rangé
+    // dans options.destinationNumber (= caller_id_number de l'INVITE).
+    o.destinationNumber ||
     call?.remoteCallerNumber ||
     'Appel entrant'
   );
 }
 
 function endCallKit() {
-  if (CallKeep && currentUuid) {
-    try { CallKeep.endCall(currentUuid); } catch { /* noop */ }
+  // On termine l'appel CallKit avec le VRAI uuid fourni par iOS (celui généré
+  // côté natif au push), pas notre uuid interne — sinon iOS ne ferme jamais l'UI.
+  const uuid = callKitUuid || currentUuid;
+  if (CallKeep && uuid) {
+    try { CallKeep.endCall(uuid); } catch { /* noop */ }
   }
   currentUuid = null;
+  callKitUuid = null;
   currentCall = null;
+}
+
+/** Attend (brièvement) que l'invite Telnyx ait créé l'objet d'appel. */
+async function waitForCurrentCall(maxMs = 6000): Promise<boolean> {
+  const step = 200;
+  for (let waited = 0; waited < maxMs; waited += step) {
+    if (currentCall) return true;
+    await new Promise((r) => setTimeout(r, step));
+  }
+  return !!currentCall;
 }
 
 /**
@@ -129,15 +147,23 @@ function endCallKit() {
  */
 export async function answerIncoming(viaCallKit = false) {
   stopRinging();
-  if (!currentCall) { setIncoming('ended'); return; }
   setIncoming('connecting');
+  // En CallKit, l'invite Telnyx peut arriver juste après le tap "Décrocher" :
+  // on patiente un court instant que l'objet d'appel existe.
+  if (!currentCall && viaCallKit) await waitForCurrentCall();
+  if (!currentCall) { setIncoming('ended'); return; }
+
   // ⚠️ Session audio :
   //  - App au 1er plan (notre écran, PAS de CallKit) : c'est NOUS qui ouvrons la
   //    session audio via InCallManager.
   //  - Réveil par push / écran verrouillé (écran CallKit natif) : c'est iOS/CallKit
-  //    qui DÉTIENT la session audio. Démarrer InCallManager ici casse l'audio
-  //    WebRTC vers l'appelant ("je décroche mais l'appelant n'a pas de son").
-  if (!viaCallKit) {
+  //    qui DÉTIENT la session audio. On dit d'abord à CallKit que l'appel est
+  //    ACTIF (-> iOS active la session audio), PUIS on décroche en WebRTC.
+  //    Démarrer InCallManager ici casserait l'audio WebRTC vers l'appelant.
+  if (viaCallKit) {
+    const uuid = callKitUuid || currentUuid;
+    try { if (uuid) CallKeep?.setCurrentCallActive?.(uuid); } catch { /* noop */ }
+  } else {
     try { loadInCall()?.start?.({ media: 'audio' }); } catch { /* noop */ }
     try { loadInCall()?.setForceSpeakerphoneOn?.(false); } catch { /* noop */ }
   }
@@ -269,18 +295,29 @@ export function startIncomingCalls() {
     }).catch(() => {});
     CallKeep.setAvailable(true);
 
+    // iOS affiche l'appel CallKit : on mémorise SON uuid (généré côté natif) pour
+    // pouvoir le marquer actif / le terminer correctement ensuite.
+    CallKeep.addEventListener('didDisplayIncomingCall', (data: any) => {
+      if (data?.callUUID) callKitUuid = data.callUUID;
+    });
     // Décrocher depuis l'écran d'appel système CallKit (app fermée / verrouillée).
     // viaCallKit=true -> on laisse iOS gérer la session audio (pas d'InCallManager).
-    CallKeep.addEventListener('answerCall', () => { answerIncoming(true); });
+    CallKeep.addEventListener('answerCall', (data: any) => {
+      if (data?.callUUID) callKitUuid = data.callUUID;
+      answerIncoming(true);
+    });
     // iOS a activé la session audio CallKit : l'audio WebRTC peut circuler. On
     // s'assure juste que ce n'est pas forcé sur le haut-parleur.
     CallKeep.addEventListener('didActivateAudioSession', () => {
       try { loadInCall()?.setForceSpeakerphoneOn?.(false); } catch { /* noop */ }
     });
-    // Raccrocher / refuser
-    CallKeep.addEventListener('endCall', () => {
+    // Raccrocher / refuser (iOS a déjà fermé son UI -> on coupe juste le WebRTC).
+    CallKeep.addEventListener('endCall', (data: any) => {
+      if (data?.callUUID) callKitUuid = data.callUUID;
       try { currentCall?.hangup(); } catch { /* noop */ }
-      endCallKit();
+      currentUuid = null;
+      callKitUuid = null;
+      currentCall = null;
     });
   } catch { /* noop */ }
 
