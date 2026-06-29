@@ -60,6 +60,7 @@ let client: any = null;
 let currentCall: any = null;
 let currentUuid: string | null = null;
 let callKitUuid: string | null = null; // uuid RÉEL de l'appel CallKit (généré côté natif)
+let pushActive = false; // un appel a été réveillé par push VoIP (CallKit affiche l'UI)
 let voipToken: string | null = null;
 let started = false;
 let stopping = false;
@@ -125,6 +126,7 @@ function endCallKit() {
   currentUuid = null;
   callKitUuid = null;
   currentCall = null;
+  pushActive = false;
 }
 
 /** Attend (brièvement) que l'invite Telnyx ait créé l'objet d'appel. */
@@ -192,15 +194,20 @@ function presentIncoming(call: any) {
   currentCall = call;
   currentUuid = uuidv4();
   currentFrom = String(callerNumberOf(call));
-
-  // Sonnerie + vibreur + écran d'appel plein écran (app ouverte).
-  // NB: on n'affiche PAS CallKit ici (ça créait une 2e bannière + un conflit
-  // audio qui empêchait de décrocher). CallKit est géré nativement par
-  // l'AppDelegate quand l'app est fermée (push VoIP).
-  startRinging();
-  setIncoming('ringing');
   const name = lookupContact(currentFrom); // nom depuis le répertoire natif
-  navigate('AppelEntrant', { from: currentFrom, name });
+
+  // Deux cas :
+  //  - App au 1er plan (PAS de push) : c'est NOUS qui sonnons + affichons l'écran.
+  //  - Réveil par push VoIP : CallKit affiche déjà l'écran d'appel système et
+  //    joue la sonnerie -> on n'affiche PAS notre écran (sinon double UI + double
+  //    sonnerie, et l'écran fantôme qui reste après raccrochage).
+  if (!pushActive) {
+    startRinging();
+    setIncoming('ringing');
+    navigate('AppelEntrant', { from: currentFrom, name });
+  } else {
+    setIncoming('ringing'); // état interne, CallKit gère l'affichage
+  }
 
   try {
     call.on?.('telnyx.call.state', (_c: any, state: string) => {
@@ -209,6 +216,7 @@ function presentIncoming(call: any) {
         setIncoming('active');
       } else if (state === 'ended' || state === 'dropped') {
         stopRinging();
+        pushActive = false;
         endCallKit();
         setIncoming('ended');
       }
@@ -218,7 +226,7 @@ function presentIncoming(call: any) {
 
 let connecting = false;
 
-async function connectClient() {
+async function connectClient(pushPayload?: any) {
   if (connecting || stopping) return; // une seule connexion à la fois
   connecting = true;
   // Ferme proprement l'ancienne connexion avant d'en ouvrir une nouvelle
@@ -236,6 +244,8 @@ async function connectClient() {
     client = c;
     c.on('telnyx.client.ready', () => { connecting = false; setStatus('connected'); });
     c.on('telnyx.call.incoming', (call: any) => presentIncoming(call));
+    // Appel poussé par VoIP : le SDK le rattache via l'événement "reattached".
+    c.on('telnyx.call.reattached', (call: any) => presentIncoming(call));
     const onDrop = () => {
       connecting = false;
       if (client === c) { setStatus('connecting'); scheduleReconnect(); }
@@ -243,6 +253,13 @@ async function connectClient() {
     c.on('telnyx.client.error', onDrop);
     c.on('telnyx.client.disconnected', onDrop);
     c.on('telnyx.socket.close', onDrop);
+    // ⚠️ ORDRE CRITIQUE : pour un appel réveillé par push, il FAUT traiter le push
+    // AVANT connect() — connect() lit le voice_sdk_id du push pour demander à
+    // Telnyx de RE-livrer CET appel. Sinon l'appel n'arrive jamais côté JS :
+    // on décroche dans le vide et l'appelant n'est jamais connecté.
+    if (pushPayload) {
+      try { c.processVoIPNotification(pushPayload); } catch { /* noop */ }
+    }
     await c.connect();
   } catch {
     connecting = false;
@@ -318,6 +335,7 @@ export function startIncomingCalls() {
       currentUuid = null;
       callKitUuid = null;
       currentCall = null;
+      pushActive = false;
     });
   } catch { /* noop */ }
 
@@ -327,9 +345,12 @@ export function startIncomingCalls() {
       connectClient();
     });
     VoipPush.addEventListener('notification', (notification: any) => {
-      // Push reçu (app en arrière-plan) -> le SDK établit l'appel ; l'écran
-      // CallKit est déjà affiché par l'AppDelegate (reportNewIncomingCall).
-      try { client?.processVoIPNotification?.(notification); } catch { /* noop */ }
+      // Push reçu (app en arrière-plan/fermée). L'écran CallKit est déjà affiché
+      // par l'AppDelegate. On (RE)CONNECTE en traitant le push AVANT le login,
+      // pour que Telnyx re-livre CET appel à notre client (sinon décroché à vide).
+      pushActive = true;
+      connecting = false; // force une reconnexion immédiate avec le contexte push
+      connectClient(notification);
     });
     VoipPush.registerVoipToken();
   } catch { /* noop */ }
