@@ -3,6 +3,7 @@ import { AuthService, JwtPayload } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
 import { CurrentUser, JwtGuard } from './jwt.guard';
 import { DbService } from '../db/db.service';
+import { config } from '../config/config';
 
 @Controller('auth')
 export class AuthController {
@@ -61,11 +62,18 @@ export class AuthController {
     return { firstName: u.firstName, lastName: u.lastName, phonePerso: u.phonePerso };
   }
 
-  /** Change la formule d'abonnement du compte. */
+  /** Forfait courant + consommation (mois en cours + historique). Espace client. */
+  @UseGuards(JwtGuard)
+  @Get('usage')
+  usage(@CurrentUser() user: JwtPayload) {
+    return this.db.accountUsage(user.accountId, config.costPerMinute);
+  }
+
+  /** Change la formule d'abonnement du compte (parmi les formules actives). */
   @UseGuards(JwtGuard)
   @Patch('plan')
   updatePlan(@CurrentUser() user: JwtPayload, @Body() body: { plan: string }) {
-    const allowed = ['starter', 'essentiel', 'pro', 'business'];
+    const allowed = this.db.listPlans().filter((p) => p.active).map((p) => p.key);
     if (!allowed.includes(body.plan)) return { error: 'Formule inconnue' };
     const a = this.db.updateAccountPlan(user.accountId, body.plan);
     if (!a) return { error: 'Compte introuvable' };

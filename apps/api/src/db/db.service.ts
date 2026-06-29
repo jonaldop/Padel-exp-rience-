@@ -630,6 +630,77 @@ export class DbService implements OnModuleInit {
     };
   }
 
+  /**
+   * Espace client : forfait courant + consommation (mois en cours + historique
+   * mensuel). Sert à l'écran "Mon forfait" de l'app.
+   */
+  accountUsage(accountId: string, costPerMinute = 0.02) {
+    const account = this.data.accounts.find((a) => a.id === accountId);
+    const calls = this.data.calls.filter((c) => c.accountId === accountId);
+    const planKey = account?.plan || 'starter';
+    const plan = this.data.plans.find((p) => p.key === planKey) || null;
+    const includedMinutes = plan?.includedMinutes ?? 0;
+    const monthlyPrice = plan?.monthlyPrice ?? this.planPrice(planKey);
+
+    const monthKey = (iso: string) => (iso || '').slice(0, 7); // YYYY-MM
+    const nowMonth = monthKey(this.now());
+
+    // Agrégat par mois (12 derniers mois), tri décroissant.
+    const byMonth = new Map<string, { minutes: number; seconds: number; calls: number; inbound: number; outbound: number }>();
+    for (const c of calls) {
+      const m = monthKey(c.startedAt);
+      if (!m) continue;
+      const e = byMonth.get(m) || { minutes: 0, seconds: 0, calls: 0, inbound: 0, outbound: 0 };
+      e.seconds += c.durationS || 0;
+      e.calls += 1;
+      if (c.direction === 'inbound') e.inbound += 1; else e.outbound += 1;
+      byMonth.set(m, e);
+    }
+    const history = [...byMonth.entries()]
+      .map(([month, e]) => ({
+        month,
+        minutes: Math.round(e.seconds / 60),
+        calls: e.calls,
+        inbound: e.inbound,
+        outbound: e.outbound,
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month))
+      .slice(0, 12);
+
+    const cur = byMonth.get(nowMonth) || { seconds: 0, calls: 0, inbound: 0, outbound: 0, minutes: 0 } as any;
+    const minutesThisMonth = Math.round((cur.seconds || 0) / 60);
+    const remaining = includedMinutes ? Math.max(0, includedMinutes - minutesThisMonth) : 0;
+    const overMinutes = includedMinutes ? Math.max(0, minutesThisMonth - includedMinutes) : minutesThisMonth;
+    const percentUsed = includedMinutes ? Math.min(100, Math.round((minutesThisMonth / includedMinutes) * 100)) : 0;
+
+    const totalSeconds = calls.reduce((s, c) => s + (c.durationS || 0), 0);
+
+    return {
+      plan: plan
+        ? { key: plan.key, name: plan.name, monthlyPrice: plan.monthlyPrice, includedMinutes: plan.includedMinutes, features: plan.features }
+        : { key: planKey, name: planKey, monthlyPrice, includedMinutes: 0, features: [] },
+      billing: this.billingLabel(account?.status || 'trial'),
+      status: account?.status || 'trial',
+      thisMonth: {
+        month: nowMonth,
+        minutes: minutesThisMonth,
+        calls: cur.calls || 0,
+        inbound: cur.inbound || 0,
+        outbound: cur.outbound || 0,
+        includedMinutes,
+        remainingMinutes: remaining,
+        overMinutes,
+        percentUsed,
+        extraCost: Math.round(overMinutes * costPerMinute * 100) / 100,
+      },
+      totals: {
+        minutes: Math.round(totalSeconds / 60),
+        calls: calls.length,
+      },
+      history,
+    };
+  }
+
   // ── Diagnostic appels entrants (en mémoire, non persisté) ──────────────────
   private debugInbound: any[] = [];
 
