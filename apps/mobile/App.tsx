@@ -12,6 +12,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { RecentsScreen } from './src/screens/RecentsScreen';
 import { ClientsScreen } from './src/screens/ClientsScreen';
+import { ContactDetailScreen } from './src/screens/ContactDetailScreen';
 import { DialerScreen } from './src/screens/DialerScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
@@ -140,6 +141,11 @@ export default function App() {
               name="Formule"
               component={PlanScreen}
               options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
+            />
+            <Stack.Screen
+              name="FicheContact"
+              component={ContactDetailScreen}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="Appel"

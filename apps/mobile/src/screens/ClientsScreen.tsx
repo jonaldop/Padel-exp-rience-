@@ -1,22 +1,24 @@
 import { useCallback, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity, Linking } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 import { formatFr } from '../format';
-import { listContacts } from '../contacts';
+import { listContactsFull, ContactDetail } from '../contacts';
 
 export function ClientsScreen({ onCall }: { onCall: (phone: string) => void }) {
   const insets = useSafeAreaInsets();
-  const [list, setList] = useState<{ name: string; number: string }[]>([]);
+  const nav = useNavigation<any>();
+  const [list, setList] = useState<ContactDetail[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [denied, setDenied] = useState(false);
 
   const load = useCallback((q = '') => {
     setLoading(true);
-    listContacts(q)
+    listContactsFull(q)
       .then((c) => {
         setList(c);
         setDenied(c.length === 0 && !q);
@@ -51,26 +53,29 @@ export function ClientsScreen({ onCall }: { onCall: (phone: string) => void }) {
         ) : (
           <FlatList
             data={list}
-            keyExtractor={(c, i) => c.number + i}
+            keyExtractor={(c, i) => c.id + i}
             contentContainerStyle={{ paddingBottom: 130, paddingTop: 12 }}
             ListEmptyComponent={
               <Text style={s.empty}>{loading ? 'Chargement…' : 'Aucun contact trouvé.'}</Text>
             }
             renderItem={({ item: c }) => (
-              <Glass style={s.row}>
-                <View style={s.avatar}>
-                  <Text style={{ color: colors.primary, fontWeight: '700' }}>
-                    {(c.name?.[0] || '?').toUpperCase()}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.name}>{c.name}</Text>
-                  <Text style={s.sub}>{formatFr(c.number)}</Text>
-                </View>
-                <TouchableOpacity style={s.callBtn} onPress={() => onCall(c.number)}>
-                  <Text style={{ fontSize: 18 }}>📞</Text>
-                </TouchableOpacity>
-              </Glass>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => nav.navigate('FicheContact', { contact: c })}>
+                <Glass style={s.row}>
+                  <View style={s.avatar}>
+                    <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                      {(c.name?.[0] || '?').toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.name}>{c.name}</Text>
+                    <Text style={s.sub}>{formatFr(c.phones[0])}{c.phones.length > 1 ? ` +${c.phones.length - 1}` : ''}</Text>
+                  </View>
+                  <TouchableOpacity style={s.callBtn} onPress={() => onCall(c.phones[0])}>
+                    <Ionicons name="call" size={18} color={colors.green} />
+                  </TouchableOpacity>
+                  <Ionicons name="chevron-forward" size={20} color={colors.muted} style={{ marginLeft: 6 }} />
+                </Glass>
+              </TouchableOpacity>
             )}
           />
         )}

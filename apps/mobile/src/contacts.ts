@@ -57,6 +57,43 @@ export function resetContacts() {
   loadingPromise = null;
 }
 
+export type ContactDetail = {
+  id: string;
+  name: string;
+  company?: string;
+  phones: string[];
+  emails: string[];
+};
+
+/** Répertoire détaillé (fiches contact) : tous les numéros, emails, société. */
+export async function listContactsFull(search?: string): Promise<ContactDetail[]> {
+  try {
+    const perm = await Contacts.requestPermissionsAsync();
+    if (perm.status !== 'granted') return [];
+    const { data } = await Contacts.getContactsAsync({
+      fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails, Contacts.Fields.Name, Contacts.Fields.Company],
+    });
+    let list: ContactDetail[] = (data || [])
+      .filter((c) => c.phoneNumbers && c.phoneNumbers.length)
+      .map((c, i) => ({
+        id: c.id || String(i),
+        name: c.name || c.phoneNumbers![0].number || '',
+        company: (c as any).company || undefined,
+        phones: Array.from(new Set((c.phoneNumbers || []).map((p) => (p.number || '').replace(/\s/g, '')).filter(Boolean))),
+        emails: Array.from(new Set((c.emails || []).map((e) => (e.email || '').trim()).filter(Boolean))),
+      }));
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (c) => c.name.toLowerCase().includes(q) || c.phones.some((p) => p.includes(q)),
+      );
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  } catch {
+    return [];
+  }
+}
+
 /** Liste du répertoire (pour l'écran Clients). */
 export async function listContacts(search?: string): Promise<{ name: string; number: string }[]> {
   try {
