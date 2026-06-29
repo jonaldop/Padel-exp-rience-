@@ -111,7 +111,7 @@ export class CallsController {
             this.logger.log(`Sonnerie in-app de ${payload.to} -> sip:${sipUser}`);
             let transferErr: string | null = null;
             try {
-              await this.telnyx.transferToUser(callControlId, sipUser, 25);
+              await this.telnyx.transferToUser(callControlId, sipUser, 45);
             } catch (e) {
               transferErr = (e as Error).message;
             }
