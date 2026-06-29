@@ -46,7 +46,7 @@ const DELEGATE_METHODS = `
 
   [RNCallKeep reportNewIncomingCall:uuid
                              handle:handle
-                         handleType:@"generic"
+                         handleType:@"number"
                            hasVideo:NO
                 localizedCallerName:callerName
                     supportsHolding:YES
