@@ -228,6 +228,11 @@ let connecting = false;
 
 async function connectClient(pushPayload?: any) {
   if (connecting || stopping) return; // une seule connexion à la fois
+  // ⚠️ NE JAMAIS reconstruire le client pendant un appel : ça détruirait la
+  // connexion WebSocket qui porte l'appel en cours -> impossible d'envoyer
+  // "answer"/"hangup" à Telnyx (l'appelant reste connecté, ou ça sonne dans le
+  // vide jusqu'au timeout = 487). Un appel poussé arrive avec currentCall=null.
+  if (currentCall && !pushPayload) return;
   connecting = true;
   // Ferme proprement l'ancienne connexion avant d'en ouvrir une nouvelle
   // (sinon le même identifiant s'enregistre en double et ne se stabilise pas).
@@ -268,10 +273,10 @@ async function connectClient(pushPayload?: any) {
 }
 
 function scheduleReconnect() {
-  if (stopping || reconnectTimer || connecting) return;
+  if (stopping || reconnectTimer || connecting || currentCall) return; // pas de reco pendant un appel
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    if (!stopping) connectClient();
+    if (!stopping && !currentCall) connectClient();
   }, 4000);
 }
 
@@ -361,7 +366,10 @@ export function startIncomingCalls() {
   // Filet de sécurité : si la ligne tombe (et qu'aucun événement d'erreur n'a
   // déclenché la reconnexion), on se reconnecte tout seul.
   heartbeat = setInterval(() => {
-    if (!stopping && !connecting && lineStatus !== 'connected' && !reconnectTimer) connectClient();
+    // Surtout pas de reconnexion pendant un appel (ça tuerait la ligne de l'appel).
+    if (!stopping && !connecting && !currentCall && lineStatus !== 'connected' && !reconnectTimer) {
+      connectClient();
+    }
   }, 30000);
 }
 
