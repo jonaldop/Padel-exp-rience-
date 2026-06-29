@@ -430,9 +430,19 @@ export class TelnyxService {
     return this.api(`/calls/${callControlId}/actions/speak`, { method: 'POST', body });
   }
 
-  transferToUser(callControlId: string, sipUsername: string, timeoutSecs?: number) {
+  transferToUser(
+    callControlId: string,
+    sipUsername: string,
+    timeoutSecs?: number,
+    callerId?: string,
+    callerName?: string,
+  ) {
     const body: any = { to: `sip:${sipUsername}@sip.telnyx.com` };
     if (timeoutSecs) body.timeout_secs = timeoutSecs;
+    // Présente le NUMÉRO DE L'APPELANT au client WebRTC (sinon l'app affiche le
+    // numéro composé = le numéro pro). from doit être en E.164.
+    if (callerId) body.from = callerId;
+    if (callerName) body.from_display_name = callerName.slice(0, 128);
     return this.api(`/calls/${callControlId}/actions/transfer`, { method: 'POST', body });
   }
 
