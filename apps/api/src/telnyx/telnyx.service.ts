@@ -293,7 +293,7 @@ export class TelnyxService {
   }
 
   /** Achète un numéro et l'attribue à notre Call Control App (routage entrant). */
-  async buyNumber(e164: string, accountId?: string): Promise<{ providerNumberId: string | null }> {
+  async buyNumber(e164: string, accountId?: string, enableSms = false): Promise<{ providerNumberId: string | null }> {
     // Idempotent : si le numéro est déjà possédé, l'achat échoue -> on continue
     // quand même pour le retrouver et l'assigner au compte.
     try {
@@ -325,7 +325,8 @@ export class TelnyxService {
         method: 'PATCH',
         body,
       });
-      this.logger.log(`Numéro ${e164} acheté et routé vers l'app ${appId}`);
+      if (enableSms) await this.assignNumberMessaging(numberId);
+      this.logger.log(`Numéro ${e164} acheté et routé vers l'app ${appId}${enableSms ? ' (SMS activé)' : ''}`);
     } else {
       this.logger.warn(`Numéro ${e164} acheté mais id non résolu (assignation à refaire)`);
     }
@@ -529,6 +530,69 @@ export class TelnyxService {
     return this.api('/calls', {
       method: 'POST',
       body: { to, from, connection_id: appId },
+    });
+  }
+
+  // ── SMS / Messaging ────────────────────────────────────────────────────────
+
+  private messagingProfileId?: string;
+
+  /** Profil de messagerie (SMS) — créé/réutilisé, webhook vers /messages/webhook. */
+  async ensureMessagingProfile(): Promise<string> {
+    if (this.messagingProfileId) return this.messagingProfileId;
+    const webhook = `${config.publicApiUrl}/messages/webhook`;
+    const list = await this.api<{ data: any[] }>('/messaging_profiles?page[size]=250');
+    let prof = list.data?.find((p) => p.name === 'standard-pro');
+    if (!prof) {
+      const created = await this.api<{ data: any }>('/messaging_profiles', {
+        method: 'POST',
+        body: { name: 'standard-pro', webhook_url: webhook, webhook_api_version: '2' },
+      });
+      prof = created.data;
+      this.logger.log(`Messaging profile créé: ${prof.id}`);
+    } else if (prof.webhook_url !== webhook) {
+      await this.api(`/messaging_profiles/${prof.id}`, {
+        method: 'PATCH',
+        body: { webhook_url: webhook, webhook_api_version: '2' },
+      });
+    }
+    this.messagingProfileId = prof.id;
+    return prof.id;
+  }
+
+  /** Active la messagerie (SMS) sur un numéro en l'attachant au profil de messagerie. */
+  async assignNumberMessaging(providerNumberId: string) {
+    if (!providerNumberId) return;
+    const profileId = await this.ensureMessagingProfile();
+    try {
+      await this.api(`/phone_numbers/${providerNumberId}/messaging`, {
+        method: 'PATCH',
+        body: { messaging_profile_id: profileId },
+      });
+    } catch (e) {
+      this.logger.warn(`Activation SMS échouée pour ${providerNumberId}: ${(e as Error).message}`);
+    }
+  }
+
+  /** Indique si un numéro Telnyx supporte le SMS (capabilities). */
+  async numberSupportsSms(providerNumberId: string): Promise<boolean> {
+    if (!this.configured || !providerNumberId) return false;
+    try {
+      const data = await this.api<{ data: any }>(`/phone_numbers/${providerNumberId}/messaging`);
+      const feats = data.data?.features || data.data?.messaging_features || {};
+      // Telnyx renvoie les capacités SMS/MMS du numéro.
+      return Boolean(feats?.sms?.domestic_two_way ?? feats?.sms ?? data.data?.eligible_messaging_products?.length);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Envoi d'un SMS (présente le numéro pro en expéditeur). */
+  async sendSms(from: string, to: string, text: string) {
+    await this.ensureMessagingProfile();
+    return this.api('/messages', {
+      method: 'POST',
+      body: { from, to, text },
     });
   }
 }

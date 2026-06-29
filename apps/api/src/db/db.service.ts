@@ -100,6 +100,20 @@ export interface Client {
   createdAt: string;
 }
 
+export interface Message {
+  id: string;
+  accountId: string;
+  phoneNumberId?: string | null;
+  direction: 'inbound' | 'outbound';
+  fromE164: string;
+  toE164: string;
+  body: string;
+  status: string; // queued | sent | delivered | received | failed
+  providerMessageId?: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface Plan {
   key: string;
   name: string;
@@ -119,6 +133,7 @@ interface Data {
   clients: Client[];
   resets: { token: string; userId: string; expiresAt: number }[];
   plans: Plan[];
+  messages: Message[];
 }
 
 const DEFAULT_PLANS: Plan[] = [
@@ -149,6 +164,7 @@ export class DbService implements OnModuleInit {
     clients: [],
     resets: [],
     plans: [],
+    messages: [],
   };
   private readonly file = process.env.DB_FILE || path.resolve(process.cwd(), 'data.json');
 
@@ -408,6 +424,81 @@ export class DbService implements OnModuleInit {
       .filter((v) => callIds.has(v.callId))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((v) => ({ ...v, call: this.data.calls.find((c) => c.id === v.callId) }));
+  }
+
+  // ── SMS ────────────────────────────────────────────────────────────────────
+
+  createMessage(input: Omit<Message, 'id' | 'createdAt' | 'isRead'> & { isRead?: boolean; createdAt?: string }): Message {
+    const msg: Message = {
+      id: randomUUID(),
+      isRead: input.isRead ?? false,
+      createdAt: input.createdAt || this.now(),
+      ...input,
+    } as Message;
+    this.data.messages.push(msg);
+    this.save();
+    return msg;
+  }
+
+  updateMessageStatus(providerMessageId: string, status: string) {
+    const m = this.data.messages.find((x) => x.providerMessageId === providerMessageId);
+    if (m) { m.status = status; this.save(); }
+    return m || null;
+  }
+
+  /** Le "correspondant" d'un message (le numéro externe, pas notre numéro pro). */
+  private peerOf(m: Message): string {
+    return m.direction === 'inbound' ? m.fromE164 : m.toE164;
+  }
+
+  /** Liste des conversations (dernier message + non-lus) pour un compte. */
+  listThreads(accountId: string) {
+    const mine = this.data.messages.filter((m) => m.accountId === accountId);
+    const byPeer = new Map<string, Message[]>();
+    for (const m of mine) {
+      const p = this.peerOf(m);
+      (byPeer.get(p) || byPeer.set(p, []).get(p)!).push(m);
+    }
+    return [...byPeer.entries()]
+      .map(([peer, msgs]) => {
+        const sorted = msgs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        const last = sorted[0];
+        const unread = msgs.filter((m) => m.direction === 'inbound' && !m.isRead).length;
+        return {
+          peer,
+          last: { body: last.body, direction: last.direction, createdAt: last.createdAt, status: last.status },
+          unread,
+          updatedAt: last.createdAt,
+        };
+      })
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  /** Messages d'une conversation (ordre chronologique). */
+  listThread(accountId: string, peer: string) {
+    const k = (n: string) => (n || '').replace(/\D/g, '').slice(-9);
+    const kp = k(peer);
+    return this.data.messages
+      .filter((m) => m.accountId === accountId && (k(this.peerOf(m)) === kp))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  markThreadRead(accountId: string, peer: string) {
+    const k = (n: string) => (n || '').replace(/\D/g, '').slice(-9);
+    const kp = k(peer);
+    let n = 0;
+    for (const m of this.data.messages) {
+      if (m.accountId === accountId && m.direction === 'inbound' && !m.isRead && k(m.fromE164) === kp) {
+        m.isRead = true; n++;
+      }
+    }
+    if (n) this.save();
+    return n;
+  }
+
+  /** Nombre total de SMS entrants non lus (pour le badge). */
+  unreadMessages(accountId: string) {
+    return this.data.messages.filter((m) => m.accountId === accountId && m.direction === 'inbound' && !m.isRead).length;
   }
 
   // ── Clients (carnet de contacts) ───────────────────────────────────────────
