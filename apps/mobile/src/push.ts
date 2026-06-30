@@ -1,21 +1,25 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { api } from './api';
 import { navigate } from './nav';
 
 /**
  * Notifications push (alertes) : appel manqué, nouveau message vocal, etc.
  *
- * ⚠️ expo-notifications est un module NATIF : ce code ne fonctionne qu'à partir
- * d'un build natif qui l'inclut. On charge donc le module en try/catch pour ne
- * JAMAIS casser un ancien binaire (OTA) qui ne l'aurait pas encore.
+ * ⚠️ expo-notifications est un module NATIF : il n'existe qu'à partir d'un build
+ * natif qui l'inclut. Sur un ANCIEN binaire (reçu par OTA), charger le JS
+ * d'expo-notifications plante l'app. On vérifie donc d'abord que le module NATIF
+ * est réellement présent via requireOptionalNativeModule (qui renvoie null sans
+ * planter). Tant qu'il n'y est pas, le push est simplement inactif.
  */
 
 function loadModules(): { Notifications: any; Device: any } | null {
   try {
+    if (!requireOptionalNativeModule('ExpoNotifications')) return null; // ancien binaire
     return { Notifications: require('expo-notifications'), Device: require('expo-device') };
   } catch {
-    return null; // pas encore dans ce build
+    return null;
   }
 }
 
