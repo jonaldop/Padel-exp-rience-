@@ -55,6 +55,13 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Identifiants invalides');
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('Identifiants invalides');
+    // Suspension réelle : un compte suspendu/résilié ne peut plus se connecter.
+    if (user.account?.status === 'suspended') {
+      throw new UnauthorizedException('Compte suspendu. Contactez le support.');
+    }
+    if (user.account?.status === 'canceled') {
+      throw new UnauthorizedException('Compte résilié. Contactez le support.');
+    }
     return this.sign(user, user.account);
   }
 

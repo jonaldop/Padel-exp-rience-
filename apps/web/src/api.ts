@@ -109,6 +109,31 @@ export const api = {
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify({ certificate, privateKey }),
     }),
+  // Actions sur les comptes clients
+  adminAccountDetail: (token: string, id: string) =>
+    request<{ usage: any; calls: any[]; notes: any[] }>(`/admin/accounts/${id}/detail`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  adminAccountStatus: (token: string, id: string, status: string) =>
+    request(`/admin/accounts/${id}/status`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ status }),
+    }),
+  adminAccountPlan: (token: string, id: string, plan: string) =>
+    request(`/admin/accounts/${id}/plan`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ plan }),
+    }),
+  adminResetPassword: (token: string, id: string, email: string, newPassword?: string) =>
+    request<{ ok?: boolean; newPassword?: string; error?: string }>(`/admin/accounts/${id}/reset-password`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ email, newPassword }),
+    }),
+  adminAddNote: (token: string, id: string, text: string) =>
+    request(`/admin/accounts/${id}/notes`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ text }),
+    }),
+  adminDeleteNote: (token: string, noteId: string) =>
+    request(`/admin/notes/${noteId}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+    }),
 
   // Softphone
   webrtcToken: () => request('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),

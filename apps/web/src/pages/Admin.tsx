@@ -119,7 +119,9 @@ export function Admin() {
               </>
             )}
             {tab === 'plans' && <Plans token={token} plans={plans} onChange={() => loadAll()} eur={eur} />}
-            {tab === 'accounts' && <Accounts accounts={accounts} open={open} setOpen={setOpen} eur={eur} />}
+            {tab === 'accounts' && (
+              <Accounts accounts={accounts} open={open} setOpen={setOpen} eur={eur} token={token} plans={plans} onChange={() => loadAll()} />
+            )}
           </>
         )}
       </div>
@@ -366,56 +368,248 @@ function Plans({ token, plans, onChange, eur }: { token: string; plans: any[]; o
   );
 }
 
-function Accounts({ accounts, open, setOpen, eur }: { accounts: any[]; open: Record<string, boolean>; setOpen: (f: any) => void; eur: (n: number) => string }) {
+const STATUS_FILTERS: [string, string][] = [
+  ['', 'Tous'], ['active', 'Actifs'], ['trial', 'Essai'],
+  ['past_due', 'Impayés'], ['suspended', 'Suspendus'], ['canceled', 'Résiliés'],
+];
+const STATUS_LABEL: Record<string, string> = {
+  active: 'Actif', trial: 'Essai', past_due: 'Impayé', suspended: 'Suspendu', canceled: 'Résilié',
+};
+
+function Accounts({ accounts, open, setOpen, eur, token, plans, onChange }: {
+  accounts: any[]; open: Record<string, boolean>; setOpen: (f: any) => void; eur: (n: number) => string;
+  token: string; plans: any[]; onChange: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [sort, setSort] = useState<'recent' | 'mrr' | 'minutes'>('recent');
+  const [busy, setBusy] = useState('');
+  const [details, setDetails] = useState<Record<string, any>>({});
+  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
+
+  const needle = q.trim().toLowerCase();
+  const filtered = accounts
+    .filter((a) => !statusFilter || a.statut === statusFilter)
+    .filter((a) => {
+      if (!needle) return true;
+      const hay = [a.entreprise, ...(a.emails || []), ...(a.numeros || []).map((n: any) => n.e164)]
+        .join(' ').toLowerCase();
+      return hay.includes(needle);
+    })
+    .sort((x, y) => {
+      if (sort === 'mrr') return (y.prixMensuel || 0) - (x.prixMensuel || 0);
+      if (sort === 'minutes') return (y.minutes || 0) - (x.minutes || 0);
+      return (y.créé || '').localeCompare(x.créé || '');
+    });
+
+  async function toggleDetail(a: any) {
+    const next = !open[a.id];
+    setOpen((o: any) => ({ ...o, [a.id]: next }));
+    if (next && !details[a.id]) {
+      try {
+        const d = await api.adminAccountDetail(token, a.id);
+        setDetails((m) => ({ ...m, [a.id]: d }));
+      } catch { /* silencieux */ }
+    }
+  }
+
+  async function refreshDetail(id: string) {
+    try {
+      const d = await api.adminAccountDetail(token, id);
+      setDetails((m) => ({ ...m, [id]: d }));
+    } catch { /* noop */ }
+  }
+
+  async function setStatus(a: any, status: string) {
+    const labels: any = { suspended: 'SUSPENDRE (connexion bloquée)', active: 'réactiver', canceled: 'RÉSILIER' };
+    if (!window.confirm(`${labels[status] || status} le compte « ${a.entreprise} » ?`)) return;
+    setBusy(a.id);
+    try { await api.adminAccountStatus(token, a.id, status); onChange(); } finally { setBusy(''); }
+  }
+
+  async function setPlan(a: any, plan: string) {
+    if (!plan || plan === a.plan) return;
+    setBusy(a.id);
+    try { await api.adminAccountPlan(token, a.id, plan); onChange(); } finally { setBusy(''); }
+  }
+
+  async function resetPassword(a: any, email: string) {
+    if (!window.confirm(`Générer un nouveau mot de passe pour ${email} ?`)) return;
+    setBusy(a.id);
+    try {
+      const r = await api.adminResetPassword(token, a.id, email);
+      if (r.error) alert(`Erreur : ${r.error}`);
+      else alert(`Nouveau mot de passe pour ${email} :\n\n${r.newPassword}\n\nCommuniquez-le au client (affiché une seule fois).`);
+    } finally { setBusy(''); }
+  }
+
+  async function addNote(a: any) {
+    const text = (noteDraft[a.id] || '').trim();
+    if (!text) return;
+    await api.adminAddNote(token, a.id, text);
+    setNoteDraft((m) => ({ ...m, [a.id]: '' }));
+    refreshDetail(a.id);
+  }
+
+  async function deleteNote(a: any, noteId: string) {
+    await api.adminDeleteNote(token, noteId);
+    refreshDetail(a.id);
+  }
+
   return (
     <>
-      <p style={{ fontWeight: 700, fontSize: 18 }}>{accounts.length} compte(s)</p>
-      <div style={{ display: 'grid', gap: 12 }}>
-        {accounts.map((a) => (
-          <Card key={a.id} style={{ padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>{a.entreprise || '—'}</div>
-                <div style={{ fontSize: 14, marginTop: 4 }}>📧 {a.emails.join(', ') || '—'}</div>
-                <div style={{ fontSize: 13, color: colors.muted, marginTop: 4 }}>
-                  ☎️ {a.numeros.length ? a.numeros.map((n: any) => formatFr(n.e164)).join(', ') : 'aucun numéro'}
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700, color: colors.primary }}>{a.plan} · {eur(a.prixMensuel)}</div>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: a.paiementAJour ? colors.green : colors.red }}>
-                  {a.paiementAJour ? '✓ ' : '⚠️ '}{a.paiementLibelle}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10, fontSize: 13 }}>
-              <span>📞 <b>{a.nbAppels}</b> appels</span>
-              <span>⏱️ <b>{a.minutes}</b> min</span>
-              <span style={{ color: colors.amber }}>💸 coût ~<b>{eur(a.coutEstime)}</b></span>
-              <span style={{ color: (a.marge ?? 0) >= 0 ? colors.green : colors.red }}>📈 marge <b>{eur(a.marge)}</b></span>
-              <span>👤 {a.nbClients} clients</span>
-            </div>
-
-            <button onClick={() => setOpen((o: any) => ({ ...o, [a.id]: !o[a.id] }))} style={{ marginTop: 10, background: 'transparent', border: 'none', color: colors.primary, cursor: 'pointer', fontSize: 13, padding: 0 }}>
-              {open[a.id] ? '▲ Masquer' : '▼ Détails (utilisateurs, clients)'}
-            </button>
-
-            {open[a.id] && (
-              <div style={{ marginTop: 12, borderTop: `1px solid ${colors.border}`, paddingTop: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Utilisateurs</div>
-                {a.utilisateurs?.map((u: any, i: number) => (
-                  <div key={i} style={{ fontSize: 13 }}>{u.nom || u.email} <span style={{ color: colors.muted }}>· {u.email}{u.telPerso ? ` · ${u.telPerso}` : ''} · {u.role}</span></div>
-                ))}
-                <div style={{ fontWeight: 700, fontSize: 13, margin: '12px 0 6px' }}>Clients ({a.nbClients})</div>
-                {a.clients?.length ? a.clients.map((c: any, i: number) => (
-                  <div key={i} style={{ fontSize: 13 }}>{c.nom} <span style={{ color: colors.muted }}>· {formatFr(c.tel)}{c.email ? ` · ${c.email}` : ''}</span></div>
-                )) : <div style={{ fontSize: 13, color: colors.muted }}>Aucun client</div>}
-              </div>
-            )}
-          </Card>
+      {/* Recherche + filtres + tri */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+        <Input
+          placeholder="🔍 Rechercher (entreprise, email, numéro)…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          style={{ flex: 1, minWidth: 220 }}
+        />
+        <select value={sort} onChange={(e) => setSort(e.target.value as any)} style={selStyle}>
+          <option value="recent">Plus récents</option>
+          <option value="mrr">MRR décroissant</option>
+          <option value="minutes">Minutes décroissantes</option>
+        </select>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+        {STATUS_FILTERS.map(([key, label]) => (
+          <button key={key} onClick={() => setStatusFilter(key)} style={{
+            border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
+            background: statusFilter === key ? colors.primary : 'rgba(255,255,255,0.7)',
+            color: statusFilter === key ? '#fff' : colors.text,
+          }}>{label}</button>
         ))}
+        <span style={{ fontSize: 12.5, color: colors.muted, alignSelf: 'center', marginLeft: 'auto' }}>
+          {filtered.length} / {accounts.length} compte(s)
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        {filtered.map((a) => {
+          const det = details[a.id];
+          return (
+            <Card key={a.id} style={{ padding: 16, opacity: busy === a.id ? 0.6 : 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>
+                    {a.entreprise || '—'}{' '}
+                    <span style={{
+                      fontSize: 11.5, fontWeight: 700, padding: '2px 8px', borderRadius: 10, verticalAlign: 'middle',
+                      background: a.statut === 'suspended' || a.statut === 'canceled' ? colors.redSoft : a.paiementAJour ? '#E7F7EE' : colors.redSoft,
+                      color: a.statut === 'suspended' || a.statut === 'canceled' ? colors.red : a.paiementAJour ? colors.green : colors.red,
+                    }}>{STATUS_LABEL[a.statut] || a.statut}</span>
+                  </div>
+                  <div style={{ fontSize: 14, marginTop: 4 }}>📧 {a.emails.join(', ') || '—'}</div>
+                  <div style={{ fontSize: 13, color: colors.muted, marginTop: 4 }}>
+                    ☎️ {a.numeros.length ? a.numeros.map((n: any) => formatFr(n.e164)).join(', ') : 'aucun numéro'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 700, color: colors.primary }}>{a.plan} · {eur(a.prixMensuel)}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: a.paiementAJour ? colors.green : colors.red }}>
+                    {a.paiementAJour ? '✓ ' : '⚠️ '}{a.paiementLibelle}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10, fontSize: 13 }}>
+                <span>📞 <b>{a.nbAppels}</b> appels</span>
+                <span>⏱️ <b>{a.minutes}</b> min</span>
+                <span style={{ color: colors.amber }}>💸 coût ~<b>{eur(a.coutEstime)}</b></span>
+                <span style={{ color: (a.marge ?? 0) >= 0 ? colors.green : colors.red }}>📈 marge <b>{eur(a.marge)}</b></span>
+                <span>👤 {a.nbClients} clients</span>
+              </div>
+
+              {/* Barre d'actions */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
+                <select value={a.plan} onChange={(e) => setPlan(a, e.target.value)} style={selStyle} disabled={busy === a.id}>
+                  {plans.map((p: any) => <option key={p.key} value={p.key}>Formule : {p.name}</option>)}
+                  {!plans.some((p: any) => p.key === a.plan) && <option value={a.plan}>Formule : {a.plan}</option>}
+                </select>
+                {a.statut !== 'suspended' ? (
+                  <Button onClick={() => setStatus(a, 'suspended')} disabled={busy === a.id}
+                    style={{ background: colors.redSoft, color: colors.red, padding: '6px 12px', fontSize: 13 }}>
+                    ⛔ Suspendre
+                  </Button>
+                ) : (
+                  <Button onClick={() => setStatus(a, 'active')} disabled={busy === a.id}
+                    style={{ background: '#E7F7EE', color: colors.green, padding: '6px 12px', fontSize: 13 }}>
+                    ✅ Réactiver
+                  </Button>
+                )}
+                <button onClick={() => toggleDetail(a)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: colors.primary, cursor: 'pointer', fontSize: 13, padding: 0 }}>
+                  {open[a.id] ? '▲ Masquer la fiche' : '▼ Fiche client'}
+                </button>
+              </div>
+
+              {open[a.id] && (
+                <div style={{ marginTop: 12, borderTop: `1px solid ${colors.border}`, paddingTop: 12 }}>
+                  {/* Utilisateurs + reset mot de passe */}
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Utilisateurs</div>
+                  {a.utilisateurs?.map((u: any, i: number) => (
+                    <div key={i} style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span>{u.nom || u.email} <span style={{ color: colors.muted }}>· {u.email}{u.telPerso ? ` · ${u.telPerso}` : ''} · {u.role}</span></span>
+                      <button onClick={() => resetPassword(a, u.email)} style={{ background: 'transparent', border: `1px solid ${colors.border}`, borderRadius: 8, cursor: 'pointer', fontSize: 11.5, padding: '2px 8px', color: colors.primary }}>
+                        🔑 Réinitialiser le mot de passe
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Conso mensuelle */}
+                  <div style={{ fontWeight: 700, fontSize: 13, margin: '14px 0 6px' }}>Consommation (12 derniers mois)</div>
+                  {det?.usage?.history?.length ? (
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12.5 }}>
+                      {det.usage.history.map((h: any) => (
+                        <span key={h.month}><b>{h.month}</b> : {h.minutes} min · {h.calls} appels</span>
+                      ))}
+                    </div>
+                  ) : <div style={{ fontSize: 13, color: colors.muted }}>{det ? 'Aucune consommation.' : 'Chargement…'}</div>}
+
+                  {/* Derniers appels */}
+                  <div style={{ fontWeight: 700, fontSize: 13, margin: '14px 0 6px' }}>Derniers appels</div>
+                  {det?.calls?.length ? det.calls.slice(0, 8).map((c: any) => (
+                    <div key={c.id} style={{ fontSize: 12.5, color: colors.text }}>
+                      {c.direction === 'inbound' ? '↙' : '↗'} {formatFr(c.direction === 'inbound' ? c.fromE164 : c.toE164)}
+                      <span style={{ color: colors.muted }}> · {new Date(c.startedAt).toLocaleString('fr-FR')} · {c.status}{c.durationS ? ` · ${Math.round(c.durationS / 60)} min` : ''}</span>
+                    </div>
+                  )) : <div style={{ fontSize: 13, color: colors.muted }}>{det ? 'Aucun appel.' : ''}</div>}
+
+                  {/* Notes internes */}
+                  <div style={{ fontWeight: 700, fontSize: 13, margin: '14px 0 6px' }}>📝 Notes internes (invisibles pour le client)</div>
+                  {det?.notes?.map((n: any) => (
+                    <div key={n.id} style={{ fontSize: 13, background: 'rgba(255,255,255,0.6)', borderRadius: 8, padding: '6px 10px', marginBottom: 6, display: 'flex', gap: 8 }}>
+                      <span style={{ flex: 1 }}>{n.text} <span style={{ color: colors.muted, fontSize: 11.5 }}>· {new Date(n.createdAt).toLocaleString('fr-FR')}</span></span>
+                      <button onClick={() => deleteNote(a, n.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: colors.red, fontSize: 12 }}>✕</button>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <Input
+                      placeholder="Ajouter une note (ex. « rappelé le 12/03, souci de réception »)…"
+                      value={noteDraft[a.id] || ''}
+                      onChange={(e) => setNoteDraft((m) => ({ ...m, [a.id]: e.target.value }))}
+                      onKeyDown={(e) => e.key === 'Enter' && addNote(a)}
+                      style={{ flex: 1 }}
+                    />
+                    <Button onClick={() => addNote(a)} style={{ padding: '6px 14px', fontSize: 13 }}>Ajouter</Button>
+                  </div>
+
+                  {/* Clients du compte */}
+                  <div style={{ fontWeight: 700, fontSize: 13, margin: '14px 0 6px' }}>Clients ({a.nbClients})</div>
+                  {a.clients?.length ? a.clients.map((c: any, i: number) => (
+                    <div key={i} style={{ fontSize: 13 }}>{c.nom} <span style={{ color: colors.muted }}>· {formatFr(c.tel)}{c.email ? ` · ${c.email}` : ''}</span></div>
+                  )) : <div style={{ fontSize: 13, color: colors.muted }}>Aucun client</div>}
+                </div>
+              )}
+            </Card>
+          );
+        })}
       </div>
     </>
   );
 }
+
+const selStyle: React.CSSProperties = {
+  padding: '8px 10px', borderRadius: 10, border: `1px solid rgba(0,0,0,0.1)`,
+  background: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+};
