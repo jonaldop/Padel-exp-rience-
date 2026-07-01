@@ -457,6 +457,12 @@ export class DbService implements OnModuleInit {
     return m || null;
   }
 
+  updateMessage(id: string, patch: Partial<Message>) {
+    const m = this.data.messages.find((x) => x.id === id);
+    if (m) { Object.assign(m, patch); this.save(); }
+    return m || null;
+  }
+
   /** Le "correspondant" d'un message (le numéro externe, pas notre numéro pro). */
   private peerOf(m: Message): string {
     return m.direction === 'inbound' ? m.fromE164 : m.toE164;
