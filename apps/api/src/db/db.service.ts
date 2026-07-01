@@ -109,6 +109,14 @@ export interface Device {
   createdAt: string;
 }
 
+/** Note interne (visible uniquement dans le back-office admin). */
+export interface AdminNote {
+  id: string;
+  accountId: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Message {
   id: string;
   accountId: string;
@@ -144,6 +152,7 @@ interface Data {
   plans: Plan[];
   messages: Message[];
   devices: Device[];
+  adminNotes: AdminNote[];
 }
 
 const DEFAULT_PLANS: Plan[] = [
@@ -176,6 +185,7 @@ export class DbService implements OnModuleInit {
     plans: [],
     messages: [],
     devices: [],
+    adminNotes: [],
   };
   private readonly file = process.env.DB_FILE || path.resolve(process.cwd(), 'data.json');
 
@@ -276,6 +286,39 @@ export class DbService implements OnModuleInit {
     a.plan = plan;
     this.save();
     return a;
+  }
+
+  /** Change le statut d'un compte (active / trial / past_due / suspended / canceled). */
+  updateAccountStatus(accountId: string, status: string): Account | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return null;
+    a.status = status;
+    this.save();
+    return a;
+  }
+
+  // ── Notes internes (back-office admin) ─────────────────────────────────────
+
+  listAdminNotes(accountId: string): AdminNote[] {
+    return (this.data.adminNotes || [])
+      .filter((n) => n.accountId === accountId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  addAdminNote(accountId: string, text: string): AdminNote {
+    const note: AdminNote = { id: randomUUID(), accountId, text, createdAt: this.now() };
+    if (!this.data.adminNotes) this.data.adminNotes = [];
+    this.data.adminNotes.push(note);
+    this.save();
+    return note;
+  }
+
+  deleteAdminNote(id: string): boolean {
+    const before = (this.data.adminNotes || []).length;
+    this.data.adminNotes = (this.data.adminNotes || []).filter((n) => n.id !== id);
+    const changed = this.data.adminNotes.length !== before;
+    if (changed) this.save();
+    return changed;
   }
 
   // ── Numéros & réglages ─────────────────────────────────────────────────────

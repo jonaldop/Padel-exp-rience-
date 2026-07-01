@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcryptjs';
 import { DbService } from '../db/db.service';
 import { TelnyxService } from '../telnyx/telnyx.service';
 import { config } from '../config/config';
@@ -67,6 +68,90 @@ export class AdminController {
   debugCalls(@Headers('authorization') authorization: string, @Query('key') key: string) {
     this.authorize(authorization, key);
     return { events: this.db.getInboundLog() };
+  }
+
+  // ── Actions sur les comptes clients ─────────────────────────────────────────
+
+  /** Fiche client détaillée : conso, derniers appels, notes internes. */
+  @Get('accounts/:id/detail')
+  accountDetail(@Headers('authorization') authorization: string, @Param('id') id: string) {
+    this.authorize(authorization);
+    return {
+      usage: this.db.accountUsage(id, config.costPerMinute),
+      calls: this.db.listCalls(id).slice(0, 20),
+      notes: this.db.listAdminNotes(id),
+    };
+  }
+
+  /** Changer le statut d'un compte (suspension réelle : bloque la connexion). */
+  @Patch('accounts/:id/status')
+  accountStatus(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+    @Body() body: { status?: string },
+  ) {
+    this.authorize(authorization);
+    const allowed = ['active', 'trial', 'past_due', 'suspended', 'canceled'];
+    if (!body.status || !allowed.includes(body.status)) {
+      return { error: `Statut invalide (${allowed.join(', ')})` };
+    }
+    const a = this.db.updateAccountStatus(id, body.status);
+    return a ? { ok: true, status: a.status } : { error: 'Compte introuvable' };
+  }
+
+  /** Changer la formule d'un compte (geste commercial / correction). */
+  @Patch('accounts/:id/plan')
+  accountPlan(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+    @Body() body: { plan?: string },
+  ) {
+    this.authorize(authorization);
+    const allowed = this.db.listPlans().map((p) => p.key);
+    if (!body.plan || !allowed.includes(body.plan)) {
+      return { error: `Formule inconnue (${allowed.join(', ')})` };
+    }
+    const a = this.db.updateAccountPlan(id, body.plan);
+    return a ? { ok: true, plan: a.plan } : { error: 'Compte introuvable' };
+  }
+
+  /** Réinitialiser le mot de passe d'un utilisateur du compte (support). */
+  @Post('accounts/:id/reset-password')
+  async accountResetPassword(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+    @Body() body: { email?: string; newPassword?: string },
+  ) {
+    this.authorize(authorization);
+    const user = this.db.findUserByEmail(body.email || '');
+    if (!user || user.accountId !== id) return { error: 'Utilisateur introuvable sur ce compte' };
+    // Mot de passe fourni, ou généré (communiqué à l'admin une seule fois).
+    const newPassword =
+      (body.newPassword || '').trim() || 'Joe-' + Math.random().toString(36).slice(2, 10);
+    if (newPassword.length < 8) return { error: 'Mot de passe trop court (8 caractères minimum)' };
+    const hash = await bcrypt.hash(newPassword, 10);
+    this.db.setUserPassword(user.id, hash);
+    return { ok: true, email: user.email, newPassword };
+  }
+
+  /** Notes internes : ajouter. */
+  @Post('accounts/:id/notes')
+  addNote(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+    @Body() body: { text?: string },
+  ) {
+    this.authorize(authorization);
+    const text = (body.text || '').trim();
+    if (!text) return { error: 'Note vide' };
+    return this.db.addAdminNote(id, text);
+  }
+
+  /** Notes internes : supprimer. */
+  @Delete('notes/:noteId')
+  deleteNote(@Headers('authorization') authorization: string, @Param('noteId') noteId: string) {
+    this.authorize(authorization);
+    return { deleted: this.db.deleteAdminNote(noteId) };
   }
 
   /** Formules : lister. */
