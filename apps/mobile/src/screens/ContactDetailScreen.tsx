@@ -45,7 +45,12 @@ export function ContactDetailScreen() {
         {contact.phones?.[0] && (
           <View style={s.quick}>
             <QuickAction icon="call" label="Appeler" onPress={() => callNumber(contact.phones[0])} />
-            <QuickAction icon="chatbubble" label="Message" onPress={() => Linking.openURL(`sms:${contact.phones[0]}`)} />
+            {/* Conversation PRO dans Joe (depuis le numéro pro, pas le perso). */}
+            <QuickAction
+              icon="chatbubble"
+              label="Message"
+              onPress={() => nav.navigate('Conversation', { peer: toE164Fr(contact.phones[0]), name: contact.name })}
+            />
             {contact.emails?.[0] && (
               <QuickAction icon="mail" label="E-mail" onPress={() => Linking.openURL(`mailto:${contact.emails[0]}`)} />
             )}

@@ -63,6 +63,12 @@ export const api = {
   registerDevice: (token: string, platform: string) =>
     request('/push/register', { method: 'POST', body: JSON.stringify({ token, platform }) }),
 
+  // Messagerie (conversations avec les clients, canal SMS/WhatsApp selon config).
+  threads: () => request<any[]>('/messages/threads'),
+  thread: (peer: string) => request<any[]>(`/messages/thread?peer=${encodeURIComponent(peer)}`),
+  sendMessage: (to: string, body: string) =>
+    request<any>('/messages/send', { method: 'POST', body: JSON.stringify({ to, body }) }),
+
   myNumbers: () => request('/numbers'),
   updateNumberSettings: (id: string, patch: any) =>
     request(`/numbers/${id}/settings`, { method: 'PATCH', body: JSON.stringify(patch) }),

@@ -13,6 +13,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { RecentsScreen } from './src/screens/RecentsScreen';
 import { ClientsScreen } from './src/screens/ClientsScreen';
 import { ContactDetailScreen } from './src/screens/ContactDetailScreen';
+import { ConversationScreen } from './src/screens/ConversationScreen';
 import { DialerScreen } from './src/screens/DialerScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
@@ -146,6 +147,11 @@ export default function App() {
             <Stack.Screen
               name="FicheContact"
               component={ContactDetailScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Conversation"
+              component={ConversationScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen
