@@ -28,6 +28,9 @@ export interface Account {
   trialEndsAt?: string | null;
   /** Remise permanente sur la formule, en % (0-100). */
   discountPct?: number;
+  /** Abonnement Stripe (prélèvement automatique mensuel). */
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
 }
 
 /** Facture mensuelle d'abonnement (générée automatiquement, hors période d'essai). */
@@ -173,6 +176,8 @@ interface Data {
   devices: Device[];
   adminNotes: AdminNote[];
   invoices: Invoice[];
+  /** Réglages plateforme posés depuis le back-office (ex. clé Stripe). */
+  appSettings: Record<string, string>;
 }
 
 const DEFAULT_PLANS: Plan[] = [
@@ -207,6 +212,7 @@ export class DbService implements OnModuleInit {
     devices: [],
     adminNotes: [],
     invoices: [],
+    appSettings: {},
   };
   private readonly file = process.env.DB_FILE || path.resolve(process.cwd(), 'data.json');
 
@@ -374,6 +380,9 @@ export class DbService implements OnModuleInit {
   ensureInvoices(accountId: string) {
     const a = this.data.accounts.find((x) => x.id === accountId);
     if (!a) return;
+    // Abonnement Stripe actif : c'est Stripe qui rythme la facturation
+    // (les factures payées arrivent via webhook), pas la génération interne.
+    if (a.stripeSubscriptionId) return;
     const t = this.trialInfo(a);
     if (a.status === 'canceled') return;
     if (t.isTrial && (t.unlimited || !t.expired)) return; // essai en cours -> pas de facture
@@ -433,6 +442,57 @@ export class DbService implements OnModuleInit {
     i.status = status;
     this.save();
     return i;
+  }
+
+  /** Lie un compte à son abonnement Stripe (prélèvement auto). */
+  setAccountStripe(accountId: string, customerId: string | null, subscriptionId: string | null): Account | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return null;
+    a.stripeCustomerId = customerId;
+    a.stripeSubscriptionId = subscriptionId;
+    this.save();
+    return a;
+  }
+
+  findAccountBySubscription(subscriptionId: string): Account | null {
+    return this.data.accounts.find((a) => a.stripeSubscriptionId === subscriptionId) || null;
+  }
+
+  findAccountById(accountId: string): Account | null {
+    return this.data.accounts.find((a) => a.id === accountId) || null;
+  }
+
+  /**
+   * Enregistre une facture PAYÉE issue d'un prélèvement Stripe (abonnement).
+   * Idempotent par période : si la facture du mois existe, elle passe payée.
+   */
+  recordPaidInvoice(accountId: string, period: string, amount: number): Invoice {
+    const existing = this.data.invoices.find((i) => i.accountId === accountId && i.period === period);
+    if (existing) {
+      existing.status = 'paid';
+      existing.total = amount;
+      this.save();
+      return existing;
+    }
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    const plan = this.data.plans.find((p) => p.key === a?.plan);
+    const seq = this.data.invoices.length + 1;
+    const inv: Invoice = {
+      id: randomUUID(),
+      accountId,
+      number: `JOE-${period}-${String(seq).padStart(4, '0')}`,
+      period,
+      planKey: a?.plan || '',
+      planName: plan?.name || a?.plan || '',
+      baseAmount: plan?.monthlyPrice ?? amount,
+      discountPct: a?.discountPct || 0,
+      total: amount,
+      status: 'paid',
+      createdAt: this.now(),
+    };
+    this.data.invoices.push(inv);
+    this.save();
+    return inv;
   }
 
   // ── Notes internes (back-office admin) ─────────────────────────────────────
@@ -900,6 +960,7 @@ export class DbService implements OnModuleInit {
           remisePct: a.discountPct || 0,
           prixEffectif: this.effectivePrice(a),
           essai: this.trialInfo(a),
+          abonnementAuto: Boolean(a.stripeSubscriptionId),
           statut: a.status,
           paiementAJour: billing.aJour,
           paiementLibelle: billing.libelle,
@@ -995,6 +1056,7 @@ export class DbService implements OnModuleInit {
       billing: this.billingLabel(account?.status || 'trial'),
       status: account?.status || 'trial',
       trial: account ? this.trialInfo(account) : null,
+      autoBilling: Boolean(account?.stripeSubscriptionId),
       discountPct: account?.discountPct || 0,
       effectiveMonthlyPrice: account ? this.effectivePrice(account) : monthlyPrice,
       thisMonth: {
@@ -1026,6 +1088,19 @@ export class DbService implements OnModuleInit {
   }
   getInboundLog() {
     return this.debugInbound;
+  }
+
+  // ── Réglages plateforme (back-office) ──────────────────────────────────────
+
+  getSetting(key: string): string {
+    return (this.data.appSettings || {})[key] || '';
+  }
+
+  setSetting(key: string, value: string) {
+    if (!this.data.appSettings) this.data.appSettings = {};
+    if (value) this.data.appSettings[key] = value;
+    else delete this.data.appSettings[key];
+    this.save();
   }
 
   // util pour le seed

@@ -147,6 +147,15 @@ export const api = {
     request(`/admin/invoices/${invoiceId}`, {
       method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ status }),
     }),
+  // Réglages plateforme (Stripe)
+  adminGetSettings: (token: string) =>
+    request<{ stripe: { configured: boolean; source: string | null; keyMasked: string | null } }>('/admin/settings', {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  adminSetStripeKey: (token: string, secretKey: string) =>
+    request<{ ok?: boolean; configured?: boolean; keyMasked?: string; error?: string }>('/admin/settings/stripe', {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ secretKey }),
+    }),
 
   // Softphone
   webrtcToken: () => request('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),
