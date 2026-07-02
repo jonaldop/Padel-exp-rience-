@@ -55,9 +55,10 @@ export const api = {
     request('/auth/profile', { method: 'PATCH', body: JSON.stringify(data) }),
   updatePlan: (plan: string) =>
     request('/auth/plan', { method: 'PATCH', body: JSON.stringify({ plan }) }),
-  // Forfaits disponibles (public) + consommation du compte.
+  // Forfaits disponibles (public) + consommation + factures du compte.
   plans: () => request<{ plans: any[] }>('/plans'),
   usage: () => request<any>('/auth/usage'),
+  invoices: () => request<any[]>('/auth/invoices'),
 
   // Notifications push : enregistrer le token du device.
   registerDevice: (token: string, platform: string) =>

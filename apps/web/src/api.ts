@@ -134,6 +134,19 @@ export const api = {
     request(`/admin/notes/${noteId}`, {
       method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
     }),
+  // Essai / remise / factures
+  adminSetTrial: (token: string, id: string, body: { days?: number; until?: string; unlimited?: boolean }) =>
+    request<{ ok?: boolean; trial?: any; error?: string }>(`/admin/accounts/${id}/trial`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(body),
+    }),
+  adminSetDiscount: (token: string, id: string, discountPct: number) =>
+    request<{ ok?: boolean; prixEffectif?: number; error?: string }>(`/admin/accounts/${id}/discount`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ discountPct }),
+    }),
+  adminSetInvoiceStatus: (token: string, invoiceId: string, status: 'due' | 'paid' | 'void') =>
+    request(`/admin/invoices/${invoiceId}`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ status }),
+    }),
 
   // Softphone
   webrtcToken: () => request('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),

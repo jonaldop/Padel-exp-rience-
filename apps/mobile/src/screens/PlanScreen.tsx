@@ -10,6 +10,9 @@ type Plan = { key: string; name: string; monthlyPrice: number; includedMinutes: 
 type Usage = {
   plan: Plan;
   billing: { aJour: boolean; libelle: string };
+  trial?: { isTrial: boolean; unlimited: boolean; endsAt: string | null; daysLeft: number | null; expired: boolean } | null;
+  discountPct?: number;
+  effectiveMonthlyPrice?: number;
   thisMonth: {
     month: string; minutes: number; calls: number; inbound: number; outbound: number;
     includedMinutes: number; remainingMinutes: number; overMinutes: number; percentUsed: number; extraCost: number;
@@ -32,15 +35,21 @@ export function PlanScreen() {
   const insets = useSafeAreaInsets();
   const [usage, setUsage] = useState<Usage | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string>('');
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([api.usage().catch(() => null), api.plans().catch(() => ({ plans: [] }))])
-      .then(([u, p]: any[]) => {
+    Promise.all([
+      api.usage().catch(() => null),
+      api.plans().catch(() => ({ plans: [] })),
+      api.invoices().catch(() => []),
+    ])
+      .then(([u, p, inv]: any[]) => {
         if (u) setUsage(u);
         setPlans(Array.isArray(p?.plans) ? p.plans : []);
+        setInvoices(Array.isArray(inv) ? inv : []);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -89,15 +98,46 @@ export function PlanScreen() {
           <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
         ) : (
           <>
+            {/* Bandeau période d'essai */}
+            {usage?.trial?.isTrial && (
+              <Glass strong style={[s.trialBanner, usage.trial.expired && { borderColor: colors.red, borderWidth: 1.5 }]}>
+                <Text style={{ fontSize: 22, marginRight: 10 }}>🎁</Text>
+                <View style={{ flex: 1 }}>
+                  {usage.trial.unlimited ? (
+                    <Text style={s.trialTxt}>Période d'essai <Text style={{ color: colors.green }}>illimitée</Text></Text>
+                  ) : usage.trial.expired ? (
+                    <Text style={[s.trialTxt, { color: colors.red }]}>Période d'essai expirée</Text>
+                  ) : (
+                    <Text style={s.trialTxt}>
+                      Période d'essai — <Text style={{ color: colors.primary }}>{usage.trial.daysLeft} jour{(usage.trial.daysLeft || 0) > 1 ? 's' : ''} restant{(usage.trial.daysLeft || 0) > 1 ? 's' : ''}</Text>
+                    </Text>
+                  )}
+                  {!!usage.trial.endsAt && !usage.trial.expired && (
+                    <Text style={s.trialSub}>Fin le {new Date(usage.trial.endsAt).toLocaleDateString('fr-FR')}</Text>
+                  )}
+                  {usage.trial.expired && (
+                    <Text style={s.trialSub}>Choisissez une formule pour continuer, ou contactez-nous.</Text>
+                  )}
+                </View>
+              </Glass>
+            )}
+
             {/* Forfait courant + consommation du mois */}
             {usage && (
               <Glass strong style={s.current}>
                 <View style={s.curHead}>
                   <View>
                     <Text style={s.curPlan}>{usage.plan.name}</Text>
-                    <Text style={s.curBilling}>{usage.billing?.libelle}</Text>
+                    <Text style={s.curBilling}>{usage.billing?.libelle}{(usage.discountPct || 0) > 0 ? ` · remise -${usage.discountPct}%` : ''}</Text>
                   </View>
-                  <Text style={s.curPrice}>{eur(usage.plan.monthlyPrice)}<Text style={s.month}>/mois</Text></Text>
+                  {(usage.discountPct || 0) > 0 ? (
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={s.priceStruck}>{eur(usage.plan.monthlyPrice)}</Text>
+                      <Text style={s.curPrice}>{eur(usage.effectiveMonthlyPrice)}<Text style={s.month}>/mois</Text></Text>
+                    </View>
+                  ) : (
+                    <Text style={s.curPrice}>{eur(usage.plan.monthlyPrice)}<Text style={s.month}>/mois</Text></Text>
+                  )}
                 </View>
 
                 {/* Jauge minutes */}
@@ -150,6 +190,31 @@ export function PlanScreen() {
               )}
             </Glass>
 
+            {/* Factures */}
+            <Text style={s.section}>Mes factures</Text>
+            <Glass style={{ paddingVertical: 4 }}>
+              {invoices.length ? (
+                invoices.map((inv, i) => (
+                  <View key={inv.id} style={[s.histRow, i > 0 && s.histDivider]}>
+                    <View>
+                      <Text style={s.histMonth}>{monthLabel(inv.period)}</Text>
+                      <Text style={s.invNum}>{inv.number}{inv.discountPct ? ` · remise -${inv.discountPct}%` : ''}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={s.histMin}>{eur(inv.total)}</Text>
+                      <Text style={[s.invStatus, { color: inv.status === 'paid' ? colors.green : inv.status === 'void' ? colors.muted : colors.amber }]}>
+                        {inv.status === 'paid' ? '✓ Payée' : inv.status === 'void' ? 'Annulée' : 'À payer'}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={s.empty}>
+                  {usage?.trial?.isTrial ? "Aucune facture pendant la période d'essai." : 'Aucune facture pour le moment.'}
+                </Text>
+              )}
+            </Glass>
+
             {/* Changer de formule */}
             <Text style={s.section}>Changer de formule</Text>
             {plans.map((p) => {
@@ -197,6 +262,12 @@ const s = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 14, paddingHorizontal: 4 },
   section: { fontSize: 16, fontWeight: '800', color: colors.text, marginTop: 22, marginBottom: 10, paddingHorizontal: 4 },
   current: { marginBottom: 4 },
+  trialBanner: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  trialTxt: { fontSize: 15.5, fontWeight: '800', color: colors.text },
+  trialSub: { fontSize: 12.5, color: colors.muted, marginTop: 2 },
+  priceStruck: { fontSize: 14, color: colors.muted, textDecorationLine: 'line-through' },
+  invNum: { fontSize: 11.5, color: colors.muted, marginTop: 2 },
+  invStatus: { fontSize: 12, fontWeight: '700', marginTop: 2 },
   curHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   curPlan: { fontSize: 22, fontWeight: '800', color: colors.text },
   curBilling: { fontSize: 13, color: colors.muted, marginTop: 2 },

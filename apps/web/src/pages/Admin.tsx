@@ -451,6 +451,35 @@ function Accounts({ accounts, open, setOpen, eur, token, plans, onChange }: {
     refreshDetail(a.id);
   }
 
+  async function extendTrial(a: any) {
+    const raw = window.prompt(`Prolonger l'essai de « ${a.entreprise} » de combien de jours ?\n(La prolongation part de la fin actuelle si l'essai court encore.)`, '15');
+    if (!raw) return;
+    const days = parseInt(raw, 10);
+    if (isNaN(days) || days <= 0) { alert('Nombre de jours invalide'); return; }
+    setBusy(a.id);
+    try { const r = await api.adminSetTrial(token, a.id, { days }); if (r.error) alert(r.error); onChange(); } finally { setBusy(''); }
+  }
+
+  async function unlimitedTrial(a: any) {
+    if (!window.confirm(`Passer « ${a.entreprise} » en essai ILLIMITÉ (jamais facturé) ?`)) return;
+    setBusy(a.id);
+    try { const r = await api.adminSetTrial(token, a.id, { unlimited: true }); if (r.error) alert(r.error); onChange(); } finally { setBusy(''); }
+  }
+
+  async function setDiscount(a: any) {
+    const raw = window.prompt(`Remise permanente (%) sur la formule de « ${a.entreprise} »\n(0 pour retirer la remise)`, String(a.remisePct || 0));
+    if (raw === null) return;
+    const pct = parseInt(raw, 10);
+    if (isNaN(pct) || pct < 0 || pct > 100) { alert('Remise invalide (0-100)'); return; }
+    setBusy(a.id);
+    try { const r = await api.adminSetDiscount(token, a.id, pct); if (r.error) alert(r.error); onChange(); refreshDetail(a.id); } finally { setBusy(''); }
+  }
+
+  async function markInvoice(a: any, invoiceId: string, status: 'paid' | 'due' | 'void') {
+    await api.adminSetInvoiceStatus(token, invoiceId, status);
+    refreshDetail(a.id);
+  }
+
   async function deleteNote(a: any, noteId: string) {
     await api.adminDeleteNote(token, noteId);
     refreshDetail(a.id);
@@ -506,10 +535,24 @@ function Accounts({ accounts, open, setOpen, eur, token, plans, onChange }: {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, color: colors.primary }}>{a.plan} · {eur(a.prixMensuel)}</div>
+                  <div style={{ fontWeight: 700, color: colors.primary }}>
+                    {a.plan} · {(a.remisePct || 0) > 0 ? (
+                      <>
+                        <span style={{ textDecoration: 'line-through', color: colors.muted, fontWeight: 500 }}>{eur(a.prixMensuel)}</span>{' '}
+                        {eur(a.prixEffectif)} <span style={{ fontSize: 11.5, color: colors.amber }}>(-{a.remisePct}%)</span>
+                      </>
+                    ) : eur(a.prixMensuel)}
+                  </div>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: a.paiementAJour ? colors.green : colors.red }}>
                     {a.paiementAJour ? '✓ ' : '⚠️ '}{a.paiementLibelle}
                   </div>
+                  {a.essai?.isTrial && (
+                    <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2, color: a.essai.expired ? colors.red : colors.primary }}>
+                      🎁 {a.essai.unlimited ? 'Essai illimité'
+                        : a.essai.expired ? 'Essai expiré'
+                        : `Essai : ${a.essai.daysLeft} j restants${a.essai.endsAt ? ` (fin ${new Date(a.essai.endsAt).toLocaleDateString('fr-FR')})` : ''}`}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -538,6 +581,18 @@ function Accounts({ accounts, open, setOpen, eur, token, plans, onChange }: {
                     ✅ Réactiver
                   </Button>
                 )}
+                <Button onClick={() => extendTrial(a)} disabled={busy === a.id}
+                  style={{ background: 'rgba(108,92,231,0.12)', color: colors.primary, padding: '6px 12px', fontSize: 13 }}>
+                  🎁 Prolonger essai
+                </Button>
+                <Button onClick={() => unlimitedTrial(a)} disabled={busy === a.id}
+                  style={{ background: 'rgba(108,92,231,0.12)', color: colors.primary, padding: '6px 12px', fontSize: 13 }}>
+                  ∞ Illimité
+                </Button>
+                <Button onClick={() => setDiscount(a)} disabled={busy === a.id}
+                  style={{ background: '#FFF6E5', color: colors.amber, padding: '6px 12px', fontSize: 13 }}>
+                  % Remise
+                </Button>
                 <button onClick={() => toggleDetail(a)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: colors.primary, cursor: 'pointer', fontSize: 13, padding: 0 }}>
                   {open[a.id] ? '▲ Masquer la fiche' : '▼ Fiche client'}
                 </button>
@@ -574,6 +629,27 @@ function Accounts({ accounts, open, setOpen, eur, token, plans, onChange }: {
                       <span style={{ color: colors.muted }}> · {new Date(c.startedAt).toLocaleString('fr-FR')} · {c.status}{c.durationS ? ` · ${Math.round(c.durationS / 60)} min` : ''}</span>
                     </div>
                   )) : <div style={{ fontSize: 13, color: colors.muted }}>{det ? 'Aucun appel.' : ''}</div>}
+
+                  {/* Factures */}
+                  <div style={{ fontWeight: 700, fontSize: 13, margin: '14px 0 6px' }}>🧾 Factures</div>
+                  {det?.invoices?.length ? det.invoices.map((inv: any) => (
+                    <div key={inv.id} style={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <span style={{ minWidth: 140 }}><b>{inv.period}</b> · {inv.number}</span>
+                      <span>{eur(inv.total)}{inv.discountPct ? ` (-${inv.discountPct}%)` : ''}</span>
+                      <span style={{ fontWeight: 700, color: inv.status === 'paid' ? colors.green : inv.status === 'void' ? colors.muted : colors.amber }}>
+                        {inv.status === 'paid' ? '✓ Payée' : inv.status === 'void' ? 'Annulée' : 'À payer'}
+                      </span>
+                      {inv.status !== 'paid' && (
+                        <button onClick={() => markInvoice(a, inv.id, 'paid')} style={miniBtn}>Marquer payée</button>
+                      )}
+                      {inv.status === 'due' && (
+                        <button onClick={() => markInvoice(a, inv.id, 'void')} style={{ ...miniBtn, color: colors.red }}>Annuler</button>
+                      )}
+                      {inv.status === 'paid' && (
+                        <button onClick={() => markInvoice(a, inv.id, 'due')} style={miniBtn}>Repasser à payer</button>
+                      )}
+                    </div>
+                  )) : <div style={{ fontSize: 13, color: colors.muted }}>{det ? "Aucune facture (essai en cours ou formule gratuite)." : 'Chargement…'}</div>}
 
                   {/* Notes internes */}
                   <div style={{ fontWeight: 700, fontSize: 13, margin: '14px 0 6px' }}>📝 Notes internes (invisibles pour le client)</div>
@@ -612,4 +688,9 @@ function Accounts({ accounts, open, setOpen, eur, token, plans, onChange }: {
 const selStyle: React.CSSProperties = {
   padding: '8px 10px', borderRadius: 10, border: `1px solid rgba(0,0,0,0.1)`,
   background: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+};
+
+const miniBtn: React.CSSProperties = {
+  background: 'transparent', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8,
+  cursor: 'pointer', fontSize: 11.5, padding: '2px 8px', color: '#6C5CE7',
 };

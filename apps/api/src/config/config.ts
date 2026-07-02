@@ -26,6 +26,8 @@ export const config = {
   },
   // Coût télécom moyen estimé par minute (€) pour calculer le coût par client.
   costPerMinute: parseFloat(process.env.COST_PER_MINUTE || '0.02'),
+  // Durée de la période d'essai par défaut (jours) pour les nouveaux comptes.
+  trialDays: parseInt(process.env.TRIAL_DAYS || '14', 10),
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
     from: process.env.EMAIL_FROM || 'Joe <onboarding@resend.dev>',

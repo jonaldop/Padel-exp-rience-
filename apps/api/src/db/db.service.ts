@@ -24,6 +24,25 @@ export interface Account {
   plan: string;
   status: string;
   createdAt: string;
+  /** Fin de la période d'essai (ISO). null/absent + statut trial = essai ILLIMITÉ. */
+  trialEndsAt?: string | null;
+  /** Remise permanente sur la formule, en % (0-100). */
+  discountPct?: number;
+}
+
+/** Facture mensuelle d'abonnement (générée automatiquement, hors période d'essai). */
+export interface Invoice {
+  id: string;
+  accountId: string;
+  number: string; // ex. JOE-2026-07-0001
+  period: string; // mois facturé, YYYY-MM
+  planKey: string;
+  planName: string;
+  baseAmount: number; // prix formule (TTC)
+  discountPct: number;
+  total: number; // TTC après remise
+  status: 'due' | 'paid' | 'void';
+  createdAt: string;
 }
 export interface User {
   id: string;
@@ -153,6 +172,7 @@ interface Data {
   messages: Message[];
   devices: Device[];
   adminNotes: AdminNote[];
+  invoices: Invoice[];
 }
 
 const DEFAULT_PLANS: Plan[] = [
@@ -186,6 +206,7 @@ export class DbService implements OnModuleInit {
     messages: [],
     devices: [],
     adminNotes: [],
+    invoices: [],
   };
   private readonly file = process.env.DB_FILE || path.resolve(process.cwd(), 'data.json');
 
@@ -226,6 +247,7 @@ export class DbService implements OnModuleInit {
     lastName?: string;
     plan?: string;
     status?: string;
+    trialEndsAt?: string | null;
   }): { account: Account; user: User } {
     const account: Account = {
       id: randomUUID(),
@@ -233,6 +255,8 @@ export class DbService implements OnModuleInit {
       country: 'FR',
       plan: input.plan || 'starter',
       status: input.status || 'trial',
+      trialEndsAt: input.trialEndsAt ?? null,
+      discountPct: 0,
       createdAt: this.now(),
     };
     const user: User = {
@@ -295,6 +319,120 @@ export class DbService implements OnModuleInit {
     a.status = status;
     this.save();
     return a;
+  }
+
+  // ── Essai, remise, facturation ─────────────────────────────────────────────
+
+  /**
+   * Définit la période d'essai d'un compte (et repasse le statut en 'trial').
+   * trialEndsAt = null -> essai ILLIMITÉ.
+   */
+  setTrial(accountId: string, trialEndsAt: string | null): Account | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return null;
+    a.trialEndsAt = trialEndsAt;
+    a.status = 'trial';
+    this.save();
+    return a;
+  }
+
+  /** Remise permanente (%) appliquée à la formule d'un compte. */
+  setDiscount(accountId: string, pct: number): Account | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return null;
+    a.discountPct = Math.min(100, Math.max(0, Math.round(pct)));
+    this.save();
+    return a;
+  }
+
+  /** Infos d'essai calculées (jours restants, illimité, expiré). */
+  trialInfo(a: Account) {
+    const isTrial = a.status === 'trial';
+    const unlimited = isTrial && !a.trialEndsAt;
+    let daysLeft: number | null = null;
+    let expired = false;
+    if (isTrial && a.trialEndsAt) {
+      const ms = new Date(a.trialEndsAt).getTime() - Date.now();
+      daysLeft = Math.max(0, Math.ceil(ms / 86400000));
+      expired = ms <= 0;
+    }
+    return { isTrial, unlimited, endsAt: a.trialEndsAt ?? null, daysLeft, expired };
+  }
+
+  /** Prix mensuel effectif (formule - remise). */
+  effectivePrice(a: Account): number {
+    const base = this.planPrice(a.plan);
+    const pct = a.discountPct || 0;
+    return Math.round(base * (1 - pct / 100) * 100) / 100;
+  }
+
+  /**
+   * Génère (idempotent) les factures mensuelles manquantes d'un compte :
+   * une facture par mois calendaire depuis la fin d'essai (ou la création si pas
+   * d'essai daté), hors essai illimité/en cours, comptes résiliés et formules à 0 €.
+   */
+  ensureInvoices(accountId: string) {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return;
+    const t = this.trialInfo(a);
+    if (a.status === 'canceled') return;
+    if (t.isTrial && (t.unlimited || !t.expired)) return; // essai en cours -> pas de facture
+
+    const start = a.trialEndsAt ? new Date(a.trialEndsAt) : new Date(a.createdAt);
+    const nowD = new Date();
+    if (start > nowD) return;
+
+    const plan = this.data.plans.find((p) => p.key === a.plan);
+    const baseAmount = plan?.monthlyPrice ?? this.planPrice(a.plan);
+    if (!baseAmount) return; // formule gratuite -> rien à facturer
+
+    const existing = new Set(
+      this.data.invoices.filter((i) => i.accountId === accountId).map((i) => i.period),
+    );
+    let changed = false;
+    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    const end = new Date(nowD.getFullYear(), nowD.getMonth(), 1);
+    while (cur <= end) {
+      const period = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
+      if (!existing.has(period)) {
+        const pct = a.discountPct || 0;
+        const total = Math.round(baseAmount * (1 - pct / 100) * 100) / 100;
+        const seq = this.data.invoices.length + 1;
+        this.data.invoices.push({
+          id: randomUUID(),
+          accountId,
+          number: `JOE-${period}-${String(seq).padStart(4, '0')}`,
+          period,
+          planKey: a.plan,
+          planName: plan?.name || a.plan,
+          baseAmount,
+          discountPct: pct,
+          total,
+          status: 'due',
+          createdAt: this.now(),
+        });
+        changed = true;
+      }
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    if (changed) this.save();
+  }
+
+  /** Factures d'un compte (génère les manquantes), plus récentes d'abord. */
+  listInvoices(accountId: string): Invoice[] {
+    this.ensureInvoices(accountId);
+    return this.data.invoices
+      .filter((i) => i.accountId === accountId)
+      .sort((a, b) => b.period.localeCompare(a.period));
+  }
+
+  /** Change le statut d'une facture (paid / due / void). */
+  setInvoiceStatus(id: string, status: 'due' | 'paid' | 'void'): Invoice | null {
+    const i = this.data.invoices.find((x) => x.id === id);
+    if (!i) return null;
+    i.status = status;
+    this.save();
+    return i;
   }
 
   // ── Notes internes (back-office admin) ─────────────────────────────────────
@@ -759,6 +897,9 @@ export class DbService implements OnModuleInit {
           siret: a.siret || null,
           plan: a.plan,
           prixMensuel,
+          remisePct: a.discountPct || 0,
+          prixEffectif: this.effectivePrice(a),
+          essai: this.trialInfo(a),
           statut: a.status,
           paiementAJour: billing.aJour,
           paiementLibelle: billing.libelle,
@@ -853,6 +994,9 @@ export class DbService implements OnModuleInit {
         : { key: planKey, name: planKey, monthlyPrice, includedMinutes: 0, features: [] },
       billing: this.billingLabel(account?.status || 'trial'),
       status: account?.status || 'trial',
+      trial: account ? this.trialInfo(account) : null,
+      discountPct: account?.discountPct || 0,
+      effectiveMonthlyPrice: account ? this.effectivePrice(account) : monthlyPrice,
       thisMonth: {
         month: nowMonth,
         minutes: minutesThisMonth,
