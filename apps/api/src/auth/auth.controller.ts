@@ -69,6 +69,13 @@ export class AuthController {
     return this.db.accountUsage(user.accountId, config.costPerMinute);
   }
 
+  /** Factures d'abonnement du compte (générées mensuellement hors essai). */
+  @UseGuards(JwtGuard)
+  @Get('invoices')
+  invoices(@CurrentUser() user: JwtPayload) {
+    return this.db.listInvoices(user.accountId);
+  }
+
   /** Change la formule d'abonnement du compte (parmi les formules actives). */
   @UseGuards(JwtGuard)
   @Patch('plan')

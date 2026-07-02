@@ -46,6 +46,9 @@ export class AuthService {
       passwordHash,
       firstName: input.firstName,
       lastName: input.lastName,
+      // Période d'essai par défaut (TRIAL_DAYS jours) — modulable ensuite depuis
+      // le back-office admin (prolonger / illimité).
+      trialEndsAt: new Date(Date.now() + config.trialDays * 86400000).toISOString(),
     });
     return this.sign(user, account);
   }

@@ -72,7 +72,7 @@ export class AdminController {
 
   // ── Actions sur les comptes clients ─────────────────────────────────────────
 
-  /** Fiche client détaillée : conso, derniers appels, notes internes. */
+  /** Fiche client détaillée : conso, derniers appels, notes internes, factures. */
   @Get('accounts/:id/detail')
   accountDetail(@Headers('authorization') authorization: string, @Param('id') id: string) {
     this.authorize(authorization);
@@ -80,7 +80,71 @@ export class AdminController {
       usage: this.db.accountUsage(id, config.costPerMinute),
       calls: this.db.listCalls(id).slice(0, 20),
       notes: this.db.listAdminNotes(id),
+      invoices: this.db.listInvoices(id),
     };
+  }
+
+  /**
+   * Période d'essai d'un compte, modulable :
+   * - { days: 15 }        -> prolonge de 15 jours (depuis maintenant ou la fin actuelle) ;
+   * - { until: '2026-08-01' } -> fixe une date de fin précise ;
+   * - { unlimited: true } -> essai ILLIMITÉ.
+   */
+  @Patch('accounts/:id/trial')
+  accountTrial(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+    @Body() body: { days?: number; until?: string; unlimited?: boolean },
+  ) {
+    this.authorize(authorization);
+    let endsAt: string | null;
+    if (body.unlimited) {
+      endsAt = null;
+    } else if (body.until) {
+      const d = new Date(body.until);
+      if (isNaN(d.getTime())) return { error: 'Date invalide' };
+      endsAt = d.toISOString();
+    } else if (body.days && body.days > 0) {
+      // Prolonge depuis la fin actuelle si elle est dans le futur, sinon depuis maintenant.
+      const a = this.db.accountUsage(id, config.costPerMinute);
+      const base = a?.trial?.endsAt && new Date(a.trial.endsAt) > new Date()
+        ? new Date(a.trial.endsAt)
+        : new Date();
+      endsAt = new Date(base.getTime() + body.days * 86400000).toISOString();
+    } else {
+      return { error: 'Précisez days, until ou unlimited' };
+    }
+    const acc = this.db.setTrial(id, endsAt);
+    return acc ? { ok: true, trial: this.db.trialInfo(acc) } : { error: 'Compte introuvable' };
+  }
+
+  /** Remise permanente (%) sur la formule d'un compte (0 = retirer). */
+  @Patch('accounts/:id/discount')
+  accountDiscount(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+    @Body() body: { discountPct?: number },
+  ) {
+    this.authorize(authorization);
+    const pct = Number(body.discountPct);
+    if (isNaN(pct) || pct < 0 || pct > 100) return { error: 'Remise invalide (0-100)' };
+    const a = this.db.setDiscount(id, pct);
+    return a ? { ok: true, discountPct: a.discountPct, prixEffectif: this.db.effectivePrice(a) } : { error: 'Compte introuvable' };
+  }
+
+  /** Marquer une facture payée / à payer / annulée. */
+  @Patch('invoices/:id')
+  invoiceStatus(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+    @Body() body: { status?: 'due' | 'paid' | 'void' },
+  ) {
+    this.authorize(authorization);
+    if (!body.status || !['due', 'paid', 'void'].includes(body.status)) {
+      return { error: 'Statut invalide (due, paid, void)' };
+    }
+    const i = this.db.setInvoiceStatus(id, body.status);
+    return i ? { ok: true, invoice: i } : { error: 'Facture introuvable' };
   }
 
   /** Changer le statut d'un compte (suspension réelle : bloque la connexion). */
