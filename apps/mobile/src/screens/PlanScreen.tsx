@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, RefreshControl, ActivityIndicator, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
@@ -36,6 +36,10 @@ export function PlanScreen() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [payEnabled, setPayEnabled] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
+  const [paying, setPaying] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string>('');
 
@@ -45,14 +49,45 @@ export function PlanScreen() {
       api.usage().catch(() => null),
       api.plans().catch(() => ({ plans: [] })),
       api.invoices().catch(() => []),
+      api.billingStatus().catch(() => ({ enabled: false })),
     ])
-      .then(([u, p, inv]: any[]) => {
+      .then(([u, p, inv, bs]: any[]) => {
         if (u) setUsage(u);
         setPlans(Array.isArray(p?.plans) ? p.plans : []);
         setInvoices(Array.isArray(inv) ? inv : []);
+        setPayEnabled(Boolean(bs?.enabled));
+        setSubscribed(Boolean(bs?.subscribed));
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // Met en place le prélèvement automatique mensuel (Stripe, carte enregistrée).
+  async function startSubscription() {
+    setSubscribing(true);
+    try {
+      const r = await api.subscribe();
+      if (r?.url) await Linking.openURL(r.url);
+      else if (r?.error) Alert.alert('Abonnement', r.error);
+    } catch (e: any) {
+      Alert.alert('Abonnement', e?.message || 'Erreur');
+    } finally {
+      setSubscribing(false);
+    }
+  }
+
+  // Paiement Stripe : ouvre la page de paiement sécurisée dans le navigateur.
+  async function payInvoice(inv: any) {
+    setPaying(inv.id);
+    try {
+      const r = await api.checkoutInvoice(inv.id);
+      if (r?.url) await Linking.openURL(r.url);
+      else if (r?.error) Alert.alert('Paiement', r.error);
+    } catch (e: any) {
+      Alert.alert('Paiement', e?.message || 'Erreur');
+    } finally {
+      setPaying('');
+    }
+  }
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -169,6 +204,24 @@ export function PlanScreen() {
                   <Stat label="Entrants" value={String(tm?.inbound ?? 0)} />
                   <Stat label="Sortants" value={String(tm?.outbound ?? 0)} />
                 </View>
+
+                {/* Prélèvement automatique (abonnement Stripe) */}
+                {subscribed ? (
+                  <View style={s.autoOk}>
+                    <Text style={{ color: colors.green, fontWeight: '800', fontSize: 13.5 }}>
+                      ✓ Prélèvement automatique actif
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                      Votre formule est prélevée chaque mois ; la facture apparaît ci-dessous, déjà réglée.
+                    </Text>
+                  </View>
+                ) : payEnabled && (usage.plan.monthlyPrice || 0) > 0 ? (
+                  <TouchableOpacity style={s.subscribeBtn} onPress={startSubscription} disabled={subscribing}>
+                    <Text style={s.subscribeBtnTxt}>
+                      {subscribing ? '…' : `💳 Activer le prélèvement automatique (${eur(usage.effectiveMonthlyPrice ?? usage.plan.monthlyPrice)}/mois)`}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </Glass>
             )}
 
@@ -205,6 +258,15 @@ export function PlanScreen() {
                       <Text style={[s.invStatus, { color: inv.status === 'paid' ? colors.green : inv.status === 'void' ? colors.muted : colors.amber }]}>
                         {inv.status === 'paid' ? '✓ Payée' : inv.status === 'void' ? 'Annulée' : 'À payer'}
                       </Text>
+                      {inv.status === 'due' && payEnabled && (
+                        <TouchableOpacity
+                          style={s.payBtn}
+                          onPress={() => payInvoice(inv)}
+                          disabled={paying === inv.id}
+                        >
+                          <Text style={s.payBtnTxt}>{paying === inv.id ? '…' : '💳 Payer'}</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                 ))
@@ -268,6 +330,11 @@ const s = StyleSheet.create({
   priceStruck: { fontSize: 14, color: colors.muted, textDecorationLine: 'line-through' },
   invNum: { fontSize: 11.5, color: colors.muted, marginTop: 2 },
   invStatus: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  payBtn: { backgroundColor: colors.primary, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 5, marginTop: 6 },
+  payBtnTxt: { color: '#fff', fontSize: 12.5, fontWeight: '800' },
+  subscribeBtn: { backgroundColor: colors.primary, borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 16 },
+  subscribeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  autoOk: { marginTop: 16, backgroundColor: '#E7F7EE', borderRadius: 12, padding: 12 },
   curHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   curPlan: { fontSize: 22, fontWeight: '800', color: colors.text },
   curBilling: { fontSize: 13, color: colors.muted, marginTop: 2 },

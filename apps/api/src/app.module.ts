@@ -8,11 +8,12 @@ import { ClientsModule } from './clients/clients.module';
 import { AdminModule } from './admin/admin.module';
 import { PushModule } from './push/push.module';
 import { MessagesModule } from './messages/messages.module';
+import { BillingModule } from './billing/billing.module';
 import { HealthController } from './health.controller';
 import { PlansController } from './plans.controller';
 
 @Module({
-  imports: [DbModule, AuthModule, TelnyxModule, NumbersModule, CallsModule, ClientsModule, AdminModule, PushModule, MessagesModule],
+  imports: [DbModule, AuthModule, TelnyxModule, NumbersModule, CallsModule, ClientsModule, AdminModule, PushModule, MessagesModule, BillingModule],
   controllers: [HealthController, PlansController],
 })
 export class AppModule {}

@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { DbService } from '../db/db.service';
 import { TelnyxService } from '../telnyx/telnyx.service';
+import { StripeService } from '../billing/stripe.service';
 import { config } from '../config/config';
 
 /**
@@ -18,6 +19,7 @@ export class AdminController {
     private readonly db: DbService,
     private readonly jwt: JwtService,
     private readonly telnyx: TelnyxService,
+    private readonly stripe: StripeService,
   ) {}
 
   /** Connexion admin : renvoie un token si email + mot de passe corrects. */
@@ -241,6 +243,50 @@ export class AdminController {
   deletePlan(@Headers('authorization') authorization: string, @Param('key') key: string) {
     this.authorize(authorization);
     return { deleted: this.db.deletePlan(key) };
+  }
+
+  // ── Réglages plateforme (Stripe…) ───────────────────────────────────────────
+
+  /** Réglages actuels (clé Stripe masquée, jamais renvoyée en clair). */
+  @Get('settings')
+  getSettings(@Headers('authorization') authorization: string) {
+    this.authorize(authorization);
+    const envKey = process.env.STRIPE_SECRET_KEY || '';
+    const dbKey = this.db.getSetting('stripeSecretKey');
+    const active = envKey || dbKey;
+    return {
+      stripe: {
+        configured: Boolean(active),
+        source: envKey ? 'env' : dbKey ? 'admin' : null,
+        keyMasked: active ? `${active.slice(0, 7)}…${active.slice(-4)}` : null,
+      },
+    };
+  }
+
+  /** Enregistre la clé Stripe (vérifiée auprès de Stripe avant sauvegarde). */
+  @Post('settings/stripe')
+  async setStripeKey(
+    @Headers('authorization') authorization: string,
+    @Body() body: { secretKey?: string },
+  ) {
+    this.authorize(authorization);
+    const key = (body.secretKey || '').trim();
+    if (!key) {
+      // Champ vide -> retire la clé (désactive le paiement en ligne).
+      this.db.setSetting('stripeSecretKey', '');
+      return { ok: true, configured: false };
+    }
+    if (!/^(sk|rk)_(live|test)_/.test(key)) {
+      return { error: 'Clé invalide : attendu une clé secrète Stripe (sk_live_… ou sk_test_…).' };
+    }
+    // Vérifie la clé en direct auprès de Stripe avant de l'enregistrer.
+    this.db.setSetting('stripeSecretKey', key);
+    const check = await this.stripe.verifyKey();
+    if (!check.ok) {
+      this.db.setSetting('stripeSecretKey', '');
+      return { error: `Clé refusée par Stripe : ${check.error}` };
+    }
+    return { ok: true, configured: true, keyMasked: `${key.slice(0, 7)}…${key.slice(-4)}` };
   }
 
   /** Configure le push VoIP iOS (certificat APNs) dans Telnyx. */

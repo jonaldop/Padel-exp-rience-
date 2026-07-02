@@ -59,6 +59,14 @@ export const api = {
   plans: () => request<{ plans: any[] }>('/plans'),
   usage: () => request<any>('/auth/usage'),
   invoices: () => request<any[]>('/auth/invoices'),
+  billingStatus: () => request<{ enabled: boolean; subscribed: boolean }>('/billing/status'),
+  subscribe: () =>
+    request<{ url?: string; error?: string }>('/billing/subscribe', { method: 'POST', body: '{}' }),
+  checkoutInvoice: (invoiceId: string) =>
+    request<{ url?: string; error?: string }>('/billing/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ invoiceId }),
+    }),
 
   // Notifications push : enregistrer le token du device.
   registerDevice: (token: string, platform: string) =>
