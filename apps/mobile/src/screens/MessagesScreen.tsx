@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Text, FlatList, StyleSheet, RefreshControl, View, TouchableOpacity, Alert } from 'react-native';
+import { Text, FlatList, StyleSheet, RefreshControl, View, TouchableOpacity, Alert, Share } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { GradientBg, Glass } from '../ui';
 import { formatFr, toE164Fr } from '../format';
 import { loadContacts, lookupContact, findContactByNumber, createContact } from '../contacts';
 import { playVoicemail, togglePause, stopVoicemail, PlayStatus } from '../player';
+import { SwipeActions } from '../components/SwipeActions';
 
 type Segment = 'chats' | 'vocal';
 
@@ -43,6 +44,34 @@ export function MessagesScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  /** Supprime un message vocal (glisser -> Supprimer). */
+  async function deleteVm(vm: any) {
+    if (playing?.id === vm.id) { await stopVoicemail(); setPlaying(null); }
+    setVms((list) => list.filter((v) => v.id !== vm.id)); // optimiste
+    try {
+      await api.deleteVoicemail(vm.id);
+    } catch (e: any) {
+      Alert.alert('Oups', e.message || 'Suppression impossible');
+      load();
+    }
+  }
+
+  /** Partage un vocal (Mail, SMS, WhatsApp…) via la feuille iOS native. */
+  async function shareVm(vm: any) {
+    const who = vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : 'Inconnu';
+    const when = new Date(vm.createdAt).toLocaleString('fr-FR');
+    const lines = [
+      `🎙️ Message vocal de ${who} — ${when}`,
+      vm.aiSummary ? `Résumé : ${vm.aiSummary}` : null,
+      vm.transcriptionText && vm.transcriptionText !== vm.aiSummary ? `« ${vm.transcriptionText} »` : null,
+      vm.audioUrl ? `Écouter : ${vm.audioUrl}` : null,
+      '— envoyé depuis Joe, ta ligne pro',
+    ].filter(Boolean);
+    try {
+      await Share.share({ message: lines.join('\n\n') });
+    } catch { /* partage annulé */ }
+  }
 
   /** Lecture d'un vocal avec progression (ou pause/reprise si déjà en cours). */
   async function onPlay(vm: any) {
@@ -178,6 +207,12 @@ export function MessagesScreen() {
               const cat = catMeta[vm.aiCategory] || null;
               const urgent = vm.aiUrgency === 'haute';
               return (
+                <SwipeActions
+                  actions={[
+                    { label: 'Partager', color: '#7C5CF0', onPress: () => shareVm(vm) },
+                    { label: 'Supprimer', color: '#FF3B30', onPress: () => deleteVm(vm) },
+                  ]}
+                >
                 <TouchableOpacity activeOpacity={0.75} onPress={() => openClientCard(vm.call?.fromE164)}>
                 <Glass style={s.row}>
                   <View style={s.vmIcon}><Ionicons name="mic" size={17} color={colors.primary} /></View>
@@ -199,7 +234,9 @@ export function MessagesScreen() {
                     </View>
                     <Text style={s.sub}>{new Date(vm.createdAt).toLocaleString('fr-FR')}</Text>
                     {vm.aiSummary ? <Text style={s.aiSum}>{vm.aiSummary}</Text> : null}
-                    {vm.transcriptionText ? <Text style={s.txt}>« {vm.transcriptionText} »</Text> : null}
+                    {vm.transcriptionText && vm.transcriptionText.trim() !== (vm.aiSummary || '').trim()
+                      ? <Text style={s.txt}>« {vm.transcriptionText} »</Text>
+                      : null}
                     {playing && playing.id === vm.id && (
                       <View style={{ marginTop: 8 }}>
                         <View style={s.progressTrack}>
@@ -241,6 +278,7 @@ export function MessagesScreen() {
                   </View>
                 </Glass>
                 </TouchableOpacity>
+                </SwipeActions>
               );
             }}
           />
