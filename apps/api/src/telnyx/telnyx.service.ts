@@ -524,6 +524,16 @@ export class TelnyxService {
     return this.api(`/calls/${callControlId}/actions/hangup`, { method: 'POST' });
   }
 
+  /** Lien mp3 FRAIS d'un enregistrement (les liens du webhook expirent en 10 min). */
+  async getRecordingMp3Url(recordingId: string): Promise<string | null> {
+    try {
+      const res = await this.api<{ data: any }>(`/recordings/${recordingId}`);
+      return res.data?.download_urls?.mp3 || null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Transcription TEMPS RÉEL de l'appel (secrétariat IA) : Telnyx envoie des
    * événements `call.transcription` au webhook pendant que l'appelant parle.

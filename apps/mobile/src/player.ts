@@ -24,7 +24,7 @@ export function hasInlinePlayer(): boolean {
 
 export async function playVoicemail(
   audioUrl: string,
-  meta?: { from?: string; date?: string },
+  meta?: { from?: string; date?: string; vmId?: string },
   onStatus?: (s: PlayStatus) => void,
 ): Promise<'inline' | 'page'> {
   if (hasInlinePlayer()) {
@@ -35,8 +35,14 @@ export async function playVoicemail(
         // Mode audio non bloquant : un échec ici ne doit pas empêcher la lecture.
         await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
       } catch { /* on lit quand même */ }
+      // Lecture via le RELAIS de notre serveur : lien Telnyx FRAIS quand on a
+      // l'id du message (ceux du webhook expirent en 10 min), et requêtes par
+      // plage d'AVPlayer correctement servies (sinon NSURLErrorDomain -1102).
+      const proxied = meta?.vmId
+        ? `${API_URL}/play/audio?vm=${encodeURIComponent(meta.vmId)}`
+        : `${API_URL}/play/audio?src=${encodeURIComponent(audioUrl)}`;
       const res = await Audio.Sound.createAsync(
-        { uri: audioUrl },
+        { uri: proxied },
         { shouldPlay: true, progressUpdateIntervalMillis: 250 },
         (st: any) => {
           if (!st?.isLoaded) return;
@@ -58,7 +64,9 @@ export async function playVoicemail(
       Alert.alert('Lecture interne impossible', String(e?.message || e).slice(0, 300));
     }
   }
-  const q = new URLSearchParams({ src: audioUrl, from: meta?.from || '', date: meta?.date || '' });
+  const q = meta?.vmId
+    ? new URLSearchParams({ vm: meta.vmId, from: meta?.from || '', date: meta?.date || '' })
+    : new URLSearchParams({ src: audioUrl, from: meta?.from || '', date: meta?.date || '' });
   await Linking.openURL(`${API_URL}/play?${q.toString()}`);
   return 'page';
 }
