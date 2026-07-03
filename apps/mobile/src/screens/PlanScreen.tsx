@@ -7,6 +7,9 @@ import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 
 type Plan = { key: string; name: string; monthlyPrice: number; includedMinutes: number; features: string[] };
+
+/** Formules « illimitées » : les minutes incluses sont un sentinel très élevé. */
+const isUnlimited = (min?: number) => (min ?? 0) >= 99999;
 type Usage = {
   plan: Plan;
   billing: { aJour: boolean; libelle: string };
@@ -180,16 +183,18 @@ export function PlanScreen() {
                   <View style={s.gaugeRow}>
                     <Text style={s.gaugeTxt}>
                       <Text style={{ fontWeight: '800', color: colors.text }}>{tm?.minutes ?? 0} min</Text>
-                      {usage.plan.includedMinutes ? ` / ${usage.plan.includedMinutes} min incluses` : ' ce mois-ci'}
+                      {isUnlimited(usage.plan.includedMinutes)
+                        ? ' — appels illimités en France ∞'
+                        : usage.plan.includedMinutes ? ` / ${usage.plan.includedMinutes} min incluses` : ' ce mois-ci'}
                     </Text>
-                    {!!usage.plan.includedMinutes && (
+                    {!!usage.plan.includedMinutes && !isUnlimited(usage.plan.includedMinutes) && (
                       <Text style={[s.gaugeTxt, { fontWeight: '700', color: barColor }]}>{barPct}%</Text>
                     )}
                   </View>
-                  {!!usage.plan.includedMinutes && (
+                  {!!usage.plan.includedMinutes && !isUnlimited(usage.plan.includedMinutes) && (
                     <View style={s.track}><View style={[s.fill, { width: `${barPct}%`, backgroundColor: barColor }]} /></View>
                   )}
-                  {!!usage.plan.includedMinutes && (
+                  {!!usage.plan.includedMinutes && !isUnlimited(usage.plan.includedMinutes) && (
                     <Text style={s.gaugeSub}>
                       {tm && tm.overMinutes > 0
                         ? `Dépassement : ${tm.overMinutes} min (~${eur(tm.extraCost)})`
@@ -287,7 +292,9 @@ export function PlanScreen() {
                     <Text style={s.planName}>{p.name}</Text>
                     <Text style={s.price}>{eur(p.monthlyPrice)}<Text style={s.month}>/mois</Text></Text>
                   </View>
-                  <Text style={s.included}>{p.includedMinutes ? `${p.includedMinutes} min incluses` : 'Minutes à l’usage'}</Text>
+                  <Text style={s.included}>
+                    {isUnlimited(p.includedMinutes) ? 'Appels illimités en France' : p.includedMinutes ? `${p.includedMinutes} min incluses` : 'Minutes à l’usage'}
+                  </Text>
                   {(p.features || []).map((f) => (
                     <Text key={f} style={s.feature}>• {f}</Text>
                   ))}

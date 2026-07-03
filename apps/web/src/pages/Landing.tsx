@@ -11,9 +11,9 @@ import '../landing.css';
 
 // Formules par défaut (affichées immédiatement, remplacées par l'API)
 const FALLBACK_PLANS = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 200, features: ['1 numéro pro', 'Appels & messagerie', 'Horaires & répondeur'] },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 600, features: ['Tout Essentiel', 'Transcription', 'Renvoi avancé'] },
-  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 1500, features: ['Tout Pro', 'Assistant IA', 'Multi-utilisateurs'] },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 500, features: ['1 numéro pro', 'Appels & messagerie', 'Répondeur, horaires & transcription'] },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1500, features: ['Tout Essentiel', 'Secrétariat IA (résumés, urgences)', 'Renvoi avancé'] },
+  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France', 'Multi-utilisateurs'] },
 ];
 
 const TRADES = ['🔧 Plombiers', '⚡ Électriciens', '🪚 Menuisiers', '🎨 Peintres', '🌿 Paysagistes', '🚕 Taxis & VTC', '💇 Coiffeurs', '🏋️ Coachs', '🧹 Services à domicile', '📸 Photographes'];
@@ -192,6 +192,53 @@ export function Landing() {
         </div>
       </section>
 
+      {/* ===== Secrétariat IA (différenciateur) ===== */}
+      <section className="lp-section">
+        <div className="lp-container lp-ai-grid">
+          <div>
+            <p className="lp-kicker reveal">Secrétariat IA — inclus</p>
+            <h2 className="lp-h2 reveal">Sur un toit ? En chantier ?<br />Joe répond pour vous.</h2>
+            <p className="lp-lead reveal d1">
+              Quand vous ne pouvez pas décrocher, Joe accueille votre client, l'écoute,
+              et vous envoie l'essentiel : qui appelle, pourquoi, et si c'est urgent.
+              Vous savez qui rappeler en premier — sans écouter un seul message.
+            </p>
+            <ul className="lp-ai-points">
+              <li className="reveal d1">🎙️ Chaque message <b>transcrit en texte</b></li>
+              <li className="reveal d2">🧠 Qualifié automatiquement : <b>devis, urgence, rendez-vous</b></li>
+              <li className="reveal d2">🔔 Notification avec <b>résumé</b> et niveau d'urgence</li>
+              <li className="reveal d3">📞 Rappel <b>en un clic</b>, avec votre numéro pro</li>
+            </ul>
+          </div>
+          <div className="lp-ai-demo reveal d2">
+            <div className="lp-notif">
+              <div className="lp-notif-head">
+                <span className="lp-notif-app">🕊️ Joe</span>
+                <span className="lp-notif-time">maintenant</span>
+              </div>
+              <div className="lp-notif-title">🚨 Urgence — urgent</div>
+              <div className="lp-notif-body">Martin Dupont — fuite d'eau sous l'évier — rappeler avant 18 h (+33 6 12 34 56 78)</div>
+            </div>
+            <div className="lp-notif d2">
+              <div className="lp-notif-head">
+                <span className="lp-notif-app">🕊️ Joe</span>
+                <span className="lp-notif-time">il y a 12 min</span>
+              </div>
+              <div className="lp-notif-title">🛠️ Demande de devis</div>
+              <div className="lp-notif-body">Mme Leroy — rénovation salle de bain — disponible jeudi après-midi</div>
+            </div>
+            <div className="lp-notif d3">
+              <div className="lp-notif-head">
+                <span className="lp-notif-app">🕊️ Joe</span>
+                <span className="lp-notif-time">il y a 1 h</span>
+              </div>
+              <div className="lp-notif-title">📅 Rendez-vous</div>
+              <div className="lp-notif-body">M. Garcia — entretien chaudière — semaine prochaine de préférence le matin</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ===== Fonctionnalités ===== */}
       <section className="lp-section" id="fonctionnalites">
         <div className="lp-container">
@@ -325,7 +372,9 @@ export function Landing() {
                     <span className="n">{price(p.monthlyPrice)} €</span>
                     <span className="per">/ mois</span>
                   </div>
-                  <div className="lp-price-min">{p.includedMinutes} minutes incluses</div>
+                  <div className="lp-price-min">
+                    {p.includedMinutes >= 99999 ? 'Appels illimités en France' : `${p.includedMinutes} minutes incluses`}
+                  </div>
                   <ul>
                     {(p.features || []).map((f: string) => <li key={f}>{f}</li>)}
                     <li>14 jours d’essai gratuit</li>

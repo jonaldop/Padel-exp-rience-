@@ -31,6 +31,9 @@ export class CallsController {
    */
   private readonly transcripts = new Map<string, { text: string; at: number }>();
 
+  /** Résultats structurés du secrétaire conversationnel (call.ai_gather.ended). */
+  private readonly aiGathers = new Map<string, { data: any; at: number }>();
+
   private pushTranscript(callControlId: string, segment: string) {
     // Nettoyage paresseux : on ne garde jamais plus de 30 min d'historique.
     const now = Date.now();
@@ -185,30 +188,63 @@ export class CallsController {
             // Pas de renvoi configuré : SECRÉTARIAT IA. On accueille, on invite
             // à détailler (nom / raison / dispo), on enregistre ET on transcrit
             // en temps réel pour qualifier le message (devis, urgence, RDV…).
-            await this.safeSpeak(
-              callControlId,
-              settings?.greetingOpen || this.secretaryGreeting(call?.accountId),
-              settings?.greetingVoice || 'Polly.Lea-Neural',
-            );
             await this.safeRecord(callControlId);
             await this.safeTranscribe(callControlId);
+            await this.secretaryEngage(
+              callControlId,
+              call?.accountId,
+              settings?.greetingOpen,
+              settings?.greetingVoice,
+              false,
+              settings?.aiConversational !== false,
+            );
             this.updateByProvider(callControlId, { status: 'voicemail' });
           } else {
             await this.telnyx.hangup(callControlId);
           }
         } else {
           const call2 = this.db.findCallByProviderId(callControlId);
-          await this.safeSpeak(
-            callControlId,
-            settings?.greetingClosed || this.secretaryGreeting(call2?.accountId, true),
-            settings?.greetingVoice || 'Polly.Lea-Neural',
-          );
           if (settings?.voicemailEnabled !== false) {
             await this.safeRecord(callControlId);
             await this.safeTranscribe(callControlId);
+            await this.secretaryEngage(
+              callControlId,
+              call2?.accountId,
+              settings?.greetingClosed,
+              settings?.greetingVoice,
+              true,
+              settings?.aiConversational !== false,
+            );
             this.updateByProvider(callControlId, { status: 'voicemail' });
+          } else {
+            await this.safeSpeak(
+              callControlId,
+              settings?.greetingClosed || this.secretaryGreeting(call2?.accountId, true),
+              settings?.greetingVoice || 'Polly.Lea-Neural',
+            );
           }
         }
+        break;
+      }
+
+      case 'call.ai_gather.ended': {
+        // SECRÉTAIRE CONVERSATIONNEL : réponses structurées de l'appelant.
+        const result = payload.result || payload.results || payload.data || null;
+        if (result && typeof result === 'object') {
+          this.aiGathers.set(callControlId, { data: result, at: Date.now() });
+          // Si le message vocal est déjà créé (enregistrement déjà sauvegardé),
+          // on l'enrichit après coup.
+          const call = this.db.findCallByProviderId(callControlId);
+          const vm = call ? this.db.findVoicemailByCallId(call.id) : null;
+          if (vm) this.applyGatherToVoicemail(vm.id, result);
+        }
+        await this.safeSpeak(
+          callControlId,
+          'Merci, votre message est transmis immédiatement. Très bonne journée !',
+        );
+        try {
+          await this.telnyx.hangup(callControlId);
+        } catch { /* déjà raccroché */ }
         break;
       }
 
@@ -231,17 +267,31 @@ export class CallsController {
           // (catégorie, urgence, résumé) -> fiche + notification qualifiée.
           const transcript = this.transcripts.get(callControlId)?.text || '';
           this.transcripts.delete(callControlId);
-          if (transcript) {
-            this.db.updateVoicemail(vm.id, {
-              transcriptionText: transcript,
-              transcriptionStatus: 'done',
-            });
-            const a = await this.secretary.analyze(transcript);
-            this.db.updateVoicemail(vm.id, {
-              aiCategory: a.category,
-              aiUrgency: a.urgency,
-              aiSummary: a.summary,
-            });
+          const gather = this.aiGathers.get(callControlId)?.data || null;
+          this.aiGathers.delete(callControlId);
+          if (transcript || gather) {
+            if (transcript) {
+              this.db.updateVoicemail(vm.id, {
+                transcriptionText: transcript,
+                transcriptionStatus: 'done',
+              });
+            } else {
+              this.db.updateVoicemail(vm.id, { transcriptionStatus: 'none' });
+            }
+            // Les réponses STRUCTURÉES du secrétaire conversationnel priment ;
+            // sinon, analyse de la transcription (LLM ou mots-clés).
+            let a: { category: string; urgency: string; summary: string };
+            if (gather) {
+              a = this.applyGatherToVoicemail(vm.id, gather);
+            } else {
+              const r = await this.secretary.analyze(transcript);
+              a = r;
+              this.db.updateVoicemail(vm.id, {
+                aiCategory: r.category,
+                aiUrgency: r.urgency,
+                aiSummary: r.summary,
+              });
+            }
             this.push.notifyAccount(call.accountId, {
               title: `${SecretaryService.label(a.category)}${a.urgency === 'haute' ? ' — urgent' : ''}`,
               body: a.summary
@@ -303,6 +353,50 @@ export class CallsController {
       }
     }
     return { ok: true };
+  }
+
+  /**
+   * Engage le secrétariat : tente la CONVERSATION IA (questions/réponses) si
+   * activée, sinon (ou si l'API n'est pas dispo sur le compte Telnyx) repli
+   * sur l'accueil parlé classique + enregistrement déjà lancé.
+   */
+  private async secretaryEngage(
+    callControlId: string,
+    accountId: string | undefined,
+    customGreeting: string | undefined,
+    voice: string | undefined,
+    closed: boolean,
+    conversational: boolean,
+  ) {
+    const greeting = customGreeting || this.secretaryGreeting(accountId, closed);
+    if (conversational) {
+      try {
+        await this.telnyx.gatherUsingAi(callControlId, greeting);
+        return; // l'IA mène l'échange ; la suite arrive via call.ai_gather.ended
+      } catch (e) {
+        this.logger.warn(`gather_using_ai KO (${(e as Error).message}) -> répondeur classique`);
+      }
+    }
+    await this.safeSpeak(callControlId, greeting, voice || 'Polly.Lea-Neural');
+  }
+
+  /** Applique les réponses structurées du secrétaire au message vocal. */
+  private applyGatherToVoicemail(
+    vmId: string,
+    g: any,
+  ): { category: string; urgency: string; summary: string } {
+    const category = ['devis', 'urgence', 'rdv', 'rappel', 'autre'].includes(g.motif)
+      ? g.motif
+      : 'autre';
+    const urgency = g.urgence === true || g.urgence === 'true' || category === 'urgence' ? 'haute' : 'normale';
+    const parts = [
+      g.nom ? String(g.nom) : null,
+      g.details ? String(g.details) : null,
+      g.disponibilites ? `rappeler : ${g.disponibilites}` : null,
+    ].filter(Boolean);
+    const summary = parts.join(' — ').slice(0, 300);
+    this.db.updateVoicemail(vmId, { aiCategory: category, aiUrgency: urgency, aiSummary: summary });
+    return { category, urgency, summary };
   }
 
   /** Message d'accueil du secrétariat (par défaut, personnalisable par numéro). */
