@@ -68,6 +68,7 @@ export function LineSettingsScreen() {
   const [greetingVoice, setGreetingVoice] = useState('Polly.Lea-Neural');
   const [forwardToMobile, setForwardToMobile] = useState(false);
   const [forwardNumber, setForwardNumber] = useState('');
+  const [ringInApp, setRingInApp] = useState(false);
   const [days, setDays] = useState<Record<string, DayCfg>>(parseSchedule());
 
   useEffect(() => {
@@ -82,6 +83,7 @@ export function LineSettingsScreen() {
       setGreetingVoice(st.greetingVoice || 'Polly.Lea-Neural');
       setForwardToMobile(Boolean(st.forwardToMobile));
       setForwardNumber(st.forwardNumber || '');
+      setRingInApp(Boolean(st.ringInApp));
       setDays(parseSchedule(st.weeklySchedule));
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -120,6 +122,7 @@ export function LineSettingsScreen() {
         greetingVoice,
         forwardToMobile,
         forwardNumber,
+        ringInApp,
         weeklySchedule: buildSchedule(days),
       });
       Alert.alert('Enregistré', 'Les réglages de votre ligne ont été mis à jour.');
@@ -156,6 +159,19 @@ export function LineSettingsScreen() {
                   <Text style={s.rowLabel}>{v.label}</Text>
                 </TouchableOpacity>
               ))}
+            </Glass>
+
+            {/* Appels entrants */}
+            <Glass strong style={s.section}>
+              <Text style={s.h2}>Appels entrants</Text>
+              <View style={s.rowBetween}>
+                <Text style={s.rowLabel}>Sonner dans l'app (bêta)</Text>
+                <Switch value={ringInApp} onValueChange={setRingInApp} trackColor={{ true: colors.primary }} />
+              </View>
+              <Text style={s.hint}>
+                Si activé, en horaires ouverts l'app sonne (VoIP). Sans réponse → messagerie.
+                Le renvoi mobile ci-dessous reste prioritaire s'il est activé.
+              </Text>
             </Glass>
 
             {/* Renvoi d'appel */}

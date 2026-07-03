@@ -126,11 +126,15 @@ export class BillingController {
 }
 
 function page(title: string, text: string): string {
+  // Lien de retour vers l'espace client web (utile quand le paiement vient du
+  // site — les clients mobiles ferment simplement la page).
+  const webUrl = process.env.WEB_APP_URL || 'https://padel-exp-rience-web.vercel.app/app';
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — Joe</title></head>
 <body style="margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(135deg,#6C5CE7,#a29bfe);min-height:100vh;display:flex;align-items:center;justify-content:center">
 <div style="background:#fff;border-radius:20px;padding:36px 30px;max-width:420px;margin:20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25)">
 <div style="font-size:44px;margin-bottom:10px">📞</div>
 <h1 style="font-size:22px;margin:0 0 10px">${title}</h1>
 <p style="color:#555;font-size:15px;line-height:1.5;margin:0">${text}</p>
+<a href="${webUrl}" style="display:inline-block;margin-top:22px;background:linear-gradient(120deg,#5B8CFF,#7C5CF0);color:#fff;font-weight:700;font-size:15px;padding:12px 24px;border-radius:999px;text-decoration:none">Ouvrir mon espace Joe →</a>
 </div></body></html>`;
 }

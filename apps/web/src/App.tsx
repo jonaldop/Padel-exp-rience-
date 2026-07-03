@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, auth } from './api';
 import { Login } from './pages/Login';
+import { Landing } from './pages/Landing';
 import { Dashboard } from './pages/Dashboard';
 import { Numbers } from './pages/Numbers';
 import { Clients } from './pages/Clients';
@@ -48,8 +49,15 @@ export function App() {
   // Il a sa propre connexion (ADMIN_EMAIL/PASSWORD) et son propre jeton, donc
   // indépendant de l'espace client — un admin peut aussi avoir un compte client.
   const path = window.location.pathname.replace(/\/+$/, '');
-  const isAdmin = path === '/admin' || new URLSearchParams(window.location.search).has('admin');
+  const params = new URLSearchParams(window.location.search);
+  const isAdmin = path === '/admin' || params.has('admin');
   if (isAdmin) return <Admin />;
+
+  // Racine du domaine = SITE COMMERCIAL (découverte + inscription + abonnement).
+  // L'espace client vit sur /app. Les liens ?reset= / ?signup= (emails, site)
+  // doivent entrer dans l'espace même s'ils pointent sur la racine.
+  const isApp = path === '/app' || path.startsWith('/app/') || params.has('reset') || params.has('signup');
+  if (!isApp) return <Landing />;
 
   if (!authed) return <Login onLoggedIn={() => setAuthed(true)} />;
 

@@ -6,6 +6,7 @@ import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 import { formatFr } from '../format';
+import { BUILD_TAG } from '../version';
 
 export function PlusScreen({ onLogout }: { onLogout: () => void }) {
   const insets = useSafeAreaInsets();
@@ -66,7 +67,7 @@ export function PlusScreen({ onLogout }: { onLogout: () => void }) {
           </Glass>
         </TouchableOpacity>
 
-        <Text style={s.version}>Joe — Ta ligne pro · v1.0</Text>
+        <Text style={s.version}>Joe — Ta ligne pro · v1.0 · {BUILD_TAG}</Text>
       </ScrollView>
     </GradientBg>
   );

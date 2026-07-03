@@ -5,6 +5,11 @@ name: EAS Update (OTA)
 # choisie au déclenchement (ref).
 
 on:
+  # Auto : publie l'OTA dès qu'une modif mobile est poussée sur la branche.
+  push:
+    branches: [claude/voip-saas-design-icrutw]
+    paths: ['apps/mobile/**']
+  # Manuel : déclenchable depuis l'onglet Actions.
   workflow_dispatch:
     inputs:
       message:
@@ -37,4 +42,6 @@ jobs:
         run: npm install
 
       - name: Publish OTA update
-        run: eas update --branch production --message "${{ inputs.message }}" --non-interactive
+        env:
+          MSG: ${{ inputs.message || github.sha }}
+        run: eas update --branch production --message "$MSG" --non-interactive

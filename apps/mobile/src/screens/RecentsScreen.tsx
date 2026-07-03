@@ -2,10 +2,12 @@ import { useCallback, useState } from 'react';
 import { Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
-import { formatFr } from '../format';
+import { formatFr, toE164Fr } from '../format';
+import { loadContacts, lookupContact } from '../contacts';
 
 const statusMeta: Record<string, { txt: string; color: string }> = {
   completed: { txt: 'Terminé', color: colors.green },
@@ -14,6 +16,8 @@ const statusMeta: Record<string, { txt: string; color: string }> = {
   voicemail: { txt: 'Messagerie', color: colors.amber },
   forwarded: { txt: 'Renvoyé', color: colors.primary },
   failed: { txt: 'Échec', color: colors.red },
+  'ringing-app': { txt: 'Reçu', color: colors.green },
+  ringing: { txt: 'Reçu', color: colors.green },
 };
 
 export function RecentsScreen() {
@@ -21,11 +25,19 @@ export function RecentsScreen() {
   const nav = useNavigation<any>();
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [proNumber, setProNumber] = useState<string | undefined>(undefined);
 
   const load = useCallback(() => {
     setLoading(true);
+    loadContacts();
+    api.myNumbers().then((n: any[]) => setProNumber(n?.[0]?.e164)).catch(() => {});
     api.history().then((c) => setCalls(Array.isArray(c) ? c : [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  // Rappel direct depuis la liste (appel PRO via Internet, numéro pro présenté).
+  const callBack = useCallback((num: string, name?: string) => {
+    nav.navigate('Appel', { number: toE164Fr(num), callerId: proNumber, name });
+  }, [nav, proNumber]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -42,13 +54,19 @@ export function RecentsScreen() {
           const inbound = c.direction === 'inbound';
           const st = statusMeta[c.status] || { txt: c.status, color: colors.muted };
           const isMissed = ['missed', 'failed'].includes(c.status);
+          const num = inbound ? c.fromE164 : c.toE164;
+          const contactName = lookupContact(num);
           return (
             <Glass style={s.row}>
               <View style={[s.icon, { backgroundColor: isMissed ? '#FDEBEA' : '#E8EEFF' }]}>
-                <Text style={{ fontSize: 15 }}>{inbound ? '↙️' : '↗️'}</Text>
+                <MaterialIcons
+                  name={isMissed ? 'call-missed' : inbound ? 'call-received' : 'call-made'}
+                  size={17}
+                  color={isMissed ? colors.red : inbound ? colors.green : colors.primary}
+                />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.num}>{formatFr(inbound ? c.fromE164 : c.toE164)}</Text>
+                <Text style={s.num}>{contactName || formatFr(num)}</Text>
                 <Text style={s.sub}>
                   {inbound ? 'Entrant' : 'Sortant'} ·{' '}
                   {new Date(c.startedAt).toLocaleString('fr-FR', {
@@ -59,9 +77,9 @@ export function RecentsScreen() {
               <Text style={{ color: st.color, fontWeight: '700', marginRight: 10 }}>{st.txt}</Text>
               <TouchableOpacity
                 style={s.callBack}
-                onPress={() => nav.navigate('Clavier', { number: inbound ? c.fromE164 : c.toE164 })}
+                onPress={() => callBack(num, contactName || undefined)}
               >
-                <Text style={{ fontSize: 15 }}>📞</Text>
+                <Ionicons name="call" size={17} color={colors.green} />
               </TouchableOpacity>
             </Glass>
           );

@@ -40,7 +40,14 @@ export const api = {
     password: string;
     companyName: string;
     firstName?: string;
+    plan?: string;
   }) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Site commercial : formules publiques + abonnement en ligne (Stripe)
+  plans: () => request<{ plans: any[] }>('/plans'),
+  billingStatus: () => request<{ enabled: boolean; subscribed: boolean }>('/billing/status'),
+  subscribe: () =>
+    request<{ url?: string; error?: string }>('/billing/subscribe', { method: 'POST', body: '{}' }),
 
   login: (email: string, password: string) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),

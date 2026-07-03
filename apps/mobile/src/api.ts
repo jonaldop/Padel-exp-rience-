@@ -55,6 +55,28 @@ export const api = {
     request('/auth/profile', { method: 'PATCH', body: JSON.stringify(data) }),
   updatePlan: (plan: string) =>
     request('/auth/plan', { method: 'PATCH', body: JSON.stringify({ plan }) }),
+  // Forfaits disponibles (public) + consommation + factures du compte.
+  plans: () => request<{ plans: any[] }>('/plans'),
+  usage: () => request<any>('/auth/usage'),
+  invoices: () => request<any[]>('/auth/invoices'),
+  billingStatus: () => request<{ enabled: boolean; subscribed: boolean }>('/billing/status'),
+  subscribe: () =>
+    request<{ url?: string; error?: string }>('/billing/subscribe', { method: 'POST', body: '{}' }),
+  checkoutInvoice: (invoiceId: string) =>
+    request<{ url?: string; error?: string }>('/billing/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ invoiceId }),
+    }),
+
+  // Notifications push : enregistrer le token du device.
+  registerDevice: (token: string, platform: string) =>
+    request('/push/register', { method: 'POST', body: JSON.stringify({ token, platform }) }),
+
+  // Messagerie (conversations avec les clients, canal SMS/WhatsApp selon config).
+  threads: () => request<any[]>('/messages/threads'),
+  thread: (peer: string) => request<any[]>(`/messages/thread?peer=${encodeURIComponent(peer)}`),
+  sendMessage: (to: string, body: string) =>
+    request<any>('/messages/send', { method: 'POST', body: JSON.stringify({ to, body }) }),
 
   myNumbers: () => request('/numbers'),
   updateNumberSettings: (id: string, patch: any) =>
@@ -62,8 +84,10 @@ export const api = {
   history: () => request('/calls'),
   voicemails: () => request('/calls/voicemails'),
 
-  // Softphone WebRTC : token court pour connecter le SDK Telnyx.
+  // Softphone WebRTC : token court (sortant) + identifiants connexion (entrant).
   webrtcToken: () => request<{ token: string }>('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),
+  webrtcCredentials: () =>
+    request<{ login: string; password: string }>('/telnyx/webrtc-credentials', { method: 'POST', body: '{}' }),
 
   clients: (search?: string) =>
     request('/clients' + (search ? `?search=${encodeURIComponent(search)}` : '')),

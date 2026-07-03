@@ -1,11 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { api } from '../api';
 import { colors } from '../theme';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { GradientBg, Glass, Delta, Waveform } from '../ui';
-import { formatFr } from '../format';
+import { formatFr, toE164Fr } from '../format';
+import { BUILD_TAG } from '../version';
+import { setLineStatusListener, LineStatus } from '../call/incomingCalls';
+import { loadContacts, lookupContact } from '../contacts';
 
 function isSameDay(iso: string, ref: Date) {
   const d = new Date(iso);
@@ -48,6 +52,8 @@ const STATUS_LABEL: Record<string, string> = {
   missed: 'Appel manqué',
   failed: 'Échec',
   voicemail: 'Message vocal',
+  'ringing-app': 'Reçu',
+  ringing: 'Reçu',
 };
 
 export function HomeScreen() {
@@ -58,10 +64,17 @@ export function HomeScreen() {
   const [vms, setVms] = useState<any[]>([]);
   const [ai, setAi] = useState(false);
   const [proNumber, setProNumber] = useState<string>('');
+  const [lineStatus, setLineStatus] = useState<LineStatus>('offline');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLineStatusListener(setLineStatus);
+    return () => setLineStatusListener(null);
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
+    loadContacts();
     Promise.all([
       api.me().then(setMe).catch(() => {}),
       api.history().then((c) => setCalls(Array.isArray(c) ? c : [])).catch(() => {}),
@@ -87,6 +100,8 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
       >
+        <Text style={{ textAlign: 'right', color: colors.muted, fontSize: 11, marginBottom: 2 }}>{BUILD_TAG}</Text>
+
         {/* En-tête */}
         <View style={s.header}>
           <View style={{ flex: 1 }}>
@@ -98,6 +113,16 @@ export function HomeScreen() {
                 <Text style={s.proChipTxt}>📞 Ligne pro · {formatFr(proNumber)}</Text>
               </View>
             )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, marginRight: 6, backgroundColor:
+                lineStatus === 'connected' ? colors.green : lineStatus === 'connecting' ? colors.amber : lineStatus === 'unsupported' ? colors.muted : colors.red }} />
+              <Text style={{ fontSize: 12.5, color: colors.muted }}>
+                {lineStatus === 'connected' ? 'Ligne connectée — prête à recevoir'
+                  : lineStatus === 'connecting' ? 'Connexion de la ligne…'
+                  : lineStatus === 'unsupported' ? 'Réception in-app indisponible (ce build)'
+                  : 'Ligne hors ligne'}
+              </Text>
+            </View>
           </View>
           <View style={s.bell}>
             <Text style={{ fontSize: 18 }}>🔔</Text>
@@ -169,12 +194,17 @@ export function HomeScreen() {
         ) : (
           recent.map((c) => {
             const inbound = c.direction === 'inbound';
-            const num = formatFr(inbound ? c.fromE164 : c.toE164);
+            const rawNum = inbound ? c.fromE164 : c.toE164;
+            const num = lookupContact(rawNum) || formatFr(rawNum);
             const isMissed = ['missed', 'failed', 'no_answer'].includes(c.status);
             return (
               <Glass key={c.id} style={s.callRow}>
                 <View style={[s.callIcon, { backgroundColor: isMissed ? '#FDEBEA' : '#E8EEFF' }]}>
-                  <Text style={{ fontSize: 15 }}>{isMissed ? '↙️' : inbound ? '↙️' : '↗️'}</Text>
+                  <MaterialIcons
+                    name={isMissed ? 'call-missed' : inbound ? 'call-received' : 'call-made'}
+                    size={16}
+                    color={isMissed ? colors.red : inbound ? colors.green : colors.primary}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.callNum}>{num}</Text>
@@ -187,9 +217,9 @@ export function HomeScreen() {
                 </Text>
                 <TouchableOpacity
                   style={[s.callBack, { backgroundColor: isMissed ? '#FDEBEA' : '#E7F7EE' }]}
-                  onPress={() => nav.navigate('Clavier', { number: inbound ? c.fromE164 : c.toE164 })}
+                  onPress={() => nav.navigate('Appel', { number: toE164Fr(rawNum), callerId: proNumber || undefined, name: lookupContact(rawNum) || undefined })}
                 >
-                  <Text style={{ fontSize: 15 }}>📞</Text>
+                  <Ionicons name="call" size={16} color={colors.green} />
                 </TouchableOpacity>
               </Glass>
             );

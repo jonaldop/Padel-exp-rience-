@@ -19,6 +19,11 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   lastName?: string;
+
+  /** Forfait choisi sur le site au moment de l'inscription (clé de plan). */
+  @IsOptional()
+  @IsString()
+  plan?: string;
 }
 
 export class LoginDto {

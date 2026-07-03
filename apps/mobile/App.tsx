@@ -5,21 +5,28 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import { api, auth } from './src/api';
 import { colors } from './src/theme';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { RecentsScreen } from './src/screens/RecentsScreen';
 import { ClientsScreen } from './src/screens/ClientsScreen';
+import { ContactDetailScreen } from './src/screens/ContactDetailScreen';
+import { ConversationScreen } from './src/screens/ConversationScreen';
 import { DialerScreen } from './src/screens/DialerScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { PlusScreen } from './src/screens/PlusScreen';
 import { CallScreen } from './src/screens/CallScreen';
+import { IncomingCallScreen } from './src/screens/IncomingCallScreen';
 import { LineSettingsScreen } from './src/screens/LineSettingsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PlanScreen } from './src/screens/PlanScreen';
 import { TabBar } from './src/components/TabBar';
+import { startIncomingCalls, stopIncomingCalls } from './src/call/incomingCalls';
+import { registerPush } from './src/push';
+import { navigationRef } from './src/nav';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -60,8 +67,31 @@ export default function App() {
     });
   }, []);
 
+  // Mise à jour automatique au démarrage (applique l'OTA sans double réouverture).
+  useEffect(() => {
+    (async () => {
+      try {
+        if (__DEV__ || !Updates.isEnabled) return;
+        const res = await Updates.checkForUpdateAsync();
+        if (res.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        /* pas bloquant */
+      }
+    })();
+  }, []);
+
+  // Active la réception d'appels entrants + les notifications push une fois connecté.
+  useEffect(() => {
+    if (authed) { startIncomingCalls(); registerPush(); }
+    else stopIncomingCalls();
+  }, [authed]);
+
   async function logout() {
     await auth.set(null);
+    stopIncomingCalls();
     setAuthed(false);
   }
 
@@ -79,11 +109,16 @@ export default function App() {
       {!authed ? (
         <LoginScreen onLoggedIn={() => setAuthed(true)} />
       ) : (
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <Stack.Navigator>
             <Stack.Screen name="Tabs" options={{ headerShown: false }}>
               {() => <Tabs onLogout={logout} />}
             </Stack.Screen>
+            <Stack.Screen
+              name="AppelEntrant"
+              component={IncomingCallScreen}
+              options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
+            />
             <Stack.Screen
               name="Statistiques"
               component={StatsScreen}
@@ -108,6 +143,16 @@ export default function App() {
               name="Formule"
               component={PlanScreen}
               options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
+            />
+            <Stack.Screen
+              name="FicheContact"
+              component={ContactDetailScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Conversation"
+              component={ConversationScreen}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="Appel"

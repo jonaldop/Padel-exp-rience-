@@ -1,7 +1,10 @@
 name: Build iOS → TestFlight
 
-# Déclenchable à la main depuis GitHub (Actions → "Build iOS → TestFlight" → Run workflow),
-# y compris depuis le navigateur d'un téléphone. Build dans le cloud (EAS), zéro ordinateur.
+# Deux façons de lancer un build natif (cloud EAS, zéro ordinateur) :
+#  - À la main : Actions → "Build iOS → TestFlight" → Run workflow.
+#  - Auto : pousser une modif du fichier marqueur apps/mobile/.native-build
+#    (permet de déclencher un build natif sans le bouton "Run workflow").
+# Par défaut on envoie sur TestFlight (sauf si on choisit submit=false à la main).
 
 on:
   workflow_dispatch:
@@ -10,6 +13,9 @@ on:
         description: 'Envoyer sur TestFlight après le build ?'
         type: boolean
         default: true
+  push:
+    branches: [claude/voip-saas-design-icrutw]
+    paths: ['apps/mobile/.native-build']
 
 jobs:
   build:
@@ -36,7 +42,6 @@ jobs:
         run: npm install
 
       - name: Write App Store Connect API key
-        if: ${{ inputs.submit }}
         run: echo "${{ secrets.ASC_API_KEY_BASE64 }}" | base64 -d > asc-key.p8
         env:
           ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
@@ -47,8 +52,10 @@ jobs:
           ASC_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
           EXPO_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          if [ "${{ inputs.submit }}" = "true" ]; then
-            eas build --platform ios --profile production --non-interactive --auto-submit
-          else
+          # submit par défaut (déclenchement par push) ; submit=false uniquement
+          # si choisi explicitement via Run workflow.
+          if [ "${{ inputs.submit }}" = "false" ]; then
             eas build --platform ios --profile production --non-interactive
+          else
+            eas build --platform ios --profile production --non-interactive --auto-submit
           fi
