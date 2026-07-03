@@ -524,6 +524,18 @@ export class TelnyxService {
     return this.api(`/calls/${callControlId}/actions/hangup`, { method: 'POST' });
   }
 
+  /**
+   * Transcription TEMPS RÉEL de l'appel (secrétariat IA) : Telnyx envoie des
+   * événements `call.transcription` au webhook pendant que l'appelant parle.
+   * On ne transcrit que la piste entrante (la voix du client).
+   */
+  transcriptionStart(callControlId: string) {
+    return this.api(`/calls/${callControlId}/actions/transcription_start`, {
+      method: 'POST',
+      body: { language: 'fr', transcription_tracks: 'inbound' },
+    });
+  }
+
   /** Appel SORTANT (présente le numéro pro du compte). */
   async dial(to: string, from: string) {
     const appId = await this.ensureCallControlApp();

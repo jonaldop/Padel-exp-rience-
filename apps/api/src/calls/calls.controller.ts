@@ -5,6 +5,7 @@ import { isOpen, DEFAULT_SCHEDULE, WeeklySchedule } from './business-hours';
 import { CurrentUser, JwtGuard } from '../auth/jwt.guard';
 import { JwtPayload } from '../auth/auth.service';
 import { PushService } from '../push/push.service';
+import { SecretaryService } from '../ai/secretary.service';
 
 /**
  * - Webhook Call Control de Telnyx : route les appels ENTRANTS selon les
@@ -20,7 +21,28 @@ export class CallsController {
     private readonly telnyx: TelnyxService,
     private readonly db: DbService,
     private readonly push: PushService,
+    private readonly secretary: SecretaryService,
   ) {}
+
+  /**
+   * SECRÉTARIAT IA — tampon des transcriptions temps réel, par appel.
+   * Telnyx envoie des événements `call.transcription` pendant que l'appelant
+   * parle ; on accumule ici puis on consomme quand l'enregistrement est prêt.
+   */
+  private readonly transcripts = new Map<string, { text: string; at: number }>();
+
+  private pushTranscript(callControlId: string, segment: string) {
+    // Nettoyage paresseux : on ne garde jamais plus de 30 min d'historique.
+    const now = Date.now();
+    for (const [k, v] of this.transcripts) {
+      if (now - v.at > 30 * 60_000) this.transcripts.delete(k);
+    }
+    const cur = this.transcripts.get(callControlId);
+    this.transcripts.set(callControlId, {
+      text: cur ? `${cur.text} ${segment}`.trim() : segment.trim(),
+      at: now,
+    });
+  }
 
   // ── Endpoints authentifiés (dashboard / softphone) ─────────────────────────
 
@@ -129,7 +151,11 @@ export class CallsController {
 
         // Tous les autres cas (répondeur, renvoi, fermé) : on décroche pour
         // pouvoir jouer le message / renvoyer (logique sur call.answered).
-        await this.telnyx.answer(callControlId);
+        try {
+          await this.telnyx.answer(callControlId);
+        } catch (e) {
+          this.logger.warn(`answer KO: ${(e as Error).message}`);
+        }
         break;
       }
 
@@ -156,31 +182,42 @@ export class CallsController {
             await this.telnyx.transferToPstn(callControlId, fwd, call?.toE164);
             this.updateByProvider(callControlId, { status: 'forwarded' });
           } else if (settings?.voicemailEnabled !== false) {
-            // Pas de renvoi configuré : on prend un message (le softphone web ne
-            // peut pas sonner de façon fiable -> ce sera l'app native + CallKit).
-            await this.telnyx.speak(
+            // Pas de renvoi configuré : SECRÉTARIAT IA. On accueille, on invite
+            // à détailler (nom / raison / dispo), on enregistre ET on transcrit
+            // en temps réel pour qualifier le message (devis, urgence, RDV…).
+            await this.safeSpeak(
               callControlId,
-              settings?.greetingOpen ||
-                'Bonjour, merci de laisser un message, nous vous rappellerons.',
+              settings?.greetingOpen || this.secretaryGreeting(call?.accountId),
               settings?.greetingVoice || 'Polly.Lea-Neural',
             );
-            await this.telnyx.recordStart(callControlId);
+            await this.safeRecord(callControlId);
+            await this.safeTranscribe(callControlId);
             this.updateByProvider(callControlId, { status: 'voicemail' });
           } else {
             await this.telnyx.hangup(callControlId);
           }
         } else {
-          await this.telnyx.speak(
+          const call2 = this.db.findCallByProviderId(callControlId);
+          await this.safeSpeak(
             callControlId,
-            settings?.greetingClosed ||
-              'Nos bureaux sont fermés. Laissez un message après le bip.',
+            settings?.greetingClosed || this.secretaryGreeting(call2?.accountId, true),
             settings?.greetingVoice || 'Polly.Lea-Neural',
           );
           if (settings?.voicemailEnabled !== false) {
-            await this.telnyx.recordStart(callControlId);
+            await this.safeRecord(callControlId);
+            await this.safeTranscribe(callControlId);
             this.updateByProvider(callControlId, { status: 'voicemail' });
           }
         }
+        break;
+      }
+
+      case 'call.transcription': {
+        // Secrétariat IA : segments de transcription temps réel (fr).
+        const td = payload.transcription_data || payload;
+        const segment: string = td?.transcript || td?.text || '';
+        const isFinal = td?.is_final !== false; // absent => on prend
+        if (segment && isFinal) this.pushTranscript(callControlId, segment);
         break;
       }
 
@@ -189,14 +226,37 @@ export class CallsController {
         // URL publique en priorité (lisible directement par le navigateur)
         const url = payload.public_recording_urls?.mp3 || payload.recording_urls?.mp3;
         if (call) {
-          this.db.createVoicemail({ callId: call.id, audioUrl: url });
-          // Notif push : nouveau message vocal.
-          this.push.notifyAccount(call.accountId, {
-            title: 'Nouveau message vocal 🎙️',
-            body: `De ${call.fromE164}`,
-            data: { screen: 'Messages' },
-          });
-          // TODO (V2) : enqueue transcription Whisper/Deepgram (ticket AI-1)
+          const vm = this.db.createVoicemail({ callId: call.id, audioUrl: url });
+          // SECRÉTARIAT IA : transcription accumulée pendant l'appel -> analyse
+          // (catégorie, urgence, résumé) -> fiche + notification qualifiée.
+          const transcript = this.transcripts.get(callControlId)?.text || '';
+          this.transcripts.delete(callControlId);
+          if (transcript) {
+            this.db.updateVoicemail(vm.id, {
+              transcriptionText: transcript,
+              transcriptionStatus: 'done',
+            });
+            const a = await this.secretary.analyze(transcript);
+            this.db.updateVoicemail(vm.id, {
+              aiCategory: a.category,
+              aiUrgency: a.urgency,
+              aiSummary: a.summary,
+            });
+            this.push.notifyAccount(call.accountId, {
+              title: `${SecretaryService.label(a.category)}${a.urgency === 'haute' ? ' — urgent' : ''}`,
+              body: a.summary
+                ? `${a.summary} (${call.fromE164})`
+                : `De ${call.fromE164}`,
+              data: { screen: 'Messages' },
+            });
+          } else {
+            this.db.updateVoicemail(vm.id, { transcriptionStatus: 'none' });
+            this.push.notifyAccount(call.accountId, {
+              title: 'Nouveau message vocal 🎙️',
+              body: `De ${call.fromE164}`,
+              data: { screen: 'Messages' },
+            });
+          }
         }
         break;
       }
@@ -243,6 +303,44 @@ export class CallsController {
       }
     }
     return { ok: true };
+  }
+
+  /** Message d'accueil du secrétariat (par défaut, personnalisable par numéro). */
+  private secretaryGreeting(accountId?: string, closed = false): string {
+    const company = accountId ? this.db.findAccountById(accountId)?.companyName : '';
+    const intro = company ? `Bonjour, vous êtes bien chez ${company}.` : 'Bonjour.';
+    const closedTxt = closed ? ' Nous sommes actuellement fermés.' : '';
+    return (
+      `${intro}${closedTxt} Je suis l'assistant de la ligne. ` +
+      `Après le bip, indiquez votre nom, la raison de votre appel — devis, urgence ou rendez-vous — ` +
+      `et vos disponibilités. Votre message est transmis immédiatement. Merci !`
+    );
+  }
+
+  /** Démarre la transcription temps réel sans jamais faire échouer l'appel. */
+  private async safeTranscribe(callControlId: string) {
+    try {
+      await this.telnyx.transcriptionStart(callControlId);
+    } catch (e) {
+      this.logger.warn(`transcription_start KO: ${(e as Error).message}`);
+    }
+  }
+
+  /** speak/record tolérants : un échec ne doit pas casser la suite du flux. */
+  private async safeSpeak(callControlId: string, text: string, voice?: string) {
+    try {
+      await this.telnyx.speak(callControlId, text, voice);
+    } catch (e) {
+      this.logger.warn(`speak KO: ${(e as Error).message}`);
+    }
+  }
+
+  private async safeRecord(callControlId: string) {
+    try {
+      await this.telnyx.recordStart(callControlId);
+    } catch (e) {
+      this.logger.warn(`record_start KO: ${(e as Error).message}`);
+    }
   }
 
   private updateByProvider(providerCallId: string, patch: any) {

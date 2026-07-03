@@ -108,6 +108,10 @@ export interface Voicemail {
   durationS?: number | null;
   transcriptionText?: string | null;
   transcriptionStatus: string;
+  // Secrétariat IA : qualification du message (docs/08 AI-1)
+  aiCategory?: string | null; // devis | urgence | rdv | rappel | autre
+  aiUrgency?: string | null; // haute | normale
+  aiSummary?: string | null; // résumé en 1 phrase pour l'artisan
   isRead: boolean;
   createdAt: string;
 }
@@ -668,6 +672,18 @@ export class DbService implements OnModuleInit {
     this.data.voicemails.push(vm);
     this.save();
     return vm;
+  }
+
+  updateVoicemail(id: string, patch: Partial<Voicemail>) {
+    const vm = this.data.voicemails.find((v) => v.id === id);
+    if (!vm) return null;
+    Object.assign(vm, patch);
+    this.save();
+    return vm;
+  }
+
+  findVoicemailByCallId(callId: string) {
+    return this.data.voicemails.find((v) => v.callId === callId) || null;
   }
 
   listVoicemails(accountId: string) {

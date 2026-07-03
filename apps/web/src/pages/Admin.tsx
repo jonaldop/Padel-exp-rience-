@@ -115,6 +115,7 @@ export function Admin() {
               <>
                 <Dashboard dashboard={dashboard} eur={eur} />
                 <StripeSetup token={token} />
+                <AiSetup token={token} />
                 <DebugCalls token={token} />
                 <PushSetup token={token} />
               </>
@@ -223,6 +224,74 @@ function StripeSetup({ token }: { token: string }) {
           style={{ marginTop: 8, background: 'transparent', border: 'none', color: colors.red, cursor: 'pointer', fontSize: 12.5, padding: 0 }}
         >
           Retirer la clé (désactiver le paiement en ligne)
+        </button>
+      )}
+      {msg && <p style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>{msg}</p>}
+    </Card>
+  );
+}
+
+function AiSetup({ token }: { token: string }) {
+  const [info, setInfo] = useState<any>(null);
+  const [key, setKey] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = () => api.adminGetSettings(token).then((r) => setInfo(r.ai)).catch(() => {});
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const r = await api.adminSetAiKey(token, key.trim());
+      if (r.error) setMsg(`⚠️ ${r.error}`);
+      else {
+        setMsg(r.configured
+          ? `✅ Clé ${r.provider} enregistrée : les messages vocaux sont maintenant analysés par l'IA (résumé, urgence, type de demande).`
+          : 'Clé retirée : le secrétariat repasse en analyse par mots-clés.');
+        setKey('');
+        load();
+      }
+    } catch (e: any) {
+      setMsg(`⚠️ ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card style={{ padding: 16, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <p style={{ fontWeight: 700, margin: 0 }}>🤖 Secrétariat IA</p>
+        {info && (
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: info.configured ? colors.green : colors.muted }}>
+            {info.configured ? `✅ IA active — ${info.provider} (${info.keyMasked}${info.source === 'env' ? ' · via variable env' : ''})` : '○ Mode mots-clés (sans clé)'}
+          </span>
+        )}
+      </div>
+      <p style={{ color: colors.muted, fontSize: 13, margin: '8px 0 10px' }}>
+        Le secrétariat répond, enregistre et <b>transcrit</b> chaque message vocal, puis le <b>qualifie</b>
+        (devis / urgence / rendez-vous / rappel) et notifie le client avec un résumé. Sans clé, l'analyse
+        utilise des mots-clés. Collez une clé <b>Anthropic</b> (sk-ant-…) ou <b>OpenAI</b> (sk-…) pour des
+        résumés de qualité maximale.
+      </p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Input
+          type="password"
+          placeholder="sk-ant-… ou sk-…"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          style={{ flex: 1, minWidth: 260 }}
+        />
+        <Button onClick={save} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Button>
+      </div>
+      {info?.configured && info?.source !== 'env' && (
+        <button
+          onClick={() => { setKey(''); api.adminSetAiKey(token, '').then(() => { setMsg('Clé retirée.'); load(); }); }}
+          style={{ marginTop: 8, background: 'transparent', border: 'none', color: colors.red, cursor: 'pointer', fontSize: 12.5, padding: 0 }}
+        >
+          Retirer la clé (repasser en mode mots-clés)
         </button>
       )}
       {msg && <p style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>{msg}</p>}
