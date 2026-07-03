@@ -11,6 +11,14 @@ import { loadContacts, lookupContact } from '../contacts';
 
 type Segment = 'chats' | 'vocal';
 
+// Secrétariat IA : badges de qualification des messages vocaux
+const catMeta: Record<string, { label: string; color: string; bg: string }> = {
+  devis: { label: '🛠️ Devis', color: '#1d6ae5', bg: '#E8EEFF' },
+  urgence: { label: '🚨 Urgence', color: '#d1352b', bg: '#FDEBEA' },
+  rdv: { label: '📅 RDV', color: '#7C5CF0', bg: '#F3EAFF' },
+  rappel: { label: '📞 Rappel', color: '#1a7f37', bg: '#E7F7EE' },
+};
+
 /** Messagerie : conversations avec les clients + messages du répondeur. */
 export function MessagesScreen() {
   const insets = useSafeAreaInsets();
@@ -108,23 +116,40 @@ export function MessagesScreen() {
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 130, paddingTop: 4 }}
             refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
             ListEmptyComponent={<Text style={s.empty}>Aucun message vocal.</Text>}
-            renderItem={({ item: vm }) => (
-              <Glass style={s.row}>
-                <View style={s.vmIcon}><Ionicons name="mic" size={17} color={colors.primary} /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.num}>
-                    {vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : 'Inconnu'}
-                  </Text>
-                  <Text style={s.sub}>{new Date(vm.createdAt).toLocaleString('fr-FR')}</Text>
-                  {vm.transcriptionText ? <Text style={s.txt}>« {vm.transcriptionText} »</Text> : null}
-                </View>
-                {vm.audioUrl ? (
-                  <TouchableOpacity style={s.play} onPress={() => Linking.openURL(vm.audioUrl)}>
-                    <Ionicons name="play" size={17} color={colors.primary} />
-                  </TouchableOpacity>
-                ) : null}
-              </Glass>
-            )}
+            renderItem={({ item: vm }) => {
+              const cat = catMeta[vm.aiCategory] || null;
+              const urgent = vm.aiUrgency === 'haute';
+              return (
+                <Glass style={s.row}>
+                  <View style={s.vmIcon}><Ionicons name="mic" size={17} color={colors.primary} /></View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Text style={s.num}>
+                        {vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : 'Inconnu'}
+                      </Text>
+                      {cat && (
+                        <View style={[s.catBadge, { backgroundColor: cat.bg }]}>
+                          <Text style={[s.catTxt, { color: cat.color }]}>{cat.label}</Text>
+                        </View>
+                      )}
+                      {urgent && (
+                        <View style={[s.catBadge, { backgroundColor: '#FDEBEA' }]}>
+                          <Text style={[s.catTxt, { color: colors.red }]}>⚡ Urgent</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={s.sub}>{new Date(vm.createdAt).toLocaleString('fr-FR')}</Text>
+                    {vm.aiSummary ? <Text style={s.aiSum}>{vm.aiSummary}</Text> : null}
+                    {vm.transcriptionText ? <Text style={s.txt}>« {vm.transcriptionText} »</Text> : null}
+                  </View>
+                  {vm.audioUrl ? (
+                    <TouchableOpacity style={s.play} onPress={() => Linking.openURL(vm.audioUrl)}>
+                      <Ionicons name="play" size={17} color={colors.primary} />
+                    </TouchableOpacity>
+                  ) : null}
+                </Glass>
+              );
+            }}
           />
         )}
       </View>
@@ -152,6 +177,9 @@ const s = StyleSheet.create({
   preview: { fontSize: 13.5, color: colors.muted, marginTop: 2 },
   sub: { fontSize: 13, color: colors.muted, marginTop: 1 },
   txt: { fontSize: 14, marginTop: 6, color: colors.text },
+  aiSum: { fontSize: 14, marginTop: 6, color: colors.text, fontWeight: '700' },
+  catBadge: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2.5, marginLeft: 6 },
+  catTxt: { fontSize: 11.5, fontWeight: '800' },
   time: { fontSize: 12, color: colors.muted },
   badge: {
     minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.primary,

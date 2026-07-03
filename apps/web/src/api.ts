@@ -156,12 +156,19 @@ export const api = {
     }),
   // Réglages plateforme (Stripe)
   adminGetSettings: (token: string) =>
-    request<{ stripe: { configured: boolean; source: string | null; keyMasked: string | null } }>('/admin/settings', {
+    request<{
+      stripe: { configured: boolean; source: string | null; keyMasked: string | null };
+      ai: { configured: boolean; source: string | null; provider: string | null; keyMasked: string | null };
+    }>('/admin/settings', {
       headers: { Authorization: `Bearer ${token}` },
     }),
   adminSetStripeKey: (token: string, secretKey: string) =>
     request<{ ok?: boolean; configured?: boolean; keyMasked?: string; error?: string }>('/admin/settings/stripe', {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ secretKey }),
+    }),
+  adminSetAiKey: (token: string, apiKey: string) =>
+    request<{ ok?: boolean; configured?: boolean; provider?: string; keyMasked?: string; error?: string }>('/admin/settings/ai', {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ apiKey }),
     }),
 
   // Softphone

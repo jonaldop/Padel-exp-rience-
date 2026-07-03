@@ -254,12 +254,49 @@ export class AdminController {
     const envKey = process.env.STRIPE_SECRET_KEY || '';
     const dbKey = this.db.getSetting('stripeSecretKey');
     const active = envKey || dbKey;
+    const aiEnv = process.env.AI_API_KEY || '';
+    const aiDb = this.db.getSetting('aiApiKey');
+    const aiActive = aiEnv || aiDb;
     return {
       stripe: {
         configured: Boolean(active),
         source: envKey ? 'env' : dbKey ? 'admin' : null,
         keyMasked: active ? `${active.slice(0, 7)}…${active.slice(-4)}` : null,
       },
+      ai: {
+        configured: Boolean(aiActive),
+        source: aiEnv ? 'env' : aiDb ? 'admin' : null,
+        provider: aiActive ? (aiActive.startsWith('sk-ant-') ? 'Anthropic (Claude)' : 'OpenAI') : null,
+        keyMasked: aiActive ? `${aiActive.slice(0, 10)}…${aiActive.slice(-4)}` : null,
+      },
+    };
+  }
+
+  /**
+   * Enregistre la clé IA du secrétariat (Anthropic `sk-ant-…` ou OpenAI `sk-…`).
+   * Sans clé, le secrétariat fonctionne en mode mots-clés ; avec clé, l'analyse
+   * des messages vocaux passe par le LLM (résumés bien meilleurs).
+   */
+  @Post('settings/ai')
+  setAiKey(
+    @Headers('authorization') authorization: string,
+    @Body() body: { apiKey?: string },
+  ) {
+    this.authorize(authorization);
+    const key = (body.apiKey || '').trim();
+    if (!key) {
+      this.db.setSetting('aiApiKey', '');
+      return { ok: true, configured: false };
+    }
+    if (!/^sk-/.test(key)) {
+      return { error: 'Clé invalide : attendu une clé Anthropic (sk-ant-…) ou OpenAI (sk-…).' };
+    }
+    this.db.setSetting('aiApiKey', key);
+    return {
+      ok: true,
+      configured: true,
+      provider: key.startsWith('sk-ant-') ? 'Anthropic (Claude)' : 'OpenAI',
+      keyMasked: `${key.slice(0, 10)}…${key.slice(-4)}`,
     };
   }
 

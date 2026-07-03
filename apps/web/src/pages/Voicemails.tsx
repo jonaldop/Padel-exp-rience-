@@ -8,8 +8,38 @@ interface Voicemail {
   audioUrl?: string | null;
   transcriptionText?: string | null;
   transcriptionStatus: string;
+  aiCategory?: string | null;
+  aiUrgency?: string | null;
+  aiSummary?: string | null;
   createdAt: string;
   call?: { fromE164: string };
+}
+
+// Secrétariat IA : badges de qualification
+const CAT: Record<string, { label: string; color: string; bg: string }> = {
+  devis: { label: '🛠️ Devis', color: '#1d6ae5', bg: '#E8EEFF' },
+  urgence: { label: '🚨 Urgence', color: '#d1352b', bg: '#FDEBEA' },
+  rdv: { label: '📅 Rendez-vous', color: '#7C5CF0', bg: '#F3EAFF' },
+  rappel: { label: '📞 Rappel', color: '#1a7f37', bg: '#E7F7EE' },
+};
+
+function CatBadge({ vm }: { vm: Voicemail }) {
+  const cat = vm.aiCategory ? CAT[vm.aiCategory] : null;
+  if (!cat && vm.aiUrgency !== 'haute') return null;
+  return (
+    <span style={{ display: 'inline-flex', gap: 6, marginLeft: 8 }}>
+      {cat && (
+        <span style={{ background: cat.bg, color: cat.color, fontSize: 12, fontWeight: 800, padding: '3px 9px', borderRadius: 8 }}>
+          {cat.label}
+        </span>
+      )}
+      {vm.aiUrgency === 'haute' && (
+        <span style={{ background: '#FDEBEA', color: colors.red, fontSize: 12, fontWeight: 800, padding: '3px 9px', borderRadius: 8 }}>
+          ⚡ Urgent
+        </span>
+      )}
+    </span>
+  );
 }
 
 export function Voicemails() {
@@ -43,6 +73,7 @@ export function Voicemails() {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>
                     {vm.call ? formatFr(vm.call.fromE164) : 'Appelant inconnu'}
+                    <CatBadge vm={vm} />
                   </div>
                   <div style={{ fontSize: 12.5, color: colors.muted }}>
                     {new Date(vm.createdAt).toLocaleString('fr-FR')}
@@ -50,6 +81,11 @@ export function Voicemails() {
                 </div>
               </div>
 
+              {vm.aiSummary && (
+                <p style={{ margin: '0 0 12px', fontSize: 14.5, fontWeight: 700, background: '#F3F0FF', padding: '10px 12px', borderRadius: 10 }}>
+                  🤖 {vm.aiSummary}
+                </p>
+              )}
               {vm.audioUrl ? (
                 <audio controls src={vm.audioUrl} style={{ width: '100%' }} />
               ) : (
@@ -62,7 +98,7 @@ export function Voicemails() {
                 </p>
               ) : (
                 <p style={{ marginTop: 10, fontSize: 12.5, color: colors.muted }}>
-                  📝 Transcription automatique du message : bientôt disponible.
+                  📝 Pas de transcription pour ce message.
                 </p>
               )}
             </Card>

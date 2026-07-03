@@ -20,7 +20,7 @@ const TRADES = ['🔧 Plombiers', '⚡ Électriciens', '🪚 Menuisiers', '🎨 
 
 const FEATURES = [
   { icon: '📞', title: 'Un vrai numéro pro', text: 'Choisissez votre numéro français en 2 minutes. Vos clients vous appellent dessus, vous les rappelez avec — votre numéro perso reste privé.' },
-  { icon: '🎙️', title: 'Répondeur intelligent', text: 'Un message d’accueil professionnel, et chaque message vocal transcrit en texte. Vous lisez vos messages au lieu de les écouter.' },
+  { icon: '🤖', title: 'Secrétariat IA', text: 'Joe répond, transcrit chaque message en texte et le qualifie : devis, urgence, rendez-vous. Vous savez qui rappeler en premier, sans écouter un seul message.' },
   { icon: '🕓', title: 'Horaires d’ouverture', text: 'Le soir et le week-end, Joe répond pour vous et prend le message. Vous coupez vraiment, sans rater de client.' },
   { icon: '💬', title: 'Messages clients', text: 'Écrivez à vos clients depuis votre numéro pro, comme par SMS. Toutes les conversations au même endroit.' },
   { icon: '📇', title: 'Vos clients reconnus', text: 'Chaque appel arrive avec le nom du client, sa fiche et l’historique complet. Vous décrochez en sachant qui appelle et pourquoi.' },

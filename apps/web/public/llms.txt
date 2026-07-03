@@ -6,7 +6,7 @@
 
 - **Un numéro professionnel dédié** : l'utilisateur reçoit un vrai numéro pro. Ses clients l'appellent dessus ; il les rappelle avec ce même numéro. Son numéro personnel reste privé.
 - **Fonctionne sur le téléphone existant** : Joe est une application (iOS et Android). La ligne pro passe par internet (4G/5G ou Wi-Fi). Aucun matériel, aucune carte SIM, aucune manipulation chez l'opérateur.
-- **Répondeur avec transcription** : chaque message vocal est transcrit en texte.
+- **Secrétariat IA** : Joe répond, transcrit chaque message vocal en texte et le qualifie automatiquement (demande de devis, urgence, rendez-vous, rappel) avec un résumé et un niveau d'urgence — l'artisan sait qui rappeler en premier.
 - **Horaires d'ouverture automatiques** : en dehors des heures de travail, Joe répond pour l'utilisateur et prend le message.
 - **Messagerie clients** : envoi de messages depuis le numéro pro.
 - **Fiche client et historique** : chaque appel arrive avec le nom du client et son historique.
