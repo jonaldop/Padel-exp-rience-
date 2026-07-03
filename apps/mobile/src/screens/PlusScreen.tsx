@@ -7,6 +7,7 @@ import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 import { formatFr } from '../format';
 import { BUILD_TAG } from '../version';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 
 export function PlusScreen({ onLogout }: { onLogout: () => void }) {
   const insets = useSafeAreaInsets();
@@ -68,6 +69,9 @@ export function PlusScreen({ onLogout }: { onLogout: () => void }) {
         </TouchableOpacity>
 
         <Text style={s.version}>Joe — Ta ligne pro · v1.0 · {BUILD_TAG}</Text>
+        <Text style={s.version}>
+          Binaire : lecteur audio {requireOptionalNativeModule('ExponentAV') ? '✓' : '✗'} · notifications {requireOptionalNativeModule('ExpoNotifications') ? '✓' : '✗'}
+        </Text>
       </ScrollView>
     </GradientBg>
   );
