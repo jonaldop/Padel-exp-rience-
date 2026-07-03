@@ -26,6 +26,8 @@ export function ReceptionistScreen() {
   const [greetingOpen, setGreetingOpen] = useState('');
   const [greetingClosed, setGreetingClosed] = useState('');
   const [voice, setVoice] = useState('Polly.Lea-Neural');
+  const [testTo, setTestTo] = useState('');
+  const [testing, setTesting] = useState<'open' | 'closed' | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -38,6 +40,7 @@ export function ReceptionistScreen() {
         setGreetingOpen(st.greetingOpen || '');
         setGreetingClosed(st.greetingClosed || '');
         setVoice(st.greetingVoice || 'Polly.Lea-Neural');
+        setTestTo((prev: string) => prev || st.forwardNumber || '');
       }),
       api.voicemails().then((v) => setVms(Array.isArray(v) ? v : [])).catch(() => {}),
     ]).catch(() => {}).finally(() => setLoading(false));
@@ -56,6 +59,30 @@ export function ReceptionistScreen() {
       load();
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** Joe appelle l'artisan et joue le message (voix + texte réels). */
+  async function testGreeting(which: 'open' | 'closed') {
+    if (!testTo.trim()) {
+      Alert.alert('Numéro manquant', 'Indiquez le numéro de mobile à appeler pour le test.');
+      return;
+    }
+    setTesting(which);
+    try {
+      const res = await api.previewGreeting({
+        numberId: num?.id,
+        which,
+        text: which === 'open' ? greetingOpen : greetingClosed,
+        voice,
+        to: testTo.trim(),
+      });
+      if (res.error) Alert.alert('Test impossible', res.error);
+      else Alert.alert('📞 Joe vous appelle !', 'Décrochez pour écouter votre message exactement comme vos clients l’entendront.');
+    } catch (e: any) {
+      Alert.alert('Oups', e.message || 'Test impossible');
+    } finally {
+      setTesting(null);
     }
   }
 
@@ -154,7 +181,7 @@ export function ReceptionistScreen() {
               <TextInput
                 style={st.input}
                 multiline
-                placeholder="Ex : Bonjour, vous êtes bien chez Plomberie Durand…"
+                placeholder={num?.defaultGreetings?.open || 'Message automatique avec le nom de votre entreprise'}
                 placeholderTextColor={colors.muted}
                 value={greetingOpen}
                 onChangeText={setGreetingOpen}
@@ -164,12 +191,45 @@ export function ReceptionistScreen() {
               <TextInput
                 style={st.input}
                 multiline
-                placeholder="Ex : Nous sommes fermés, laissez-nous un message…"
+                placeholder={num?.defaultGreetings?.closed || 'Message automatique (version fermé)'}
                 placeholderTextColor={colors.muted}
                 value={greetingClosed}
                 onChangeText={setGreetingClosed}
                 onEndEditing={() => save({ greetingClosed })}
               />
+            </Glass>
+
+            {/* Tester en conditions réelles : Joe appelle et joue le message */}
+            <Glass style={{ marginTop: 14 }}>
+              <Text style={st.rowTitle}>🔊 Écouter mes messages</Text>
+              <Text style={st.rowSub}>
+                Joe appelle votre mobile et joue le message avec la voix choisie —
+                exactement ce qu'entendront vos clients.
+              </Text>
+              <TextInput
+                style={[st.input, { minHeight: 0, marginTop: 10 }]}
+                placeholder="06 12 34 56 78"
+                placeholderTextColor={colors.muted}
+                keyboardType="phone-pad"
+                value={testTo}
+                onChangeText={setTestTo}
+              />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <TouchableOpacity
+                  style={[st.testBtn, testing === 'open' && { opacity: 0.6 }]}
+                  onPress={() => testGreeting('open')}
+                  disabled={testing !== null}
+                >
+                  <Text style={st.testBtnTxt}>{testing === 'open' ? 'Appel…' : '▶️ Accueil'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[st.testBtn, testing === 'closed' && { opacity: 0.6 }]}
+                  onPress={() => testGreeting('closed')}
+                  disabled={testing !== null}
+                >
+                  <Text style={st.testBtnTxt}>{testing === 'closed' ? 'Appel…' : '▶️ Fermé'}</Text>
+                </TouchableOpacity>
+              </View>
             </Glass>
 
             <Text style={st.note}>
@@ -213,4 +273,9 @@ const st = StyleSheet.create({
     fontSize: 14.5, color: colors.text, textAlignVertical: 'top',
   },
   note: { textAlign: 'center', color: colors.muted, fontSize: 12.5, marginTop: 16 },
+  testBtn: {
+    flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center',
+    backgroundColor: colors.primary,
+  },
+  testBtnTxt: { color: '#fff', fontSize: 14.5, fontWeight: '800' },
 });

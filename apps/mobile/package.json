@@ -33,7 +33,8 @@
     "react-native-voip-push-notification": "3.3.3",
     "react-native-webrtc": "124.0.5",
     "react-native-websocket-self-signed": "0.4.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "expo-av": "~14.0.7"
   },
   "devDependencies": {
     "@config-plugins/react-native-callkeep": "8.0.0",

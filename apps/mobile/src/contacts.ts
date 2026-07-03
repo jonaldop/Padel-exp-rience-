@@ -94,6 +94,31 @@ export async function listContactsFull(search?: string): Promise<ContactDetail[]
   }
 }
 
+/** Fiche complète correspondant à un numéro (rapprochement 9 chiffres). */
+export async function findContactByNumber(num: string): Promise<ContactDetail | null> {
+  const k = key(num);
+  if (!k) return null;
+  const all = await listContactsFull();
+  return all.find((c) => c.phones.some((p) => key(p) === k)) || null;
+}
+
+/** Crée un contact dans le répertoire du téléphone et renvoie sa fiche. */
+export async function createContact(name: string, phone: string): Promise<ContactDetail | null> {
+  try {
+    const perm = await Contacts.requestPermissionsAsync();
+    if (perm.status !== 'granted') return null;
+    await Contacts.addContactAsync({
+      [Contacts.Fields.FirstName]: name,
+      [Contacts.Fields.PhoneNumbers]: [{ label: 'mobile', number: phone }],
+    } as any);
+    resetContacts();
+    await loadContacts();
+    return { id: phone, name, phones: [phone], emails: [] };
+  } catch {
+    return null;
+  }
+}
+
 /** Liste du répertoire (pour l'écran Clients). */
 export async function listContacts(search?: string): Promise<{ name: string; number: string }[]> {
   try {

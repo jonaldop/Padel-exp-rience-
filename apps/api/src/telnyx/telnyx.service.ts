@@ -542,25 +542,34 @@ export class TelnyxService {
    * l'événement `call.ai_gather.ended`. Si l'API n'est pas disponible sur le
    * compte, l'appelant retombe sur le répondeur classique (géré côté contrôleur).
    */
-  gatherUsingAi(callControlId: string, greeting: string) {
+  gatherUsingAi(callControlId: string, greeting: string, companyName?: string) {
     return this.api(`/calls/${callControlId}/actions/gather_using_ai`, {
       method: 'POST',
       body: {
         greeting,
         language: 'fr',
         voice: 'Polly.Lea-Neural',
+        // RÉACTIVITÉ : consignes de brièveté (moins de mots = moins de latence
+        // perçue) + schéma minimal (moins de questions = moins de tours).
+        assistant: {
+          instructions:
+            `Tu es la réceptionniste téléphonique${companyName ? ` de ${companyName}` : ''}. ` +
+            `Parle français. Sois TRÈS brève et naturelle : une seule question courte à la fois, ` +
+            `maximum dix mots. Ne répète jamais ce que dit l'appelant, ne confirme pas chaque réponse. ` +
+            `Si l'appelant a déjà tout dit, ne redemande rien. Dès que tu as le motif et le détail, ` +
+            `demande juste quand le rappeler, puis termine.`,
+        },
         parameters: {
           type: 'object',
           properties: {
-            nom: { type: 'string', description: "Nom de l'appelant" },
             motif: {
               type: 'string',
               enum: ['devis', 'urgence', 'rdv', 'rappel', 'autre'],
               description: "Raison de l'appel",
             },
-            details: { type: 'string', description: 'Détail de la demande en une phrase' },
-            urgence: { type: 'boolean', description: "Est-ce urgent (aujourd'hui) ?" },
-            disponibilites: { type: 'string', description: 'Quand rappeler le client' },
+            details: { type: 'string', description: 'La demande en une phrase' },
+            nom: { type: 'string', description: 'Nom de l’appelant' },
+            disponibilites: { type: 'string', description: 'Quand rappeler' },
           },
           required: ['motif', 'details'],
         },

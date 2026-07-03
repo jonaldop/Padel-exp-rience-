@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Text, FlatList, StyleSheet, RefreshControl, Linking, View, TouchableOpacity } from 'react-native';
+import { Text, FlatList, StyleSheet, RefreshControl, View, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,8 @@ import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 import { formatFr, toE164Fr } from '../format';
-import { loadContacts, lookupContact } from '../contacts';
+import { loadContacts, lookupContact, findContactByNumber, createContact } from '../contacts';
+import { playVoicemail } from '../player';
 
 type Segment = 'chats' | 'vocal';
 
@@ -40,6 +41,32 @@ export function MessagesScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  /** Tap sur un vocal : ouvre la fiche du client (détectée ou créée). */
+  async function openClientCard(fromE164?: string) {
+    if (!fromE164) return;
+    const existing = await findContactByNumber(fromE164);
+    if (existing) {
+      nav.navigate('FicheContact', { contact: existing });
+      return;
+    }
+    Alert.prompt(
+      'Nouveau client',
+      `Créer une fiche pour ${formatFr(fromE164)} ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Créer',
+          onPress: async (name?: string) => {
+            const c = await createContact((name || '').trim() || formatFr(fromE164), fromE164);
+            if (c) nav.navigate('FicheContact', { contact: c });
+            else Alert.alert('Impossible', "Autorisez l'accès aux contacts pour créer la fiche.");
+          },
+        },
+      ],
+      'plain-text',
+    );
+  }
 
   function timeLabel(iso: string) {
     const d = new Date(iso);
@@ -122,6 +149,7 @@ export function MessagesScreen() {
               const cat = catMeta[vm.aiCategory] || null;
               const urgent = vm.aiUrgency === 'haute';
               return (
+                <TouchableOpacity activeOpacity={0.75} onPress={() => openClientCard(vm.call?.fromE164)}>
                 <Glass style={s.row}>
                   <View style={s.vmIcon}><Ionicons name="mic" size={17} color={colors.primary} /></View>
                   <View style={{ flex: 1 }}>
@@ -158,12 +186,19 @@ export function MessagesScreen() {
                       </TouchableOpacity>
                     ) : null}
                     {vm.audioUrl ? (
-                      <TouchableOpacity style={s.play} onPress={() => Linking.openURL(vm.audioUrl)}>
+                      <TouchableOpacity
+                        style={s.play}
+                        onPress={() => playVoicemail(vm.audioUrl, {
+                          from: vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : '',
+                          date: new Date(vm.createdAt).toLocaleString('fr-FR'),
+                        })}
+                      >
                         <Ionicons name="play" size={17} color={colors.primary} />
                       </TouchableOpacity>
                     ) : null}
                   </View>
                 </Glass>
+                </TouchableOpacity>
               );
             }}
           />

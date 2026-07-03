@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { DbService } from '../db/db.service';
+import { SecretaryService } from '../ai/secretary.service';
 import { TelnyxService } from '../telnyx/telnyx.service';
 import { CurrentUser, JwtGuard } from '../auth/jwt.guard';
 import { JwtPayload } from '../auth/auth.service';
@@ -26,7 +27,16 @@ export class NumbersController {
   /** Liste des numéros du compte. */
   @Get()
   list(@CurrentUser() user: JwtPayload) {
-    return this.db.listPhoneNumbers(user.accountId);
+    // defaultGreetings : textes automatiques du secrétariat (affichés en
+    // aperçu dans l'app quand aucun message personnalisé n'est défini).
+    const company = this.db.findAccountById(user.accountId)?.companyName;
+    return this.db.listPhoneNumbers(user.accountId).map((n: any) => ({
+      ...n,
+      defaultGreetings: {
+        open: SecretaryService.greeting(company, false),
+        closed: SecretaryService.greeting(company, true),
+      },
+    }));
   }
 
   /** Statut réel d'un numéro chez Telnyx (active / pending requirements...). */
