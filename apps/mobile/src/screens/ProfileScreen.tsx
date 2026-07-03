@@ -12,6 +12,10 @@ export function ProfileScreen() {
   const [phonePerso, setPhonePerso] = useState('');
   const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
+  // Sécurité : changement de mot de passe
+  const [curPwd, setCurPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [pwdSaving, setPwdSaving] = useState(false);
 
   useEffect(() => {
     api.me().then((me: any) => {
@@ -34,6 +38,24 @@ export function ProfileScreen() {
     }
   }
 
+  async function changePwd() {
+    if (newPwd.length < 8) {
+      Alert.alert('Mot de passe trop court', '8 caractères minimum.');
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      await api.changePassword(curPwd, newPwd);
+      setCurPwd('');
+      setNewPwd('');
+      Alert.alert('✅ Mot de passe modifié', 'Utilisez-le à votre prochaine connexion.');
+    } catch (e: any) {
+      Alert.alert('Impossible', e.message || 'Vérifiez votre mot de passe actuel.');
+    } finally {
+      setPwdSaving(false);
+    }
+  }
+
   return (
     <GradientBg>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 52, paddingHorizontal: 16, paddingBottom: 60 }}>
@@ -50,6 +72,38 @@ export function ProfileScreen() {
         </Glass>
         <TouchableOpacity style={s.save} onPress={save} disabled={saving}>
           <Text style={s.saveTxt}>{saving ? '…' : 'Enregistrer'}</Text>
+        </TouchableOpacity>
+
+        {/* Sécurité : changer le mot de passe */}
+        <Text style={[s.title, { fontSize: 20, marginTop: 28 }]}>Sécurité</Text>
+        <Glass strong>
+          <Text style={s.label}>Mot de passe actuel</Text>
+          <TextInput
+            style={s.input}
+            value={curPwd}
+            onChangeText={setCurPwd}
+            secureTextEntry
+            placeholder="••••••••"
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+          />
+          <Text style={s.label}>Nouveau mot de passe</Text>
+          <TextInput
+            style={s.input}
+            value={newPwd}
+            onChangeText={setNewPwd}
+            secureTextEntry
+            placeholder="8 caractères minimum"
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+          />
+        </Glass>
+        <TouchableOpacity
+          style={[s.save, (!curPwd || !newPwd) && { opacity: 0.5 }]}
+          onPress={changePwd}
+          disabled={pwdSaving || !curPwd || !newPwd}
+        >
+          <Text style={s.saveTxt}>{pwdSaving ? '…' : 'Changer le mot de passe'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </GradientBg>

@@ -49,6 +49,8 @@ export const api = {
   login: (email: string, password: string) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   me: () => request('/auth/me'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
 
   // Profil + formule
   updateProfile: (data: { firstName?: string; lastName?: string; phonePerso?: string }) =>

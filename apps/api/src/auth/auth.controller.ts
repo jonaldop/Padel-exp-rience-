@@ -32,6 +32,16 @@ export class AuthController {
     return this.auth.resetPassword(body.token || '', body.password || '');
   }
 
+  /** Changer son mot de passe (connecté) : exige le mot de passe actuel. */
+  @UseGuards(JwtGuard)
+  @Post('change-password')
+  changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { currentPassword?: string; newPassword?: string },
+  ) {
+    return this.auth.changePassword(user.sub, body.currentPassword || '', body.newPassword || '');
+  }
+
   /** Profil de l'utilisateur connecté (+ son compte). */
   @UseGuards(JwtGuard)
   @Get('me')
