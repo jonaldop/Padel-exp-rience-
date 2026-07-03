@@ -6,7 +6,8 @@
   "scripts": {
     "start": "expo start",
     "ios": "expo run:ios",
-    "android": "expo run:android"
+    "android": "expo run:android",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",
@@ -18,7 +19,7 @@
     "@telnyx/react-native-voice-sdk": "1.0.0",
     "expo": "~51.0.28",
     "expo-contacts": "~13.0.5",
-    "expo-device": "~6.0.2",
+    "expo-device": "6.0.2",
     "expo-linear-gradient": "~13.0.2",
     "expo-notifications": "~0.28.19",
     "expo-updates": "~0.25.28",
@@ -40,6 +41,7 @@
     "@config-plugins/react-native-callkeep": "8.0.0",
     "@config-plugins/react-native-webrtc": "9.0.0",
     "@types/react": "~18.2.79",
-    "typescript": "~5.3.3"
+    "typescript": "~5.3.3",
+    "patch-package": "^8.0.0"
   }
 }

@@ -291,7 +291,7 @@ export class CallsController {
               settings?.greetingOpen,
               settings?.greetingVoice,
               false,
-              settings?.aiConversational !== false,
+              settings?.aiConversational === true,
             );
           } else {
             await this.telnyx.hangup(callControlId);
@@ -306,7 +306,7 @@ export class CallsController {
               settings?.greetingClosed,
               settings?.greetingVoice,
               true,
-              settings?.aiConversational !== false,
+              settings?.aiConversational === true,
             );
           } else {
             await this.safeSpeak(
@@ -460,7 +460,7 @@ export class CallsController {
                 open ? settings?.greetingOpen : settings?.greetingClosed,
                 settings?.greetingVoice,
                 !open,
-                settings?.aiConversational !== false,
+                settings?.aiConversational === true,
               );
             } catch (e) {
               this.logger.warn(`Repli répondeur après sonnerie KO: ${(e as Error).message}`);
