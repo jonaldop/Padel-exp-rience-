@@ -39,7 +39,7 @@ export async function playVoicemail(
       // l'id du message (ceux du webhook expirent en 10 min), et requêtes par
       // plage d'AVPlayer correctement servies (sinon NSURLErrorDomain -1102).
       const proxied = meta?.vmId
-        ? `${API_URL}/play/audio?vm=${encodeURIComponent(meta.vmId)}`
+        ? `${API_URL}/play/file/${encodeURIComponent(meta.vmId)}.mp3`
         : `${API_URL}/play/audio?src=${encodeURIComponent(audioUrl)}`;
       const res = await Audio.Sound.createAsync(
         { uri: proxied },

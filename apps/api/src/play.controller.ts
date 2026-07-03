@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Headers, Query, Res } from '@nestjs/common';
+import { Controller, Get, Header, Headers, Param, Query, Res } from '@nestjs/common';
 import { Readable } from 'stream';
 import { config } from './config/config';
 import { DbService } from './db/db.service';
@@ -22,14 +22,37 @@ export class PlayController {
    * l'id d'enregistrement (les liens du webhook expirent en 10 min), sinon
    * l'URL stockée (vieux messages — peut être expirée).
    */
+  private readonly urlCache = new Map<string, { url: string; at: number }>();
+
   private async resolveAudioUrl(vmId: string): Promise<string | null> {
+    // Cache 5 min : AVPlayer fait plusieurs requêtes par plage pour UNE
+    // lecture — inutile de redemander un lien frais à Telnyx à chaque fois.
+    const hit = this.urlCache.get(vmId);
+    if (hit && Date.now() - hit.at < 5 * 60_000) return hit.url;
     const vm = this.db.findVoicemailById(vmId);
     if (!vm) return null;
+    let url: string | null = null;
     if (vm.providerRecordingId) {
-      const fresh = await this.telnyx.getRecordingMp3Url(vm.providerRecordingId);
-      if (fresh) return fresh;
+      url = await this.telnyx.getRecordingMp3Url(vm.providerRecordingId);
     }
-    return vm.audioUrl || null;
+    if (!url) url = vm.audioUrl || null;
+    if (url) this.urlCache.set(vmId, { url, at: Date.now() });
+    return url;
+  }
+
+  /**
+   * Variante avec EXTENSION : /play/file/<vm>.mp3 — AVPlayer (iOS) se fie à
+   * l'extension de l'URL pour reconnaître le format (sinon erreur -11828
+   * « media format not supported » malgré un Content-Type correct).
+   */
+  @Get('file/:name')
+  async file(
+    @Param('name') name: string,
+    @Headers('range') range: string,
+    @Res() res: any,
+  ) {
+    const vmId = (name || '').replace(/\.mp3$/i, '');
+    return this.audio('', vmId, range, res);
   }
   /**
    * RELAIS AUDIO : sert l'enregistrement à travers notre serveur.
@@ -99,7 +122,7 @@ export class PlayController {
     let audioSrc = '';
     if (vmId && /^[0-9a-f-]{10,}$/i.test(vmId)) {
       ok = true;
-      audioSrc = `/play/audio?vm=${encodeURIComponent(vmId)}`;
+      audioSrc = `/play/file/${encodeURIComponent(vmId)}.mp3`;
     } else {
       try {
         const u = new URL(src || '');
