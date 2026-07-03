@@ -373,7 +373,31 @@ export class CallsController {
         const td = payload.transcription_data || payload;
         const segment: string = td?.transcript || td?.text || '';
         const isFinal = td?.is_final !== false; // absent => on prend
-        if (segment && isFinal) this.pushTranscript(callControlId, segment);
+        if (segment && isFinal) {
+          if (!this.transcripts.has(callControlId)) {
+            this.db.logInbound({ type: 'transcription-evt', first: true, len: segment.length });
+          }
+          this.pushTranscript(callControlId, segment);
+          // Événement TARDIF (message vocal déjà sauvegardé, ou serveur
+          // redémarré entre-temps) : on complète la fiche après coup.
+          const call = this.db.findCallByProviderId(callControlId);
+          const vm = call ? this.db.findVoicemailByCallId(call.id) : null;
+          if (vm) {
+            const full = this.transcripts.get(callControlId)?.text || segment;
+            this.db.updateVoicemail(vm.id, {
+              transcriptionText: full,
+              transcriptionStatus: 'done',
+            });
+            if (!vm.aiSummary) {
+              const a = await this.secretary.analyze(full);
+              this.db.updateVoicemail(vm.id, {
+                aiCategory: a.category,
+                aiUrgency: a.urgency,
+                aiSummary: a.summary,
+              });
+            }
+          }
+        }
         break;
       }
 
@@ -387,6 +411,7 @@ export class CallsController {
           // (catégorie, urgence, résumé) -> fiche + notification qualifiée.
           const transcript = this.transcripts.get(callControlId)?.text || '';
           this.transcripts.delete(callControlId);
+          this.db.logInbound({ type: 'vm-saved', transcriptLen: transcript.length });
           const gather = this.aiGathers.get(callControlId)?.data || null;
           this.aiGathers.delete(callControlId);
           if (transcript || gather) {
@@ -596,8 +621,10 @@ export class CallsController {
   private async safeTranscribe(callControlId: string) {
     try {
       await this.telnyx.transcriptionStart(callControlId);
+      this.db.logInbound({ type: 'transcribe-start', ok: true });
     } catch (e) {
       this.logger.warn(`transcription_start KO: ${(e as Error).message}`);
+      this.db.logInbound({ type: 'transcribe-start', ok: false, err: (e as Error).message.slice(0, 160) });
     }
   }
 
