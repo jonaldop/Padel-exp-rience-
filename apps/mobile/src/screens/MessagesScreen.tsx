@@ -50,9 +50,10 @@ export function MessagesScreen() {
     if (playing?.id === vm.id) { await stopVoicemail(); setPlaying(null); }
     setVms((list) => list.filter((v) => v.id !== vm.id)); // optimiste
     try {
-      await api.deleteVoicemail(vm.id);
+      const r: any = await api.deleteVoicemail(vm.id);
+      if (r?.error) throw new Error(r.error);
     } catch (e: any) {
-      Alert.alert('Oups', e.message || 'Suppression impossible');
+      Alert.alert('Suppression impossible', e.message || 'Réessayez.');
       load();
     }
   }

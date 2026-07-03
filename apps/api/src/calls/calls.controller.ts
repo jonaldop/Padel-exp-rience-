@@ -75,8 +75,10 @@ export class CallsController {
   deleteVoicemail(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     const vm = this.db.findVoicemailById(id);
     if (!vm) return { error: 'Message introuvable' };
-    const call = this.db.listCalls(user.accountId).find((c) => c.id === vm.callId);
-    if (!call) return { error: 'Message introuvable' }; // pas à ce compte
+    const call = this.db.findCallById(vm.callId);
+    if (!call || call.accountId !== user.accountId) {
+      return { error: 'Message introuvable' }; // pas à ce compte
+    }
     this.db.deleteVoicemail(id);
     return { ok: true };
   }
