@@ -13,6 +13,15 @@ import { SwipeActions } from '../components/SwipeActions';
 
 type Segment = 'chats' | 'vocal';
 
+/** Vrai si le résumé n'est qu'un extrait de la transcription (mode mots-clés). */
+function summaryCoversTranscript(summary?: string | null, transcript?: string | null): boolean {
+  const s = (summary || '').replace(/…$/, '').trim();
+  const t = (transcript || '').trim();
+  if (!s || !t) return false;
+  return t === s || t.startsWith(s);
+}
+
+
 // Secrétariat IA : badges de qualification des messages vocaux
 const catMeta: Record<string, { label: string; color: string; bg: string }> = {
   devis: { label: '🛠️ Devis', color: '#1d6ae5', bg: '#E8EEFF' },
@@ -234,8 +243,14 @@ export function MessagesScreen() {
                       )}
                     </View>
                     <Text style={s.sub}>{new Date(vm.createdAt).toLocaleString('fr-FR')}</Text>
-                    {vm.aiSummary ? <Text style={s.aiSum}>{vm.aiSummary}</Text> : null}
-                    {vm.transcriptionText && vm.transcriptionText.trim() !== (vm.aiSummary || '').trim()
+                    {vm.aiSummary ? (
+                      <Text style={s.aiSum}>
+                        {summaryCoversTranscript(vm.aiSummary, vm.transcriptionText)
+                          ? vm.transcriptionText
+                          : vm.aiSummary}
+                      </Text>
+                    ) : null}
+                    {vm.transcriptionText && !summaryCoversTranscript(vm.aiSummary, vm.transcriptionText)
                       ? <Text style={s.txt}>« {vm.transcriptionText} »</Text>
                       : null}
                     {playing && playing.id === vm.id && (
