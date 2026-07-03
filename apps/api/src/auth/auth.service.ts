@@ -100,6 +100,20 @@ export class AuthService {
     return { ok: true, devResetUrl: resetUrl };
   }
 
+  /** Changement de mot de passe par l'utilisateur connecté (vérifie l'actuel). */
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Nouveau mot de passe trop court (8 caractères min)');
+    }
+    const user = this.db.findUserById(userId);
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable');
+    const ok = await bcrypt.compare(currentPassword || '', user.passwordHash);
+    if (!ok) throw new UnauthorizedException('Mot de passe actuel incorrect');
+    const hash = await bcrypt.hash(newPassword, 10);
+    this.db.setUserPassword(userId, hash);
+    return { ok: true };
+  }
+
   async resetPassword(token: string, password: string) {
     if (!password || password.length < 8) {
       throw new BadRequestException('Mot de passe trop court (8 caractères min)');
