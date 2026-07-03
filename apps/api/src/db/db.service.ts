@@ -682,6 +682,26 @@ export class DbService implements OnModuleInit {
       .map((c) => ({ ...c, voicemail: this.data.voicemails.find((v) => v.callId === c.id) || null }));
   }
 
+  /**
+   * Jambe A d'un transfert vers l'app : dernier appel ENTRANT encore en
+   * 'ringing-app' pour cet appelant (< 5 min). Sert au repli répondeur quand
+   * l'app ne décroche pas (la jambe SIP meurt en 487/timeout).
+   */
+  findRingingAppCall(fromE164: string) {
+    const cutoff = Date.now() - 5 * 60_000;
+    return (
+      [...this.data.calls]
+        .reverse()
+        .find(
+          (c) =>
+            c.direction === 'inbound' &&
+            c.status === 'ringing-app' &&
+            c.fromE164 === fromE164 &&
+            new Date(c.startedAt).getTime() > cutoff,
+        ) || null
+    );
+  }
+
   findCallByProviderId(providerCallId: string) {
     const c = this.data.calls.find((x) => x.providerCallId === providerCallId);
     if (!c) return null;

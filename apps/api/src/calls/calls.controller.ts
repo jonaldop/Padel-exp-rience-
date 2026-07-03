@@ -214,7 +214,10 @@ export class CallsController {
             let transferErr: string | null = null;
             try {
               // payload.from = numéro de l'appelant -> affiché dans l'app.
-              await this.telnyx.transferToUser(callControlId, sipUser, 45, payload.from);
+              // Sonnerie bornée (réglage du numéro, défaut 25 s ≈ 5 sonneries) :
+              // sans réponse, la jambe SIP meurt et le répondeur prend (cf. hangup).
+              const ringSecs = Math.min(Math.max(st?.ringTimeoutS || 25, 10), 45);
+              await this.telnyx.transferToUser(callControlId, sipUser, ringSecs, payload.from);
             } catch (e) {
               transferErr = (e as Error).message;
             }
@@ -257,8 +260,13 @@ export class CallsController {
         // bascule sur mon répondeur"). Si pas de fiche d'appel -> on ignore.
         if (!call || call.direction !== 'inbound') break;
         // Sonnerie in-app déjà déclenchée sur call.initiated : l'app a décroché
-        // le transfert -> rien à faire ici (sinon on jouerait le répondeur).
-        if (call.status === 'ringing-app') break;
+        // le transfert -> on note juste que l'appel est en cours.
+        if (call.status === 'ringing-app') {
+          this.db.updateCall(call.id, { status: 'answered' });
+          break;
+        }
+        // Déjà basculé sur le répondeur (repli après sonnerie sans réponse).
+        if (call.status === 'voicemail') break;
         const settings = call?.phoneNumber?.settings;
         const schedule: WeeklySchedule = settings?.weeklySchedule
           ? safeJson(settings.weeklySchedule, DEFAULT_SCHEDULE)
@@ -427,6 +435,47 @@ export class CallsController {
         this.recordingStarted.delete(callControlId);
         this.pendingHangup.delete(callControlId);
         this.previewCalls.delete(callControlId);
+
+        // JAMBE SIP du transfert vers l'app (to = sip:...) : si elle meurt
+        // SANS réponse (timeout, refus, annulation), l'appelant est toujours
+        // en ligne sur la jambe A -> on décroche et on passe au RÉPONDEUR.
+        if (String(payload.to || '').startsWith('sip:')) {
+          const cause = `${payload.hangup_cause || ''} ${payload.sip_hangup_cause || ''}`;
+          const noAnswer = /487|480|486|408|timeout|cancel|no_?answer|reject|busy|unspecified/i.test(cause);
+          const aLeg = noAnswer ? this.db.findRingingAppCall(payload.from) : null;
+          if (aLeg?.providerCallId) {
+            this.db.logInbound({ type: 'app-no-answer->voicemail', from: payload.from, cause });
+            this.db.updateCall(aLeg.id, { status: 'voicemail' });
+            try {
+              await this.telnyx.answer(aLeg.providerCallId);
+              const settings = this.db.findPhoneNumberByE164(aLeg.toE164)?.settings;
+              const sched: WeeklySchedule = settings?.weeklySchedule
+                ? safeJson(settings.weeklySchedule, DEFAULT_SCHEDULE)
+                : DEFAULT_SCHEDULE;
+              const hol: string[] = settings?.holidays ? safeJson(settings.holidays, []) : [];
+              const open = isOpen(sched, hol);
+              await this.secretaryEngage(
+                aLeg.providerCallId,
+                aLeg.accountId,
+                open ? settings?.greetingOpen : settings?.greetingClosed,
+                settings?.greetingVoice,
+                !open,
+                settings?.aiConversational !== false,
+              );
+            } catch (e) {
+              this.logger.warn(`Repli répondeur après sonnerie KO: ${(e as Error).message}`);
+            }
+          }
+          this.db.logInbound({
+            type: 'hangup',
+            from: payload.from,
+            to: payload.to,
+            dir: payload.direction,
+            cause: payload.hangup_cause,
+            sipCause: payload.sip_hangup_cause,
+          });
+          break;
+        }
         // Diagnostic : cause de raccrochage (utile pour la jambe de transfert
         // vers l'app -> montre si l'INVITE a sonné, été rejeté, 404, etc.).
         this.db.logInbound({
