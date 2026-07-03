@@ -185,7 +185,7 @@ export function Landing() {
             </div>
             <div className="lp-why reveal d2">
               <div className="em">🏆</div>
-              <h3>L’image d’une grande entreprise</h3>
+              <h3>L’image d’une entreprise sérieuse</h3>
               <p>Accueil professionnel, numéro dédié, rappel avec votre numéro pro : la crédibilité d’un vrai standard, sans le standard.</p>
             </div>
           </div>
