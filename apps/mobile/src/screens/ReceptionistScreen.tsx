@@ -36,7 +36,7 @@ export function ReceptionistScreen() {
         const first = n?.[0];
         setNum(first || null);
         const st = first?.settings || {};
-        setConversational(st.aiConversational !== false);
+        setConversational(st.aiConversational === true);
         setGreetingOpen(st.greetingOpen || '');
         setGreetingClosed(st.greetingClosed || '');
         setVoice(st.greetingVoice || 'Polly.Lea-Neural');
@@ -141,10 +141,11 @@ export function ReceptionistScreen() {
             <Glass style={{ marginTop: 14 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={st.rowTitle}>Conversation intelligente</Text>
+                  <Text style={st.rowTitle}>Conversation intelligente (bêta)</Text>
                   <Text style={st.rowSub}>
-                    La réceptionniste pose des questions (nom, motif, disponibilités) au lieu
-                    d'un simple répondeur. Si indisponible, bascule automatique sur le répondeur.
+                    La réceptionniste pose des questions au lieu d'un simple répondeur.
+                    ⚠️ Encore lente entre les phrases (technologie opérateur) — nous
+                    recommandons le répondeur classique pour l'instant.
                   </Text>
                 </View>
                 <Switch
