@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Text, FlatList, StyleSheet, RefreshControl, View, TouchableOpacity, Alert, Share } from 'react-native';
+import { Text, FlatList, StyleSheet, RefreshControl, View, TouchableOpacity, Alert, Share, ActionSheetIOS, Platform } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,6 @@ import { GradientBg, Glass } from '../ui';
 import { formatFr, toE164Fr } from '../format';
 import { loadContacts, lookupContact, findContactByNumber, createContact } from '../contacts';
 import { playVoicemail, togglePause, stopVoicemail, PlayStatus } from '../player';
-import { SwipeActions } from '../components/SwipeActions';
 
 type Segment = 'chats' | 'vocal';
 
@@ -53,6 +52,30 @@ export function MessagesScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  /** Menu d'actions d'un vocal : feuille native iOS (⋯ ou appui long). */
+  function vmMenu(vm: any) {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : 'Message vocal',
+          options: ['Annuler', 'Partager…', 'Supprimer'],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 2,
+        },
+        (i) => {
+          if (i === 1) shareVm(vm);
+          if (i === 2) deleteVm(vm);
+        },
+      );
+    } else {
+      Alert.alert('Message vocal', undefined, [
+        { text: 'Partager…', onPress: () => shareVm(vm) },
+        { text: 'Supprimer', style: 'destructive', onPress: () => deleteVm(vm) },
+        { text: 'Annuler', style: 'cancel' },
+      ]);
+    }
+  }
 
   /** Supprime un message vocal (glisser -> Supprimer). */
   async function deleteVm(vm: any) {
@@ -217,13 +240,11 @@ export function MessagesScreen() {
               const cat = catMeta[vm.aiCategory] || null;
               const urgent = vm.aiUrgency === 'haute';
               return (
-                <SwipeActions
-                  actions={[
-                    { label: 'Partager', color: '#7C5CF0', onPress: () => shareVm(vm) },
-                    { label: 'Supprimer', color: '#FF3B30', onPress: () => deleteVm(vm) },
-                  ]}
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  onPress={() => openClientCard(vm.call?.fromE164)}
+                  onLongPress={() => vmMenu(vm)}
                 >
-                <TouchableOpacity activeOpacity={0.75} onPress={() => openClientCard(vm.call?.fromE164)}>
                 <Glass style={s.row}>
                   <View style={s.vmIcon}><Ionicons name="mic" size={17} color={colors.primary} /></View>
                   <View style={{ flex: 1 }}>
@@ -270,6 +291,9 @@ export function MessagesScreen() {
                     )}
                   </View>
                   <View style={{ gap: 8 }}>
+                    <TouchableOpacity style={s.more} onPress={() => vmMenu(vm)}>
+                      <Ionicons name="ellipsis-horizontal" size={17} color={colors.muted} />
+                    </TouchableOpacity>
                     {vm.call?.fromE164 ? (
                       <TouchableOpacity
                         style={s.callBack}
@@ -294,7 +318,6 @@ export function MessagesScreen() {
                   </View>
                 </Glass>
                 </TouchableOpacity>
-                </SwipeActions>
               );
             }}
           />
@@ -338,5 +361,6 @@ const s = StyleSheet.create({
   badgeTxt: { color: '#fff', fontSize: 11.5, fontWeight: '800' },
   play: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E8EEFF', alignItems: 'center', justifyContent: 'center' },
   callBack: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E7F7EE', alignItems: 'center', justifyContent: 'center' },
+  more: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
   empty: { color: colors.muted, textAlign: 'center', marginTop: 60, paddingHorizontal: 30, lineHeight: 21 },
 });
