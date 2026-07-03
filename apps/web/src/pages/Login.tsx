@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, auth } from '../api';
-import { Button, Field, GlassBackground, Input, colors, glass } from '../ui';
+import '../auth.css';
 
 type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'welcome';
 
@@ -9,6 +9,13 @@ const FALLBACK_PLANS = [
   { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99 },
   { key: 'pro', name: 'Pro', monthlyPrice: 29 },
   { key: 'business', name: 'Business', monthlyPrice: 49 },
+];
+
+// Arguments de vente du panneau de gauche (varient selon connexion / inscription)
+const BENEFITS = [
+  { ic: '📞', t: 'Un vrai numéro pro', s: 'Sur le téléphone que vous avez déjà. Sans 2ᵉ mobile ni carte SIM.' },
+  { ic: '🎙️', t: 'Répondeur & transcription', s: 'Chaque message vocal transcrit en texte, prêt à lire.' },
+  { ic: '🕓', t: 'Vous coupez le soir', s: 'Horaires d’ouverture : Joe répond pour vous hors service.' },
 ];
 
 export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
@@ -46,7 +53,6 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     api.plans().then((r) => {
       if (r?.plans?.length) {
         setPlans(r.plans);
-        // Forfait de l'URL inconnu → on présélectionne la formule du milieu
         const fromUrl = params.get('plan');
         if (!r.plans.some((x: any) => x.key === fromUrl)) {
           setPlan(r.plans[Math.min(1, r.plans.length - 1)].key);
@@ -69,8 +75,6 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
       } else if (mode === 'register') {
         const res = await api.register({ email, password, companyName, firstName, plan });
         auth.token = res.token;
-        // Paiement en ligne dispo ? → étape « Bienvenue » avec activation de
-        // l'abonnement. Sinon on entre directement dans l'espace (essai).
         try {
           const b = await api.billingStatus();
           if (b?.enabled) {
@@ -105,10 +109,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     setSubLoading(true);
     try {
       const res = await api.subscribe();
-      if (res?.url) {
-        window.location.href = res.url;
-        return;
-      }
+      if (res?.url) { window.location.href = res.url; return; }
       setError(res?.error || "L'abonnement en ligne est momentanément indisponible.");
     } catch (err: any) {
       setError(err.message);
@@ -117,148 +118,145 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     }
   }
 
-  const titles: Record<Mode, string> = {
-    login: 'Connectez-vous à votre espace',
-    register: 'Créez votre ligne pro en 2 minutes',
-    forgot: 'Réinitialiser votre mot de passe',
-    reset: 'Choisissez un nouveau mot de passe',
-    welcome: 'Votre compte est prêt 🎉',
+  const chosenPlan = plans.find((p) => p.key === plan);
+  const priceOf = (n: number) => n?.toLocaleString('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0 });
+
+  const heads: Record<Mode, { h: string; p: string }> = {
+    login: { h: 'Bon retour 👋', p: 'Connectez-vous à votre espace Joe.' },
+    register: { h: 'Créez votre ligne pro', p: 'Essai gratuit 14 jours — sans carte bancaire.' },
+    forgot: { h: 'Mot de passe oublié', p: 'On vous envoie un lien de réinitialisation.' },
+    reset: { h: 'Nouveau mot de passe', p: 'Choisissez un mot de passe sécurisé.' },
+    welcome: { h: 'Votre compte est prêt 🎉', p: 'Votre essai gratuit vient de démarrer.' },
   };
 
-  const chosenPlan = plans.find((p) => p.key === plan);
-  const priceOf = (n: number) =>
-    n?.toLocaleString('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0 });
+  const goMode = (m: Mode) => { setMode(m); setError(null); setInfo(null); };
+
+  // Copie du panneau de gauche selon le contexte
+  const brandCopy = mode === 'login'
+    ? { h: 'Votre ligne pro vous attend.', s: 'Vos appels, vos messages et vos clients, réunis dans une seule application.' }
+    : { h: 'La ligne pro des artisans et indépendants.', s: 'Un vrai numéro professionnel, prêt en 5 minutes. Testez 14 jours, gratuitement.' };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        position: 'relative',
-      }}
-    >
-      <GlassBackground />
-      <div className="fade-up" style={{ width: '100%', maxWidth: mode === 'register' ? 460 : 400, position: 'relative', zIndex: 1 }}>
-        <div style={{ textAlign: 'center', marginBottom: 22 }}>
-          <div
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: 18,
-              background: colors.primaryGrad,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 30,
-              boxShadow: '0 10px 24px rgba(0,122,255,0.35)',
-              marginBottom: 12,
-            }}
-          >
-            📞
-          </div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Joe</h1>
-          <p style={{ color: colors.muted, marginTop: 2, fontSize: 13, fontWeight: 600 }}>Ta ligne pro</p>
-          <p style={{ color: colors.muted, marginTop: 6, fontSize: 15 }}>{titles[mode]}</p>
+    <div className="au">
+      {/* ===== Panneau de marque (gauche) ===== */}
+      <aside className="au-brand">
+        <div className="au-brand-logo">
+          <span className="au-brand-logo-mark">📞</span> Joe
         </div>
+        <div className="au-brand-body">
+          <h1>{brandCopy.h}</h1>
+          <p className="au-brand-sub">{brandCopy.s}</p>
+          <ul className="au-benefits">
+            {BENEFITS.map((b) => (
+              <li key={b.t} className="au-benefit">
+                <span className="au-benefit-ic">{b.ic}</span>
+                <div><strong>{b.t}</strong><span>{b.s}</span></div>
+              </li>
+            ))}
+          </ul>
+          <div className="au-proof">
+            <span className="au-stars">★★★★★</span>
+            <span className="au-proof-txt">« Enfin séparé le pro du perso. Mes clients me joignent, je coupe le soir. »<br />— un artisan comme vous</span>
+          </div>
+        </div>
+      </aside>
 
-        <div style={{ ...glass, borderRadius: 22, padding: 24 }}>
+      {/* ===== Colonne formulaire (droite) ===== */}
+      <main className="au-form-side">
+        <div className="au-card">
+          {/* Logo visible en mobile (panneau gauche masqué) */}
+          <div className="au-mobile-logo">
+            <div className="mark">📞</div>
+            <div className="name">Joe</div>
+            <div className="tag">Ta ligne pro</div>
+          </div>
+
+          <div className="au-card-head">
+            <h2>{heads[mode].h}</h2>
+            <p>{heads[mode].p}</p>
+          </div>
+
+          {/* Onglets Connexion / Inscription (uniquement sur ces 2 modes) */}
+          {(mode === 'login' || mode === 'register') && (
+            <div className="au-tabs">
+              <button className={`au-tab${mode === 'login' ? ' on' : ''}`} onClick={() => goMode('login')} type="button">
+                Se connecter
+              </button>
+              <button className={`au-tab${mode === 'register' ? ' on' : ''}`} onClick={() => goMode('register')} type="button">
+                S’inscrire
+              </button>
+            </div>
+          )}
+
           {mode === 'welcome' ? (
             /* ===== Étape post-inscription : essai lancé + abonnement ===== */
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ background: colors.greenSoft, color: '#1a7f37', padding: '12px 14px', borderRadius: 12, fontSize: 14.5, fontWeight: 600, lineHeight: 1.5 }}>
-                ✅ Votre essai gratuit de 14 jours commence maintenant.
-                <br />Aucun débit avant la fin de l'essai.
+            <div>
+              <div className="au-alert ok">
+                ✅ Votre essai gratuit de 14 jours commence maintenant. Aucun débit avant la fin de l’essai.
               </div>
               {chosenPlan && (
-                <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.7)', border: `1px solid ${colors.border}`, textAlign: 'left' }}>
-                  <div style={{ fontSize: 13, color: colors.muted, fontWeight: 600 }}>Votre forfait</div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 }}>
-                    <strong style={{ fontSize: 17 }}>{chosenPlan.name}</strong>
-                    <span style={{ fontWeight: 800, fontSize: 17 }}>
-                      {priceOf(chosenPlan.monthlyPrice)} €<span style={{ color: colors.muted, fontSize: 13, fontWeight: 600 }}>/mois</span>
-                    </span>
+                <div className="au-welcome-plan">
+                  <div className="lbl">Votre forfait</div>
+                  <div className="row">
+                    <strong>{chosenPlan.name}</strong>
+                    <span className="price">{priceOf(chosenPlan.monthlyPrice)} €<small>/mois</small></span>
                   </div>
                 </div>
               )}
-              {error && (
-                <div style={{ background: colors.redSoft, color: colors.red, padding: '10px 12px', borderRadius: 10, fontSize: 14, marginTop: 14 }}>
-                  ⚠️ {error}
-                </div>
-              )}
+              {error && <div className="au-alert err" style={{ marginTop: 14 }}>⚠️ {error}</div>}
               {billingEnabled && (
-                <Button
-                  onClick={activateSubscription}
-                  disabled={subLoading}
-                  full
-                  style={{ padding: 14, fontSize: 16, marginTop: 18 }}
-                >
-                  {subLoading ? '…' : `💳 Activer mon abonnement`}
-                </Button>
+                <button className="au-btn" onClick={activateSubscription} disabled={subLoading} style={{ marginTop: 18 }}>
+                  {subLoading ? '…' : '💳 Activer mon abonnement'}
+                </button>
               )}
-              <button
-                onClick={onLoggedIn}
-                style={{
-                  marginTop: 12, width: '100%', padding: 13, borderRadius: 12, border: 'none',
-                  background: 'rgba(0,0,0,0.05)', color: colors.text, fontWeight: 700, fontSize: 15, cursor: 'pointer',
-                }}
-              >
+              <button className="au-btn-soft" onClick={onLoggedIn} style={{ marginTop: 12 }}>
                 Découvrir mon espace →
               </button>
-              <p style={{ color: colors.muted, fontSize: 12.5, marginTop: 14, marginBottom: 0, lineHeight: 1.5 }}>
-                Sans engagement — résiliable à tout moment depuis votre espace.
-              </p>
+              <p className="au-reassure">Sans engagement — résiliable à tout moment depuis votre espace.</p>
             </div>
           ) : (
             <form onSubmit={submit}>
               {mode === 'register' && (
                 <>
-                  {/* Choix du forfait (présélectionné depuis le site) */}
-                  <Field label="Votre forfait">
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {plans.map((p) => {
-                        const on = p.key === plan;
-                        return (
-                          <button
-                            key={p.key}
-                            type="button"
-                            onClick={() => setPlan(p.key)}
-                            style={{
-                              flex: 1, padding: '10px 6px', borderRadius: 12, cursor: 'pointer',
-                              border: on ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
-                              background: on ? 'rgba(0,122,255,0.08)' : 'rgba(255,255,255,0.7)',
-                            }}
-                          >
-                            <div style={{ fontWeight: 800, fontSize: 14, color: on ? colors.primary : colors.text }}>{p.name}</div>
-                            <div style={{ fontSize: 12.5, color: colors.muted, marginTop: 2 }}>
-                              {priceOf(p.monthlyPrice)} €/mois
-                            </div>
-                          </button>
-                        );
-                      })}
+                  <div className="au-field">
+                    <label>Votre forfait</label>
+                    <div className="au-plans">
+                      {plans.map((p) => (
+                        <button
+                          key={p.key}
+                          type="button"
+                          className={`au-plan${p.key === plan ? ' on' : ''}`}
+                          onClick={() => setPlan(p.key)}
+                        >
+                          <div className="au-plan-name">{p.name}</div>
+                          <div className="au-plan-price">{priceOf(p.monthlyPrice)} €/mois</div>
+                        </button>
+                      ))}
                     </div>
-                  </Field>
-                  <Field label="Nom de l'entreprise">
-                    <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} required />
-                  </Field>
-                  <Field label="Prénom">
-                    <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                  </Field>
+                  </div>
+                  <div className="au-field">
+                    <label>Nom de l’entreprise</label>
+                    <input className="au-input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required placeholder="Ex : Plomberie Durand" />
+                  </div>
+                  <div className="au-field">
+                    <label>Prénom</label>
+                    <input className="au-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Ex : Martin" />
+                  </div>
                 </>
               )}
 
               {(mode === 'login' || mode === 'register' || mode === 'forgot') && (
-                <Field label="Email">
-                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </Field>
+                <div className="au-field">
+                  <label>Email</label>
+                  <input className="au-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="vous@entreprise.fr" />
+                </div>
               )}
 
               {(mode === 'login' || mode === 'register' || mode === 'reset') && (
-                <Field label={mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}>
-                  <Input
+                <div className="au-field">
+                  <label>{mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}</label>
+                  <input
+                    className="au-input"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -266,65 +264,50 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
                     minLength={8}
                     placeholder="8 caractères minimum"
                   />
-                </Field>
+                </div>
               )}
 
-              {error && (
-                <div style={{ background: colors.redSoft, color: colors.red, padding: '10px 12px', borderRadius: 10, fontSize: 14, marginBottom: 14 }}>
-                  ⚠️ {error}
+              {mode === 'login' && (
+                <div style={{ textAlign: 'right', marginTop: -4, marginBottom: 14 }}>
+                  <button type="button" className="au-link" style={{ fontSize: 13 }} onClick={() => goMode('forgot')}>
+                    Mot de passe oublié ?
+                  </button>
                 </div>
               )}
-              {info && (
-                <div style={{ background: colors.greenSoft, color: '#1a7f37', padding: '10px 12px', borderRadius: 10, fontSize: 14, marginBottom: 14 }}>
-                  {info}
-                </div>
-              )}
+
+              {error && <div className="au-alert err">⚠️ {error}</div>}
+              {info && <div className="au-alert ok">{info}</div>}
               {devUrl && (
-                <div style={{ background: '#eef0ff', color: colors.primary, padding: '10px 12px', borderRadius: 10, fontSize: 13, marginBottom: 14, wordBreak: 'break-all' }}>
-                  Email non configuré — lien direct :{' '}
-                  <a href={devUrl} style={{ color: colors.primary, fontWeight: 700 }}>réinitialiser ici</a>
+                <div className="au-alert info">
+                  Email non configuré — <a href={devUrl}>réinitialiser ici</a>
                 </div>
               )}
 
-              <Button type="submit" disabled={loading} full style={{ padding: 14, fontSize: 16 }}>
+              <button type="submit" className="au-btn" disabled={loading}>
                 {loading
                   ? '…'
                   : mode === 'login'
                     ? 'Se connecter'
                     : mode === 'register'
-                      ? 'Créer mon compte — essai gratuit 14 jours'
+                      ? 'Commencer l’essai gratuit'
                       : mode === 'forgot'
                         ? 'Envoyer le lien'
                         : 'Changer mon mot de passe'}
-              </Button>
+              </button>
+
               {mode === 'register' && (
-                <p style={{ color: colors.muted, fontSize: 12.5, textAlign: 'center', margin: '12px 0 0', lineHeight: 1.5 }}>
-                  Sans carte bancaire · Sans engagement
-                </p>
+                <p className="au-reassure">✓ Sans carte bancaire &nbsp;·&nbsp; ✓ Sans engagement &nbsp;·&nbsp; ✓ Résiliable en 1 clic</p>
+              )}
+
+              {(mode === 'forgot' || mode === 'reset') && (
+                <div className="au-foot">
+                  <button type="button" className="au-link" onClick={() => goMode('login')}>← Retour à la connexion</button>
+                </div>
               )}
             </form>
           )}
         </div>
-
-        <div style={{ textAlign: 'center', marginTop: 18, fontSize: 14, color: colors.muted }}>
-          {mode === 'login' && (
-            <>
-              <a href="#" onClick={(e) => { e.preventDefault(); setMode('forgot'); setError(null); setInfo(null); }} style={{ color: colors.primary, fontWeight: 600 }}>
-                Mot de passe oublié ?
-              </a>
-              <div style={{ marginTop: 10 }}>
-                Pas de compte ?{' '}
-                <a href="#" onClick={(e) => { e.preventDefault(); setMode('register'); setError(null); }} style={{ color: colors.primary, fontWeight: 700 }}>S'inscrire</a>
-              </div>
-            </>
-          )}
-          {(mode === 'register' || mode === 'forgot' || mode === 'reset') && (
-            <a href="#" onClick={(e) => { e.preventDefault(); setMode('login'); setError(null); setInfo(null); }} style={{ color: colors.primary, fontWeight: 700 }}>
-              ← Retour à la connexion
-            </a>
-          )}
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
