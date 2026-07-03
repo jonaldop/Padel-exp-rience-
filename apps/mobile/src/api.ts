@@ -87,6 +87,7 @@ export const api = {
     }),
   history: () => request('/calls'),
   voicemails: () => request('/calls/voicemails'),
+  deleteVoicemail: (id: string) => request(`/calls/voicemails/${id}`, { method: 'DELETE' }),
 
   // Softphone WebRTC : token court (sortant) + identifiants connexion (entrant).
   webrtcToken: () => request<{ token: string }>('/telnyx/webrtc-token', { method: 'POST', body: '{}' }),

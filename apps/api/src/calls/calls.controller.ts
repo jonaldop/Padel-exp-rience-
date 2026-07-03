@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, Param, Post, UseGuards } from '@nestjs/common';
 import { TelnyxService } from '../telnyx/telnyx.service';
 import { DbService } from '../db/db.service';
 import { isOpen, DEFAULT_SCHEDULE, WeeklySchedule } from './business-hours';
@@ -67,6 +67,18 @@ export class CallsController {
   @Get('voicemails')
   voicemails(@CurrentUser() user: JwtPayload) {
     return this.db.listVoicemails(user.accountId);
+  }
+
+  /** Supprimer un message vocal (glisser-supprimer dans l'app). */
+  @UseGuards(JwtGuard)
+  @Delete('voicemails/:id')
+  deleteVoicemail(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    const vm = this.db.findVoicemailById(id);
+    if (!vm) return { error: 'Message introuvable' };
+    const call = this.db.listCalls(user.accountId).find((c) => c.id === vm.callId);
+    if (!call) return { error: 'Message introuvable' }; // pas à ce compte
+    this.db.deleteVoicemail(id);
+    return { ok: true };
   }
 
   /** Lancer un appel SORTANT depuis le numéro pro du compte. */

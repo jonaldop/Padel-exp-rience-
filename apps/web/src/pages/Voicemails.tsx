@@ -92,7 +92,7 @@ export function Voicemails() {
                 <div style={{ fontSize: 13, color: colors.muted }}>Enregistrement en cours de traitement…</div>
               )}
 
-              {vm.transcriptionText ? (
+              {vm.transcriptionText && vm.transcriptionText.trim() !== (vm.aiSummary || '').trim() ? (
                 <p style={{ marginTop: 12, fontSize: 14, lineHeight: 1.5, background: colors.soft, padding: 12, borderRadius: 10 }}>
                   « {vm.transcriptionText} »
                 </p>

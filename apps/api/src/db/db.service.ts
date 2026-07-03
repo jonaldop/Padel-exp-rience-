@@ -741,6 +741,18 @@ export class DbService implements OnModuleInit {
     return vm;
   }
 
+  deleteVoicemail(id: string): boolean {
+    const before = this.data.voicemails.length;
+    this.data.voicemails = this.data.voicemails.filter((v) => v.id !== id);
+    if (this.data.voicemails.length === before) return false;
+    this.save();
+    return true;
+  }
+
+  findVoicemailById(id: string) {
+    return this.data.voicemails.find((v) => v.id === id) || null;
+  }
+
   findVoicemailByCallId(callId: string) {
     return this.data.voicemails.find((v) => v.callId === callId) || null;
   }
