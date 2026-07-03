@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
+  KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
 import { colors } from '../theme';
@@ -58,7 +61,11 @@ export function ProfileScreen() {
 
   return (
     <GradientBg>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 52, paddingHorizontal: 16, paddingBottom: 60 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingTop: insets.top + 64, paddingHorizontal: 16, paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={s.title}>Mes informations</Text>
         <Glass strong>
           <Text style={s.label}>Prénom</Text>
@@ -106,6 +113,7 @@ export function ProfileScreen() {
           <Text style={s.saveTxt}>{pwdSaving ? '…' : 'Changer le mot de passe'}</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </GradientBg>
   );
 }
