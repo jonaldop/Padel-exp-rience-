@@ -3,7 +3,7 @@ import { Text, FlatList, StyleSheet, RefreshControl, View, TouchableOpacity, Ale
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '../api';
+import { api, API_URL } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 import { formatFr, toE164Fr } from '../format';
@@ -90,19 +90,21 @@ export function MessagesScreen() {
     }
   }
 
-  /** Partage un vocal (Mail, SMS, WhatsApp…) via la feuille iOS native. */
+  /** Partage un vocal (Mail, SMS, WhatsApp…) : court, lisible, lien propre. */
   async function shareVm(vm: any) {
     const who = vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : 'Inconnu';
-    const when = new Date(vm.createdAt).toLocaleString('fr-FR');
+    const d = new Date(vm.createdAt);
+    const when = `${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    const text = vm.transcriptionText || vm.aiSummary || '';
     const lines = [
-      `🎙️ Message vocal de ${who} — ${when}`,
-      vm.aiSummary ? `Résumé : ${vm.aiSummary}` : null,
-      vm.transcriptionText && vm.transcriptionText !== vm.aiSummary ? `« ${vm.transcriptionText} »` : null,
-      vm.audioUrl ? `Écouter : ${vm.audioUrl}` : null,
-      '— envoyé depuis Joe, ta ligne pro',
+      `🎙️ Message vocal — ${who}`,
+      when,
+      text ? `\n« ${text} »` : null,
+      `\n▶️ Écouter : ${API_URL}/play?vm=${vm.id}`,
+      `\n— Joe, ta ligne pro`,
     ].filter(Boolean);
     try {
-      await Share.share({ message: lines.join('\n\n') });
+      await Share.share({ message: lines.join('\n') });
     } catch { /* partage annulé */ }
   }
 
@@ -117,6 +119,7 @@ export function MessagesScreen() {
     const mode = await playVoicemail(
       vm.audioUrl,
       {
+        vmId: vm.id,
         from: vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : '',
         date: new Date(vm.createdAt).toLocaleString('fr-FR'),
       },

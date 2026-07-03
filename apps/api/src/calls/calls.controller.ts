@@ -420,7 +420,11 @@ export class CallsController {
         // URL publique en priorité (lisible directement par le navigateur)
         const url = payload.public_recording_urls?.mp3 || payload.recording_urls?.mp3;
         if (call) {
-          const vm = this.db.createVoicemail({ callId: call.id, audioUrl: url });
+          const vm = this.db.createVoicemail({
+            callId: call.id,
+            audioUrl: url,
+            recordingId: payload.recording_id || null,
+          });
           // SECRÉTARIAT IA : transcription accumulée pendant l'appel -> analyse
           // (catégorie, urgence, résumé) -> fiche + notification qualifiée.
           const transcript = this.transcripts.get(callControlId)?.text || '';

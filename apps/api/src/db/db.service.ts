@@ -112,6 +112,9 @@ export interface Voicemail {
   id: string;
   callId: string;
   audioUrl?: string | null;
+  /** Id d'enregistrement Telnyx : permet de générer un lien FRAIS à l'écoute
+   *  (les liens S3 fournis au webhook expirent en 10 minutes). */
+  providerRecordingId?: string | null;
   durationS?: number | null;
   transcriptionText?: string | null;
   transcriptionStatus: string;
@@ -723,11 +726,12 @@ export class DbService implements OnModuleInit {
     return c;
   }
 
-  createVoicemail(input: { callId: string; audioUrl?: string | null }) {
+  createVoicemail(input: { callId: string; audioUrl?: string | null; recordingId?: string | null }) {
     const vm: Voicemail = {
       id: randomUUID(),
       callId: input.callId,
       audioUrl: input.audioUrl ?? null,
+      providerRecordingId: input.recordingId ?? null,
       transcriptionStatus: 'pending',
       isRead: false,
       createdAt: this.now(),
