@@ -8,7 +8,7 @@ import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 import { formatFr, toE164Fr } from '../format';
 import { loadContacts, lookupContact, findContactByNumber, createContact } from '../contacts';
-import { playVoicemail } from '../player';
+import { playVoicemail, togglePause, stopVoicemail, PlayStatus } from '../player';
 
 type Segment = 'chats' | 'vocal';
 
@@ -29,6 +29,8 @@ export function MessagesScreen() {
   const [vms, setVms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [proNumber, setProNumber] = useState<string | undefined>(undefined);
+  // Lecture en cours : id du vocal + position/durée (ms) + lecture/pause
+  const [playing, setPlaying] = useState<{ id: string; pos: number; dur: number; on: boolean } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -41,6 +43,33 @@ export function MessagesScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  /** Lecture d'un vocal avec progression (ou pause/reprise si déjà en cours). */
+  async function onPlay(vm: any) {
+    if (playing?.id === vm.id) {
+      const on = await togglePause();
+      setPlaying((p) => (p ? { ...p, on } : p));
+      return;
+    }
+    await stopVoicemail();
+    const mode = await playVoicemail(
+      vm.audioUrl,
+      {
+        from: vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : '',
+        date: new Date(vm.createdAt).toLocaleString('fr-FR'),
+      },
+      (st: PlayStatus) => {
+        if (st.didJustFinish) setPlaying(null);
+        else setPlaying({ id: vm.id, pos: st.positionMillis, dur: st.durationMillis, on: st.isPlaying });
+      },
+    );
+    if (mode === 'inline') setPlaying({ id: vm.id, pos: 0, dur: 0, on: true });
+  }
+
+  function mmss(ms: number) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
 
   /** Tap sur un vocal : ouvre la fiche du client (détectée ou créée). */
   async function openClientCard(fromE164?: string) {
@@ -171,6 +200,21 @@ export function MessagesScreen() {
                     <Text style={s.sub}>{new Date(vm.createdAt).toLocaleString('fr-FR')}</Text>
                     {vm.aiSummary ? <Text style={s.aiSum}>{vm.aiSummary}</Text> : null}
                     {vm.transcriptionText ? <Text style={s.txt}>« {vm.transcriptionText} »</Text> : null}
+                    {playing && playing.id === vm.id && (
+                      <View style={{ marginTop: 8 }}>
+                        <View style={s.progressTrack}>
+                          <View
+                            style={[s.progressFill, {
+                              width: `${playing.dur ? Math.min(100, (playing.pos / playing.dur) * 100) : 0}%`,
+                            }]}
+                          />
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 }}>
+                          <Text style={s.progressTime}>{mmss(playing.pos)}</Text>
+                          <Text style={s.progressTime}>{playing.dur ? mmss(playing.dur) : '…'}</Text>
+                        </View>
+                      </View>
+                    )}
                   </View>
                   <View style={{ gap: 8 }}>
                     {vm.call?.fromE164 ? (
@@ -186,14 +230,12 @@ export function MessagesScreen() {
                       </TouchableOpacity>
                     ) : null}
                     {vm.audioUrl ? (
-                      <TouchableOpacity
-                        style={s.play}
-                        onPress={() => playVoicemail(vm.audioUrl, {
-                          from: vm.call ? (lookupContact(vm.call.fromE164) || formatFr(vm.call.fromE164)) : '',
-                          date: new Date(vm.createdAt).toLocaleString('fr-FR'),
-                        })}
-                      >
-                        <Ionicons name="play" size={17} color={colors.primary} />
+                      <TouchableOpacity style={s.play} onPress={() => onPlay(vm)}>
+                        <Ionicons
+                          name={playing && playing.id === vm.id && playing.on ? 'pause' : 'play'}
+                          size={17}
+                          color={colors.primary}
+                        />
                       </TouchableOpacity>
                     ) : null}
                   </View>
@@ -231,6 +273,9 @@ const s = StyleSheet.create({
   aiSum: { fontSize: 14, marginTop: 6, color: colors.text, fontWeight: '700' },
   catBadge: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2.5, marginLeft: 6 },
   catTxt: { fontSize: 11.5, fontWeight: '800' },
+  progressTrack: { height: 4, borderRadius: 2, backgroundColor: 'rgba(108,92,231,0.15)', overflow: 'hidden' },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: colors.primary },
+  progressTime: { fontSize: 11, color: colors.muted, fontVariant: ['tabular-nums'] },
   time: { fontSize: 12, color: colors.muted },
   badge: {
     minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.primary,

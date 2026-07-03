@@ -4,30 +4,83 @@ import { API_URL } from './api';
 
 /**
  * Lecture des messages vocaux SANS quitter l'app quand c'est possible :
- * - binaire récent (expo-av inclus) -> lecture directe dans l'app ;
- * - binaire actuel -> page lecteur brandée Joe (au lieu du lien AWS brut).
+ * - binaire récent (expo-av inclus) -> lecture directe dans l'app, avec
+ *   progression (position/durée) remontée via onStatus ;
+ * - vieux binaire -> page lecteur brandée Joe (repli).
  */
-let sound: any = null;
+export type PlayStatus = {
+  positionMillis: number;
+  durationMillis: number;
+  isPlaying: boolean;
+  didJustFinish: boolean;
+};
 
-export async function playVoicemail(audioUrl: string, meta?: { from?: string; date?: string }) {
-  const hasAv = requireOptionalNativeModule('ExponentAV') != null;
-  if (hasAv) {
+let sound: any = null;
+let currentUrl: string | null = null;
+
+export function hasInlinePlayer(): boolean {
+  return requireOptionalNativeModule('ExponentAV') != null;
+}
+
+export async function playVoicemail(
+  audioUrl: string,
+  meta?: { from?: string; date?: string },
+  onStatus?: (s: PlayStatus) => void,
+): Promise<'inline' | 'page'> {
+  if (hasInlinePlayer()) {
     try {
       const { Audio } = require('expo-av');
-      if (sound) { try { await sound.unloadAsync(); } catch {} sound = null; }
+      await stopVoicemail();
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const res = await Audio.Sound.createAsync({ uri: audioUrl }, { shouldPlay: true });
+      const res = await Audio.Sound.createAsync(
+        { uri: audioUrl },
+        { shouldPlay: true, progressUpdateIntervalMillis: 250 },
+        (st: any) => {
+          if (!st?.isLoaded) return;
+          onStatus?.({
+            positionMillis: st.positionMillis || 0,
+            durationMillis: st.durationMillis || 0,
+            isPlaying: !!st.isPlaying,
+            didJustFinish: !!st.didJustFinish,
+          });
+          if (st.didJustFinish) stopVoicemail();
+        },
+      );
       sound = res.sound;
-      return 'inline' as const;
+      currentUrl = audioUrl;
+      return 'inline';
     } catch {
       /* on retombe sur la page lecteur */
     }
   }
   const q = new URLSearchParams({ src: audioUrl, from: meta?.from || '', date: meta?.date || '' });
   await Linking.openURL(`${API_URL}/play?${q.toString()}`);
-  return 'page' as const;
+  return 'page';
+}
+
+/** Pause/reprise du message en cours. Renvoie true si en lecture après l'appel. */
+export async function togglePause(): Promise<boolean> {
+  if (!sound) return false;
+  try {
+    const st = await sound.getStatusAsync();
+    if (!st.isLoaded) return false;
+    if (st.isPlaying) { await sound.pauseAsync(); return false; }
+    await sound.playAsync();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function isCurrent(url: string): boolean {
+  return currentUrl === url && sound != null;
 }
 
 export async function stopVoicemail() {
-  if (sound) { try { await sound.stopAsync(); await sound.unloadAsync(); } catch {} sound = null; }
+  if (sound) {
+    try { await sound.stopAsync(); } catch {}
+    try { await sound.unloadAsync(); } catch {}
+    sound = null;
+    currentUrl = null;
+  }
 }
