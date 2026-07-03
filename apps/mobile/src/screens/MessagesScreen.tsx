@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Text, FlatList, StyleSheet, RefreshControl, View, TouchableOpacity, Alert, Share, ActionSheetIOS, Platform } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +52,13 @@ export function MessagesScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Ouvrir l'onglet Répondeur marque les vocaux comme lus (éteint la cloche).
+  useEffect(() => {
+    if (seg !== 'vocal') return;
+    api.markVoicemailsRead().catch(() => {});
+    setVms((list) => list.map((v) => ({ ...v, isRead: true })));
+  }, [seg]);
 
   /** Menu d'actions d'un vocal : feuille native iOS (⋯ ou appui long). */
   function vmMenu(vm: any) {

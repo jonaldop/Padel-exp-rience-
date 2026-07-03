@@ -21,15 +21,32 @@ export function useTelnyxCall(destination: string, callerIdNumber?: string) {
   const [muted, setMuted] = useState(false);
   const [speaker, setSpeaker] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  // Déclaration de l'appel à la fin (historique + décompte des minutes) :
+  // miroirs en ref pour lire les valeurs dans cleanup sans re-création.
+  const secondsRef = useRef(0);
+  const wasActiveRef = useRef(false);
+  const reportedRef = useRef(false);
+  const destRef = useRef(destination);
+  destRef.current = destination;
 
   // Chrono une fois l'appel actif
   useEffect(() => {
     if (status !== 'active') return;
-    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    const id = setInterval(() => setSeconds((s) => { secondsRef.current = s + 1; return s + 1; }), 1000);
     return () => clearInterval(id);
   }, [status]);
 
   const cleanup = useCallback(() => {
+    // Déclare l'appel SORTANT au serveur (une seule fois) : sans ça il
+    // n'apparaît ni dans l'historique ni dans les minutes consommées.
+    if (!reportedRef.current && callRef.current) {
+      reportedRef.current = true;
+      api.reportCall({
+        to: destRef.current,
+        durationS: secondsRef.current,
+        status: wasActiveRef.current ? 'completed' : 'canceled',
+      }).catch(() => { /* non bloquant */ });
+    }
     try { callRef.current?.hangup(); } catch { /* noop */ }
     // On ne déconnecte QUE si on a ouvert notre propre client. Si on réutilise le
     // client partagé (réception), surtout pas : ça couperait la ligne entrante.
@@ -52,7 +69,7 @@ export function useTelnyxCall(destination: string, callerIdNumber?: string) {
       callRef.current = call;
       (call as any).on('telnyx.call.state', (_c: Call, state: CallState) => {
         if (state === 'new' || state === 'connecting' || state === 'ringing') setStatus('ringing');
-        else if (state === 'active' || state === 'held') setStatus('active');
+        else if (state === 'active' || state === 'held') { wasActiveRef.current = true; setStatus('active'); }
         else if (state === 'ended' || state === 'dropped') setStatus('ended');
       });
     } catch (e: any) {

@@ -749,6 +749,17 @@ export class DbService implements OnModuleInit {
     return vm;
   }
 
+  /** Marque tous les vocaux du compte comme lus (badge cloche). */
+  markVoicemailsRead(accountId: string): number {
+    const callIds = new Set(this.data.calls.filter((c) => c.accountId === accountId).map((c) => c.id));
+    let n = 0;
+    for (const v of this.data.voicemails) {
+      if (callIds.has(v.callId) && !v.isRead) { v.isRead = true; n++; }
+    }
+    if (n) this.save();
+    return n;
+  }
+
   deleteVoicemail(id: string): boolean {
     const before = this.data.voicemails.length;
     this.data.voicemails = this.data.voicemails.filter((v) => v.id !== id);
