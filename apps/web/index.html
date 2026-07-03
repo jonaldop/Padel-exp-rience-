@@ -6,25 +6,132 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1"
     />
-    <meta name="theme-color" content="#5b34d6" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Joe" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- ===== SEO principal ===== -->
+    <title>Joe — Ta ligne pro | Le numéro pro des artisans et indépendants</title>
     <meta
       name="description"
-      content="Joe, la ligne professionnelle des artisans et indépendants. Un vrai numéro pro sur votre mobile, sans deuxième téléphone ni carte SIM. Essai gratuit 14 jours."
+      content="Joe, la ligne téléphonique professionnelle des artisans, indépendants et TPE. Un vrai numéro pro sur votre mobile — sans deuxième téléphone, sans carte SIM, sans engagement. Répondeur, transcription et horaires d'ouverture inclus. Essai gratuit 14 jours."
     />
-    <meta property="og:title" content="Joe — Ta ligne pro" />
+    <link rel="canonical" href="https://www.allojoe.fr/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="author" content="Joe" />
+    <meta name="language" content="French" />
+    <meta name="geo.region" content="FR" />
+    <meta name="geo.placename" content="France" />
+    <meta name="theme-color" content="#5b34d6" />
+
+    <!-- ===== Open Graph (partage Facebook, LinkedIn, WhatsApp…) ===== -->
+    <meta property="og:site_name" content="Joe — Ta ligne pro" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:url" content="https://www.allojoe.fr/" />
+    <meta property="og:title" content="Joe — Ta ligne pro | Le numéro pro des artisans" />
     <meta
       property="og:description"
       content="Un vrai numéro professionnel sur le téléphone que vous avez déjà. Prêt en 5 minutes, sans engagement. Essai gratuit 14 jours."
     />
-    <meta property="og:type" content="website" />
-    <title>Joe — Ta ligne pro</title>
+    <meta property="og:image" content="https://www.allojoe.fr/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Joe — la ligne pro des artisans et indépendants" />
+
+    <!-- ===== Twitter / X ===== -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Joe — Ta ligne pro | Le numéro pro des artisans" />
+    <meta
+      name="twitter:description"
+      content="Un vrai numéro professionnel sur votre mobile. Sans 2ᵉ téléphone, sans carte SIM, sans engagement. Essai gratuit 14 jours."
+    />
+    <meta name="twitter:image" content="https://www.allojoe.fr/og-image.png" />
+
+    <!-- ===== Icônes & manifeste ===== -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Joe" />
+
+    <!-- ===== Données structurées (Google rich results + compréhension IA) ===== -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.allojoe.fr/#organization",
+          "name": "Joe",
+          "alternateName": "Joe — Ta ligne pro",
+          "url": "https://www.allojoe.fr/",
+          "logo": "https://www.allojoe.fr/favicon-512.png",
+          "description": "Joe fournit une ligne téléphonique professionnelle mobile pour les artisans, indépendants et TPE en France : un vrai numéro pro sur le téléphone existant, sans deuxième appareil ni carte SIM.",
+          "areaServed": { "@type": "Country", "name": "France" },
+          "slogan": "Ta ligne pro"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.allojoe.fr/#website",
+          "url": "https://www.allojoe.fr/",
+          "name": "Joe — Ta ligne pro",
+          "inLanguage": "fr-FR",
+          "publisher": { "@id": "https://www.allojoe.fr/#organization" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Joe — Ta ligne pro",
+          "operatingSystem": "iOS, Android, Web",
+          "applicationCategory": "BusinessApplication",
+          "description": "Application de téléphonie professionnelle : un vrai numéro pro sur votre mobile, avec appels, messagerie, répondeur avec transcription et horaires d'ouverture automatiques. Conçue pour les artisans, indépendants et petites entreprises.",
+          "url": "https://www.allojoe.fr/",
+          "offers": [
+            { "@type": "Offer", "name": "Essentiel", "price": "14.99", "priceCurrency": "EUR", "description": "1 numéro pro, appels & messagerie, horaires & répondeur." },
+            { "@type": "Offer", "name": "Pro", "price": "29.00", "priceCurrency": "EUR", "description": "Tout Essentiel, transcription, renvoi avancé." },
+            { "@type": "Offer", "name": "Business", "price": "49.00", "priceCurrency": "EUR", "description": "Tout Pro, assistant IA, multi-utilisateurs." }
+          ],
+          "featureList": [
+            "Numéro professionnel dédié",
+            "Appels haute définition par internet",
+            "Répondeur avec transcription en texte",
+            "Horaires d'ouverture automatiques",
+            "Messagerie clients",
+            "Fiche client et historique d'appels"
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Ai-je besoin d'un deuxième téléphone ou d'une carte SIM ?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Non. Joe s'installe comme une application sur votre téléphone actuel. Votre ligne pro fonctionne par internet (4G/5G ou Wi-Fi) : aucun matériel, aucune carte SIM, aucune manipulation chez votre opérateur." }
+            },
+            {
+              "@type": "Question",
+              "name": "Est-ce que je garde mon numéro personnel ?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Oui. Votre numéro et votre forfait actuels ne changent pas. Joe ajoute une deuxième ligne, 100 % professionnelle, à côté. Vous savez toujours si un appel est pro ou perso avant de décrocher." }
+            },
+            {
+              "@type": "Question",
+              "name": "Comment mes clients me joignent-ils ?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Ils composent votre numéro pro comme n'importe quel numéro. Votre téléphone sonne via l'app Joe, même verrouillé, avec le nom du client. S'ils laissent un message, vous recevez la transcription en texte." }
+            },
+            {
+              "@type": "Question",
+              "name": "Puis-je essayer avant de payer ?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Oui : 14 jours d'essai gratuit, sans carte bancaire. Vous créez votre compte, choisissez votre numéro et testez en conditions réelles. Vous n'activez l'abonnement que si Joe vous convient." }
+            },
+            {
+              "@type": "Question",
+              "name": "Y a-t-il un engagement ?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Aucun. L'abonnement est mensuel et se résilie en un clic depuis votre espace, sans préavis ni frais cachés." }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

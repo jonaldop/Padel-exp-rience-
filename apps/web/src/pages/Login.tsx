@@ -141,7 +141,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
       {/* ===== Panneau de marque (gauche) ===== */}
       <aside className="au-brand">
         <a href="/" className="au-brand-logo" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <span className="au-brand-logo-mark">📞</span> Joe
+          <span className="au-brand-logo-mark"><img src="/mascotte.png" alt="Joe" /></span> Joe
         </a>
         <div className="au-brand-body">
           <h1>{brandCopy.h}</h1>
@@ -169,7 +169,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
 
           {/* Logo visible en mobile (panneau gauche masqué) */}
           <a href="/" className="au-mobile-logo">
-            <div className="mark">📞</div>
+            <div className="mark"><img src="/mascotte.png" alt="Joe" /></div>
             <div className="name">Joe</div>
             <div className="tag">Ta ligne pro</div>
           </a>

@@ -77,7 +77,7 @@ export function Landing() {
       <nav className={`lp-nav${scrolled ? ' scrolled' : ''}`}>
         <div className="lp-nav-inner">
           <a href="/" className="lp-logo">
-            <span className="lp-logo-mark">📞</span> Joe
+            <span className="lp-logo-mark"><img src="/mascotte.png" alt="Joe" /></span> Joe
           </a>
           <div className="lp-links">
             <a href="#fonctionnalites">Fonctionnalités</a>
@@ -384,7 +384,7 @@ export function Landing() {
           <div className="lp-footer-inner">
             <div>
               <a href="/" className="lp-logo">
-                <span className="lp-logo-mark">📞</span> Joe
+                <span className="lp-logo-mark"><img src="/mascotte.png" alt="Joe" /></span> Joe
               </a>
               <p>
                 La ligne professionnelle des artisans, indépendants et petites entreprises.
