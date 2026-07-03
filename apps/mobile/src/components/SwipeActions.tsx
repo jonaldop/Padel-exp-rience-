@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Animated, PanResponder, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 /**
@@ -25,17 +25,25 @@ export function SwipeActions({
   const width = BTN_W * actions.length;
   const tx = useRef(new Animated.Value(0)).current;
   const isOpen = useRef(false);
+  // Les cartes sont en verre SEMI-TRANSPARENT : les actions ne doivent exister
+  // dans l'arbre QUE pendant le glissement, sinon elles se voient à travers.
+  const [engaged, setEngaged] = useState(false);
 
   const snap = (open: boolean) => {
     isOpen.current = open;
-    Animated.spring(tx, { toValue: open ? -width : 0, useNativeDriver: true, bounciness: 4 }).start();
+    Animated.spring(tx, { toValue: open ? -width : 0, useNativeDriver: true, bounciness: 4 }).start(
+      () => { if (!open) setEngaged(false); },
+    );
   };
 
   const pan = useRef(
     PanResponder.create({
       // Ne capte que les gestes clairement HORIZONTAUX (laisse défiler la liste).
-      onMoveShouldSetPanResponder: (_e, g) =>
-        Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onMoveShouldSetPanResponder: (_e, g) => {
+        const take = Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5;
+        if (take) setEngaged(true);
+        return take;
+      },
       onPanResponderMove: (_e, g) => {
         const base = isOpen.current ? -width : 0;
         tx.setValue(Math.min(0, Math.max(-width - 24, base + g.dx)));
@@ -50,6 +58,7 @@ export function SwipeActions({
 
   return (
     <View style={{ position: 'relative' }}>
+      {engaged && (
       <View style={[s.actionsBg, { bottom: bottomGap }]}>
         {actions.map((a) => (
           <TouchableOpacity
@@ -64,6 +73,7 @@ export function SwipeActions({
           </TouchableOpacity>
         ))}
       </View>
+      )}
       <Animated.View style={{ transform: [{ translateX: tx }] }} {...pan.panHandlers}>
         {children}
       </Animated.View>
