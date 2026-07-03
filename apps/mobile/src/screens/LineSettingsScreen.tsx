@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
@@ -57,6 +58,7 @@ function buildSchedule(days: Record<string, DayCfg>): Record<string, string[]> {
 }
 
 export function LineSettingsScreen() {
+  const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const [numberId, setNumberId] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -117,9 +119,6 @@ export function LineSettingsScreen() {
     try {
       await api.updateNumberSettings(numberId, {
         voicemailEnabled,
-        greetingOpen,
-        greetingClosed,
-        greetingVoice,
         forwardToMobile,
         forwardNumber,
         ringInApp,
@@ -141,24 +140,24 @@ export function LineSettingsScreen() {
           <Text style={s.muted}>Chargement…</Text>
         ) : (
           <>
-            {/* Répondeur */}
+            {/* Répondeur : les messages et la voix se règlent dans Réceptionniste IA */}
             <Glass strong style={s.section}>
               <Text style={s.h2}>Répondeur</Text>
               <View style={s.rowBetween}>
                 <Text style={s.rowLabel}>Activer la messagerie vocale</Text>
                 <Switch value={voicemailEnabled} onValueChange={setVoicemailEnabled} trackColor={{ true: colors.primary }} />
               </View>
-              <Text style={s.label}>Message (ouvert)</Text>
-              <TextInput style={s.area} value={greetingOpen} onChangeText={setGreetingOpen} multiline placeholder="Bonjour, merci de laisser un message…" placeholderTextColor={colors.muted} />
-              <Text style={s.label}>Message (fermé)</Text>
-              <TextInput style={s.area} value={greetingClosed} onChangeText={setGreetingClosed} multiline placeholder="Nos bureaux sont fermés…" placeholderTextColor={colors.muted} />
-              <Text style={s.label}>Voix du répondeur</Text>
-              {VOICES.map((v) => (
-                <TouchableOpacity key={v.id} style={s.voiceRow} onPress={() => setGreetingVoice(v.id)}>
-                  <Text style={{ fontSize: 16, marginRight: 8 }}>{greetingVoice === v.id ? '🔘' : '⚪️'}</Text>
-                  <Text style={s.rowLabel}>{v.label}</Text>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 12, padding: 12 }}
+                onPress={() => nav.navigate('Receptionniste')}
+              >
+                <Text style={{ fontSize: 20, marginRight: 10 }}>🤖</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rowLabel}>Messages d'accueil, voix & conversation IA</Text>
+                  <Text style={s.hint}>Réglés dans « Réceptionniste IA » (avec écoute test).</Text>
+                </View>
+                <Text style={{ color: colors.primary, fontSize: 18 }}>→</Text>
+              </TouchableOpacity>
             </Glass>
 
             {/* Appels entrants */}

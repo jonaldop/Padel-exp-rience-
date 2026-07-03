@@ -39,6 +39,9 @@ export class CallsController {
   /** Appels à raccrocher quand le message parlé en cours se termine. */
   private readonly pendingHangup = new Set<string>();
 
+  /** Appels d'APERÇU (test du message d'accueil) : ccid -> texte + voix. */
+  private readonly previewCalls = new Map<string, { text: string; voice: string }>();
+
   private pushTranscript(callControlId: string, segment: string) {
     // Nettoyage paresseux : on ne garde jamais plus de 30 min d'historique.
     const now = Date.now();
@@ -106,6 +109,41 @@ export class CallsController {
       }
     }
     return call;
+  }
+
+  /**
+   * APERÇU DU MESSAGE D'ACCUEIL : Joe appelle le mobile de l'artisan et joue
+   * le message (voix + texte réels, exactement comme l'entendra un client).
+   */
+  @UseGuards(JwtGuard)
+  @Post('preview-greeting')
+  async previewGreeting(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { numberId?: string; which?: 'open' | 'closed'; text?: string; voice?: string; to?: string },
+  ) {
+    const number = body.numberId
+      ? this.db.findPhoneNumber(user.accountId, body.numberId)
+      : this.db.findFirstPhoneNumber(user.accountId);
+    if (!number) return { error: 'Aucun numéro pro configuré' };
+    const to = toE164Fr(body.to || '');
+    if (!to || !destinationAllowed(to)) {
+      return { error: 'Indiquez un numéro français à appeler pour le test.' };
+    }
+    const closed = body.which === 'closed';
+    const st = number.settings;
+    const text =
+      (body.text || '').trim() ||
+      (closed ? st?.greetingClosed : st?.greetingOpen) ||
+      this.secretaryGreeting(user.accountId, closed);
+    const voice = body.voice || st?.greetingVoice || 'Polly.Lea-Neural';
+    try {
+      const res: any = await this.telnyx.dial(to, number.e164);
+      const ccid = res?.data?.call_control_id;
+      if (ccid) this.previewCalls.set(ccid, { text, voice });
+      return { ok: true, calling: to };
+    } catch (e) {
+      return { error: `Test impossible : ${(e as Error).message}` };
+    }
   }
 
   // ── Webhook Telnyx (appels entrants) ───────────────────────────────────────
@@ -200,6 +238,19 @@ export class CallsController {
       }
 
       case 'call.answered': {
+        // Appel d'APERÇU décroché par l'artisan -> on joue le message puis on
+        // raccroche à la fin (via call.speak.ended + pendingHangup).
+        const preview = this.previewCalls.get(callControlId);
+        if (preview) {
+          this.previewCalls.delete(callControlId);
+          this.pendingHangup.add(callControlId);
+          const ok = await this.safeSpeak(callControlId, preview.text, preview.voice);
+          if (!ok) {
+            this.pendingHangup.delete(callControlId);
+            try { await this.telnyx.hangup(callControlId); } catch { /* fini */ }
+          }
+          break;
+        }
         const call = this.db.findCallByProviderId(callControlId);
         // ⚠️ Ne traiter QUE les appels entrants qu'on gère. Sinon, quand un appel
         // SORTANT est décroché, on jouait le répondeur par-dessus (bug du "ça
@@ -375,6 +426,7 @@ export class CallsController {
       case 'call.hangup': {
         this.recordingStarted.delete(callControlId);
         this.pendingHangup.delete(callControlId);
+        this.previewCalls.delete(callControlId);
         // Diagnostic : cause de raccrochage (utile pour la jambe de transfert
         // vers l'app -> montre si l'INVITE a sonné, été rejeté, 404, etc.).
         this.db.logInbound({
@@ -438,7 +490,16 @@ export class CallsController {
       this.recordingStarted.add(callControlId);
       await this.safeTranscribe(callControlId);
       try {
-        await this.telnyx.gatherUsingAi(callControlId, greeting);
+        // Accueil COURT dédié à la conversation (pas de « après le bip ») :
+        // moins de mots = échange plus réactif. Un accueil personnalisé garde
+        // la priorité s'il est défini.
+        const company = accountId ? this.db.findAccountById(accountId)?.companyName : '';
+        const convGreeting =
+          customGreeting ||
+          `Bonjour${company ? `, vous êtes bien chez ${company}` : ''} !` +
+            `${closed ? ' Nous sommes fermés, mais je prends votre demande.' : ''}` +
+            ` Que puis-je faire pour vous : un devis, une urgence, ou un rendez-vous ?`;
+        await this.telnyx.gatherUsingAi(callControlId, convGreeting, company);
         return; // l'IA mène l'échange ; la suite arrive via call.ai_gather.ended
       } catch (e) {
         this.logger.warn(`gather_using_ai KO (${(e as Error).message}) -> répondeur classique`);
@@ -464,7 +525,8 @@ export class CallsController {
     const category = ['devis', 'urgence', 'rdv', 'rappel', 'autre'].includes(g.motif)
       ? g.motif
       : 'autre';
-    const urgency = g.urgence === true || g.urgence === 'true' || category === 'urgence' ? 'haute' : 'normale';
+    const urgent = /urgent|urgence|fuite|panne|inond|d[ée]g[aâ]t|tout de suite|aujourd/i.test(String(g.details || ''));
+    const urgency = g.urgence === true || g.urgence === 'true' || category === 'urgence' || urgent ? 'haute' : 'normale';
     const parts = [
       g.nom ? String(g.nom) : null,
       g.details ? String(g.details) : null,
@@ -478,13 +540,7 @@ export class CallsController {
   /** Message d'accueil du secrétariat (par défaut, personnalisable par numéro). */
   private secretaryGreeting(accountId?: string, closed = false): string {
     const company = accountId ? this.db.findAccountById(accountId)?.companyName : '';
-    const intro = company ? `Bonjour, vous êtes bien chez ${company}.` : 'Bonjour.';
-    const closedTxt = closed ? ' Nous sommes actuellement fermés.' : '';
-    return (
-      `${intro}${closedTxt} Je suis l'assistant de la ligne. ` +
-      `Après le bip, indiquez votre nom, la raison de votre appel — devis, urgence ou rendez-vous — ` +
-      `et vos disponibilités. Votre message est transmis immédiatement. Merci !`
-    );
+    return SecretaryService.greeting(company, closed);
   }
 
   /** Démarre la transcription temps réel sans jamais faire échouer l'appel. */

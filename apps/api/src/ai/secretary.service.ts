@@ -132,6 +132,17 @@ Réponds UNIQUEMENT avec un objet JSON (aucun autre texte) :
     return { category, urgency, summary, callerName: null, engine: 'keywords' };
   }
 
+  /** Message d'accueil par défaut du secrétariat (partagé app/API). */
+  static greeting(company: string | undefined, closed = false): string {
+    const intro = company ? `Bonjour, vous êtes bien chez ${company}.` : 'Bonjour.';
+    const closedTxt = closed ? ' Nous sommes actuellement fermés.' : '';
+    return (
+      `${intro}${closedTxt} Je suis l'assistant de la ligne. ` +
+      `Après le bip, indiquez votre nom, la raison de votre appel — devis, urgence ou rendez-vous — ` +
+      `et vos disponibilités. Votre message est transmis immédiatement. Merci !`
+    );
+  }
+
   /** Libellé humain (pushs, app) : emoji + intitulé. */
   static label(category?: string | null): string {
     switch (category) {

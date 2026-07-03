@@ -81,6 +81,10 @@ export const api = {
   myNumbers: () => request('/numbers'),
   updateNumberSettings: (id: string, patch: any) =>
     request(`/numbers/${id}/settings`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  previewGreeting: (body: { numberId?: string; which: 'open' | 'closed'; text?: string; voice?: string; to: string }) =>
+    request<{ ok?: boolean; calling?: string; error?: string }>('/calls/preview-greeting', {
+      method: 'POST', body: JSON.stringify(body),
+    }),
   history: () => request('/calls'),
   voicemails: () => request('/calls/voicemails'),
 

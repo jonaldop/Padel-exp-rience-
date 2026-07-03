@@ -11,9 +11,10 @@ import { MessagesModule } from './messages/messages.module';
 import { BillingModule } from './billing/billing.module';
 import { HealthController } from './health.controller';
 import { PlansController } from './plans.controller';
+import { PlayController } from './play.controller';
 
 @Module({
   imports: [DbModule, AuthModule, TelnyxModule, NumbersModule, CallsModule, ClientsModule, AdminModule, PushModule, MessagesModule, BillingModule],
-  controllers: [HealthController, PlansController],
+  controllers: [HealthController, PlansController, PlayController],
 })
 export class AppModule {}
