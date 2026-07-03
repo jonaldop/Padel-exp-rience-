@@ -113,6 +113,7 @@ export function Admin() {
 
             {tab === 'dashboard' && dashboard && (
               <>
+                <UsageAlerts alerts={dashboard.usageAlerts || []} />
                 <Dashboard dashboard={dashboard} eur={eur} />
                 <StripeSetup token={token} />
                 <AiSetup token={token} />
@@ -163,6 +164,32 @@ function Dashboard({ dashboard, eur }: { dashboard: any; eur: (n: number) => str
         {!t && ' Solde Telnyx indisponible (clé non configurée).'}
       </p>
     </div>
+  );
+}
+
+/** Pare-feu usage : comptes >80 % du plafond mensuel ou bloqués. */
+function UsageAlerts({ alerts }: { alerts: any[] }) {
+  if (!alerts.length) return null;
+  return (
+    <Card style={{ padding: 16, marginBottom: 16, border: '1.5px solid #f5c6c3', background: '#fff7f6' }}>
+      <p style={{ fontWeight: 800, margin: '0 0 10px' }}>🚨 Alertes consommation ({alerts.length})</p>
+      {alerts.map((a) => (
+        <div key={a.accountId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 0', borderTop: `1px solid ${colors.border}` }}>
+          <div>
+            <b>{a.companyName}</b>{' '}
+            <span style={{ color: colors.muted, fontSize: 13 }}>{a.email} · {a.plan}</span>
+          </div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: a.blocked ? colors.red : colors.amber }}>
+            {a.usedMinutes} / {a.capMinutes} min
+            {a.blocked ? ' — ⛔ appels sortants BLOQUÉS' : ' — approche du plafond'}
+          </div>
+        </div>
+      ))}
+      <p style={{ color: colors.muted, fontSize: 12.5, margin: '10px 0 0' }}>
+        Plafond dur : 2× les minutes incluses (fair-use 4 000 min sur l'illimité). Au-delà, les appels
+        sortants sont coupés automatiquement. Passez le compte sur une formule supérieure pour débloquer.
+      </p>
+    </Card>
   );
 }
 

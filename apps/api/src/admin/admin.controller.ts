@@ -51,7 +51,9 @@ export class AdminController {
     this.authorize(authorization, key);
     const summary = this.db.adminSummary(config.costPerMinute);
     const telnyx = await this.telnyx.getBalance();
-    return { summary, telnyx, costPerMinute: config.costPerMinute };
+    // Pare-feu usage : comptes proches du plafond (>80 %) ou bloqués.
+    const usageAlerts = this.db.adminUsageAlerts();
+    return { summary, telnyx, costPerMinute: config.costPerMinute, usageAlerts };
   }
 
   /** Applique + diagnostique le réglage Inbound (fix 403 réception WebRTC). */
