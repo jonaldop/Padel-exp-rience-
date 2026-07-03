@@ -120,9 +120,13 @@ export function MessagesScreen() {
       return;
     }
     if (playing?.id === vm.id) {
-      const on = await togglePause();
-      setPlaying((p) => (p ? { ...p, on } : p));
-      return;
+      const r = await togglePause();
+      if (r !== 'none') {
+        setPlaying((p) => (p ? { ...p, on: r === 'playing' } : p));
+        return;
+      }
+      // Le son a fini et a été déchargé -> on relance une lecture complète.
+      setPlaying(null);
     }
     await stopVoicemail();
     const mode = await playVoicemail(

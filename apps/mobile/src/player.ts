@@ -41,18 +41,22 @@ export async function playVoicemail(
       const proxied = meta?.vmId
         ? `${API_URL}/play/file/${encodeURIComponent(meta.vmId)}.mp3`
         : `${API_URL}/play/audio?src=${encodeURIComponent(audioUrl)}`;
+      let finished = false; // la fin déclenche parfois une dernière mise à jour parasite
       const res = await Audio.Sound.createAsync(
         { uri: proxied },
         { shouldPlay: true, progressUpdateIntervalMillis: 250 },
         (st: any) => {
-          if (!st?.isLoaded) return;
+          if (!st?.isLoaded || finished) return;
           onStatus?.({
             positionMillis: st.positionMillis || 0,
             durationMillis: st.durationMillis || 0,
             isPlaying: !!st.isPlaying,
             didJustFinish: !!st.didJustFinish,
           });
-          if (st.didJustFinish) stopVoicemail();
+          if (st.didJustFinish) {
+            finished = true;
+            stopVoicemail();
+          }
         },
       );
       sound = res.sound;
@@ -71,17 +75,17 @@ export async function playVoicemail(
   return 'page';
 }
 
-/** Pause/reprise du message en cours. Renvoie true si en lecture après l'appel. */
-export async function togglePause(): Promise<boolean> {
-  if (!sound) return false;
+/** Pause/reprise : 'playing' | 'paused', ou 'none' si plus rien n'est chargé. */
+export async function togglePause(): Promise<'playing' | 'paused' | 'none'> {
+  if (!sound) return 'none';
   try {
     const st = await sound.getStatusAsync();
-    if (!st.isLoaded) return false;
-    if (st.isPlaying) { await sound.pauseAsync(); return false; }
+    if (!st.isLoaded) return 'none';
+    if (st.isPlaying) { await sound.pauseAsync(); return 'paused'; }
     await sound.playAsync();
-    return true;
+    return 'playing';
   } catch {
-    return false;
+    return 'none';
   }
 }
 
