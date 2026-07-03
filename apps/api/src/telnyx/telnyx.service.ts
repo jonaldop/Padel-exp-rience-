@@ -532,7 +532,11 @@ export class TelnyxService {
   transcriptionStart(callControlId: string) {
     return this.api(`/calls/${callControlId}/actions/transcription_start`, {
       method: 'POST',
-      body: { language: 'fr', transcription_tracks: 'inbound' },
+      // Moteur B (Telnyx) : plus précis et moins cher que le moteur Google par
+      // défaut, qui acceptait la commande mais n'envoyait aucun événement.
+      // Pistes 'both' : capture la voix de l'appelant quel que soit le sens
+      // (le message d'accueil est déjà terminé quand on démarre).
+      body: { transcription_engine: 'B', language: 'fr', transcription_tracks: 'both' },
     });
   }
 
