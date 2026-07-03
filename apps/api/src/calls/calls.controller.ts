@@ -540,6 +540,13 @@ export class CallsController {
         }
         break;
       }
+
+      default: {
+        // Diagnostic : trace les événements non gérés (permet de repérer une
+        // transcription qui arriverait sous un autre nom d'événement).
+        this.db.logInbound({ type: 'evt', t: type });
+        break;
+      }
     }
     return { ok: true };
   }
