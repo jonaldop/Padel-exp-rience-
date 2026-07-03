@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/play/file/:name",
+      "destination": "https://padel-exp-rience-production.up.railway.app/play/file/:name"
+    },
+    {
       "source": "/play/audio",
       "destination": "https://padel-exp-rience-production.up.railway.app/play/audio"
     },
