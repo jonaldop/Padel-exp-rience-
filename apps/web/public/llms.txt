@@ -1,0 +1,42 @@
+# Joe — Ta ligne pro
+
+> Joe est une application de téléphonie professionnelle mobile pour les artisans, indépendants et TPE/PME en France. Elle fournit un vrai numéro de téléphone professionnel sur le smartphone que l'utilisateur possède déjà, sans deuxième appareil, sans carte SIM et sans engagement.
+
+## Ce que fait Joe
+
+- **Un numéro professionnel dédié** : l'utilisateur reçoit un vrai numéro pro. Ses clients l'appellent dessus ; il les rappelle avec ce même numéro. Son numéro personnel reste privé.
+- **Fonctionne sur le téléphone existant** : Joe est une application (iOS et Android). La ligne pro passe par internet (4G/5G ou Wi-Fi). Aucun matériel, aucune carte SIM, aucune manipulation chez l'opérateur.
+- **Répondeur avec transcription** : chaque message vocal est transcrit en texte.
+- **Horaires d'ouverture automatiques** : en dehors des heures de travail, Joe répond pour l'utilisateur et prend le message.
+- **Messagerie clients** : envoi de messages depuis le numéro pro.
+- **Fiche client et historique** : chaque appel arrive avec le nom du client et son historique.
+- **Multi-plateforme** : application mobile + espace web sur ordinateur.
+
+## Pour qui
+
+Plombiers, électriciens, menuisiers, peintres, paysagistes, taxis et VTC, coiffeurs, coachs, services à domicile, photographes — et plus généralement tout professionnel indépendant ou petite entreprise qui travaille au téléphone et veut séparer le professionnel du personnel.
+
+## Tarifs
+
+- **Essentiel — 14,99 €/mois** : 1 numéro pro, appels & messagerie, horaires & répondeur.
+- **Pro — 29 €/mois** : tout Essentiel, transcription, renvoi avancé.
+- **Business — 49 €/mois** : tout Pro, assistant IA, multi-utilisateurs.
+
+Tous les forfaits incluent **14 jours d'essai gratuit sans carte bancaire**. Abonnement mensuel, sans engagement, résiliable en un clic. Paiement sécurisé par carte bancaire (Stripe), facture disponible chaque mois.
+
+## Points clés / différenciateurs
+
+- Mise en service en 5 minutes.
+- Pas de deuxième téléphone à acheter ni à porter.
+- Sans engagement, contrairement aux offres opérateurs classiques (souvent 24 mois).
+- Qualité d'appel haute définition via une infrastructure télécom professionnelle.
+
+## Liens
+
+- Site : https://www.allojoe.fr/
+- Créer un compte / essai gratuit : https://www.allojoe.fr/app?signup=1
+- Se connecter : https://www.allojoe.fr/app
+
+## Contact
+
+Joe — service en ligne, France.

@@ -140,9 +140,9 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     <div className="au">
       {/* ===== Panneau de marque (gauche) ===== */}
       <aside className="au-brand">
-        <div className="au-brand-logo">
-          <span className="au-brand-logo-mark">📞</span> Joe
-        </div>
+        <a href="/" className="au-brand-logo" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <span className="au-brand-logo-mark"><img src="/mascotte.png" alt="Joe" /></span> Joe
+        </a>
         <div className="au-brand-body">
           <h1>{brandCopy.h}</h1>
           <p className="au-brand-sub">{brandCopy.s}</p>
@@ -164,12 +164,15 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
       {/* ===== Colonne formulaire (droite) ===== */}
       <main className="au-form-side">
         <div className="au-card">
+          {/* Retour au site commercial (toujours visible) */}
+          <a href="/" className="au-back">← Retour au site</a>
+
           {/* Logo visible en mobile (panneau gauche masqué) */}
-          <div className="au-mobile-logo">
-            <div className="mark">📞</div>
+          <a href="/" className="au-mobile-logo">
+            <div className="mark"><img src="/mascotte.png" alt="Joe" /></div>
             <div className="name">Joe</div>
             <div className="tag">Ta ligne pro</div>
-          </div>
+          </a>
 
           <div className="au-card-head">
             <h2>{heads[mode].h}</h2>
