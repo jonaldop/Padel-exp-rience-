@@ -35,17 +35,24 @@ export class AuthService {
     companyName: string;
     firstName?: string;
     lastName?: string;
+    plan?: string;
   }) {
     if (this.db.findUserByEmail(input.email)) {
       throw new ConflictException('Un compte existe déjà avec cet email');
     }
     const passwordHash = await bcrypt.hash(input.password, 10);
+    // Forfait choisi sur le site : accepté seulement s'il correspond à une
+    // formule active (sinon on retombe sur le défaut).
+    const chosenPlan = this.db
+      .listPlans()
+      .find((p) => p.active && p.key === input.plan)?.key;
     const { account, user } = this.db.createAccountWithOwner({
       companyName: input.companyName,
       email: input.email,
       passwordHash,
       firstName: input.firstName,
       lastName: input.lastName,
+      plan: chosenPlan,
       // Période d'essai par défaut (TRIAL_DAYS jours) — modulable ensuite depuis
       // le back-office admin (prolonger / illimité).
       trialEndsAt: new Date(Date.now() + config.trialDays * 86400000).toISOString(),
