@@ -80,7 +80,7 @@ export function HomeScreen() {
       api.history().then((c) => setCalls(Array.isArray(c) ? c : [])).catch(() => {}),
       api.voicemails().then((v) => setVms(Array.isArray(v) ? v : [])).catch(() => {}),
       api.myNumbers().then((n: any[]) => {
-        setAi(Boolean(n?.[0]?.settings?.aiEnabled));
+        setAi(Boolean(n?.[0])); // réceptionniste active dès qu'un numéro existe
         setProNumber(n?.[0]?.e164 || '');
       }).catch(() => {}),
     ]).finally(() => setLoading(false));
@@ -152,8 +152,8 @@ export function HomeScreen() {
           </Glass>
         </TouchableOpacity>
 
-        {/* Assistant IA */}
-        <TouchableOpacity activeOpacity={0.9} onPress={() => nav.navigate('Plus')}>
+        {/* Réceptionniste IA (secrétariat : transcription + qualification) */}
+        <TouchableOpacity activeOpacity={0.9} onPress={() => nav.navigate('Receptionniste')}>
           <Glass strong style={{ marginTop: 14 }}>
             <View style={s.cardHead}>
               <Text style={s.cardTitle}>Assistant IA</Text>
@@ -170,10 +170,16 @@ export function HomeScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
-                  {ai ? 'Réceptionniste IA en ligne' : 'Activer la réceptionniste IA'}
+                  {ai ? 'Réceptionniste IA en ligne' : 'Ajoutez un numéro pour l’activer'}
                 </Text>
                 <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
-                  Je réponds à vos appels et qualifie vos prospects.
+                  {(() => {
+                    const weekAgo = Date.now() - 7 * 86400000;
+                    const q = vms.filter((v) => v.aiSummary && new Date(v.createdAt).getTime() > weekAgo).length;
+                    return q > 0
+                      ? `${q} message${q > 1 ? 's' : ''} qualifié${q > 1 ? 's' : ''} cette semaine — toucher pour régler.`
+                      : 'Je réponds, je transcris et je qualifie vos appels manqués.';
+                  })()}
                 </Text>
               </View>
               <Text style={{ fontSize: 22, color: colors.primary, marginLeft: 8 }}>→</Text>

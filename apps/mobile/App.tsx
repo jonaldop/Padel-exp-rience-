@@ -17,6 +17,7 @@ import { ConversationScreen } from './src/screens/ConversationScreen';
 import { DialerScreen } from './src/screens/DialerScreen';
 import { MessagesScreen } from './src/screens/MessagesScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
+import { ReceptionistScreen } from './src/screens/ReceptionistScreen';
 import { PlusScreen } from './src/screens/PlusScreen';
 import { CallScreen } from './src/screens/CallScreen';
 import { IncomingCallScreen } from './src/screens/IncomingCallScreen';
@@ -118,6 +119,11 @@ export default function App() {
               name="AppelEntrant"
               component={IncomingCallScreen}
               options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
+            />
+            <Stack.Screen
+              name="Receptionniste"
+              component={ReceptionistScreen}
+              options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
             />
             <Stack.Screen
               name="Statistiques"
