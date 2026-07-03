@@ -513,10 +513,10 @@ export class TelnyxService {
     });
   }
 
-  recordStart(callControlId: string) {
+  recordStart(callControlId: string, playBeep = false) {
     return this.api(`/calls/${callControlId}/actions/record_start`, {
       method: 'POST',
-      body: { format: 'mp3', channels: 'single' },
+      body: { format: 'mp3', channels: 'single', play_beep: playBeep },
     });
   }
 

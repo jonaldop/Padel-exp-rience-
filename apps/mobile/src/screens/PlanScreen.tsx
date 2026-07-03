@@ -257,6 +257,9 @@ export function PlanScreen() {
                     <View>
                       <Text style={s.histMonth}>{monthLabel(inv.period)}</Text>
                       <Text style={s.invNum}>{inv.number}{inv.discountPct ? ` · remise -${inv.discountPct}%` : ''}</Text>
+                      {!!inv.overageAmount && (
+                        <Text style={s.invNum}>dont dépassement : {eur(inv.overageAmount)} ({inv.overageMinutes} min)</Text>
+                      )}
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={s.histMin}>{eur(inv.total)}</Text>

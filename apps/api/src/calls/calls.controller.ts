@@ -34,6 +34,11 @@ export class CallsController {
   /** Résultats structurés du secrétaire conversationnel (call.ai_gather.ended). */
   private readonly aiGathers = new Map<string, { data: any; at: number }>();
 
+  /** Enregistrements déjà démarrés (évite les doublons au call.speak.ended). */
+  private readonly recordingStarted = new Set<string>();
+  /** Appels à raccrocher quand le message parlé en cours se termine. */
+  private readonly pendingHangup = new Set<string>();
+
   private pushTranscript(callControlId: string, segment: string) {
     // Nettoyage paresseux : on ne garde jamais plus de 30 min d'historique.
     const now = Date.now();
@@ -70,6 +75,18 @@ export class CallsController {
       : this.db.findFirstPhoneNumber(user.accountId);
     if (!number) return { error: 'Aucun numéro pro configuré' };
 
+    // PARE-FEU : destinations France/DOM/frontaliers uniquement + plafond mensuel.
+    const dest = toE164Fr(body.to);
+    if (!destinationAllowed(dest)) {
+      return { error: 'Les appels internationaux ne sont pas disponibles sur votre forfait.' };
+    }
+    const guard = this.db.usageGuard(user.accountId);
+    if (guard.state === 'blocked') {
+      return {
+        error: `Plafond mensuel atteint (${guard.capMinutes} min). Contactez-nous pour augmenter votre forfait.`,
+      };
+    }
+
     const call = this.db.createCall({
       accountId: user.accountId,
       phoneNumberId: number.id,
@@ -104,7 +121,27 @@ export class CallsController {
 
     switch (type) {
       case 'call.initiated': {
-        if (payload.direction !== 'incoming') break;
+        if (payload.direction !== 'incoming') {
+          // Appel SORTANT (app WebRTC) : filet de sécurité du pare-feu — si la
+          // destination est hors politique ou le plafond atteint, on raccroche.
+          const proNumber = this.db.findPhoneNumberByE164(payload.from);
+          if (proNumber) {
+            const dest = String(payload.to || '');
+            const g = this.db.usageGuard(proNumber.accountId);
+            if ((dest.startsWith('+') && !destinationAllowed(dest)) || g.state === 'blocked') {
+              this.db.logInbound({
+                type: 'outbound-blocked',
+                from: payload.from,
+                to: payload.to,
+                reason: g.state === 'blocked' ? `cap ${g.capMinutes}min atteint` : 'destination hors politique',
+              });
+              try {
+                await this.telnyx.hangup(callControlId);
+              } catch { /* déjà terminé */ }
+            }
+          }
+          break;
+        }
         const number = this.db.findPhoneNumberByE164(payload.to);
         if (!number) {
           this.logger.warn(`Appel vers un numéro inconnu: ${payload.to}`);
@@ -188,8 +225,7 @@ export class CallsController {
             // Pas de renvoi configuré : SECRÉTARIAT IA. On accueille, on invite
             // à détailler (nom / raison / dispo), on enregistre ET on transcrit
             // en temps réel pour qualifier le message (devis, urgence, RDV…).
-            await this.safeRecord(callControlId);
-            await this.safeTranscribe(callControlId);
+            this.updateByProvider(callControlId, { status: 'voicemail' });
             await this.secretaryEngage(
               callControlId,
               call?.accountId,
@@ -198,15 +234,13 @@ export class CallsController {
               false,
               settings?.aiConversational !== false,
             );
-            this.updateByProvider(callControlId, { status: 'voicemail' });
           } else {
             await this.telnyx.hangup(callControlId);
           }
         } else {
           const call2 = this.db.findCallByProviderId(callControlId);
           if (settings?.voicemailEnabled !== false) {
-            await this.safeRecord(callControlId);
-            await this.safeTranscribe(callControlId);
+            this.updateByProvider(callControlId, { status: 'voicemail' });
             await this.secretaryEngage(
               callControlId,
               call2?.accountId,
@@ -215,7 +249,6 @@ export class CallsController {
               true,
               settings?.aiConversational !== false,
             );
-            this.updateByProvider(callControlId, { status: 'voicemail' });
           } else {
             await this.safeSpeak(
               callControlId,
@@ -238,13 +271,41 @@ export class CallsController {
           const vm = call ? this.db.findVoicemailByCallId(call.id) : null;
           if (vm) this.applyGatherToVoicemail(vm.id, result);
         }
-        await this.safeSpeak(
+        this.pendingHangup.add(callControlId);
+        const thanked = await this.safeSpeak(
           callControlId,
           'Merci, votre message est transmis immédiatement. Très bonne journée !',
         );
-        try {
-          await this.telnyx.hangup(callControlId);
-        } catch { /* déjà raccroché */ }
+        if (!thanked) {
+          this.pendingHangup.delete(callControlId);
+          try {
+            await this.telnyx.hangup(callControlId);
+          } catch { /* déjà raccroché */ }
+        }
+        break;
+      }
+
+      case 'call.speak.ended': {
+        // Fin du « merci » post-conversation -> on raccroche maintenant (pas avant,
+        // sinon le remerciement serait coupé).
+        if (this.pendingHangup.has(callControlId)) {
+          this.pendingHangup.delete(callControlId);
+          try {
+            await this.telnyx.hangup(callControlId);
+          } catch { /* déjà terminé */ }
+          break;
+        }
+        // Fin de l'annonce du répondeur classique -> BIP + enregistrement.
+        const call = this.db.findCallByProviderId(callControlId);
+        if (
+          call?.direction === 'inbound' &&
+          call.status === 'voicemail' &&
+          !this.recordingStarted.has(callControlId)
+        ) {
+          this.recordingStarted.add(callControlId);
+          await this.safeRecord(callControlId, true);
+          await this.safeTranscribe(callControlId);
+        }
         break;
       }
 
@@ -312,6 +373,8 @@ export class CallsController {
       }
 
       case 'call.hangup': {
+        this.recordingStarted.delete(callControlId);
+        this.pendingHangup.delete(callControlId);
         // Diagnostic : cause de raccrochage (utile pour la jambe de transfert
         // vers l'app -> montre si l'INVITE a sonné, été rejeté, 404, etc.).
         this.db.logInbound({
@@ -370,14 +433,27 @@ export class CallsController {
   ) {
     const greeting = customGreeting || this.secretaryGreeting(accountId, closed);
     if (conversational) {
+      // Conversation IA : on enregistre tout l'échange (sans bip) dès le début.
+      await this.safeRecord(callControlId);
+      this.recordingStarted.add(callControlId);
+      await this.safeTranscribe(callControlId);
       try {
         await this.telnyx.gatherUsingAi(callControlId, greeting);
         return; // l'IA mène l'échange ; la suite arrive via call.ai_gather.ended
       } catch (e) {
         this.logger.warn(`gather_using_ai KO (${(e as Error).message}) -> répondeur classique`);
+        // L'enregistrement tourne déjà : on enchaîne sur l'annonce classique.
       }
     }
-    await this.safeSpeak(callControlId, greeting, voice || 'Polly.Lea-Neural');
+    // Répondeur classique : annonce, puis BIP + enregistrement au call.speak.ended
+    // (sinon le bip jouerait par-dessus l'annonce).
+    const spoke = await this.safeSpeak(callControlId, greeting, voice || 'Polly.Lea-Neural');
+    if (!spoke && !this.recordingStarted.has(callControlId)) {
+      // L'annonce a échoué -> on enregistre quand même (filet de sécurité).
+      this.recordingStarted.add(callControlId);
+      await this.safeRecord(callControlId, true);
+      await this.safeTranscribe(callControlId);
+    }
   }
 
   /** Applique les réponses structurées du secrétaire au message vocal. */
@@ -421,17 +497,19 @@ export class CallsController {
   }
 
   /** speak/record tolérants : un échec ne doit pas casser la suite du flux. */
-  private async safeSpeak(callControlId: string, text: string, voice?: string) {
+  private async safeSpeak(callControlId: string, text: string, voice?: string): Promise<boolean> {
     try {
       await this.telnyx.speak(callControlId, text, voice);
+      return true;
     } catch (e) {
       this.logger.warn(`speak KO: ${(e as Error).message}`);
+      return false;
     }
   }
 
-  private async safeRecord(callControlId: string) {
+  private async safeRecord(callControlId: string, playBeep = false) {
     try {
-      await this.telnyx.recordStart(callControlId);
+      await this.telnyx.recordStart(callControlId, playBeep);
     } catch (e) {
       this.logger.warn(`record_start KO: ${(e as Error).message}`);
     }
@@ -441,6 +519,15 @@ export class CallsController {
     const call = this.db.findCallByProviderId(providerCallId);
     if (call) this.db.updateCall(call.id, patch);
   }
+}
+
+/**
+ * Destinations d'appel SORTANT autorisées (pare-feu anti-fraude) — alignées sur
+ * la whitelist du profil Telnyx : France, DOM, Belgique, Suisse, Luxembourg.
+ */
+const ALLOWED_PREFIXES = ['+33', '+590', '+596', '+594', '+262', '+32', '+41', '+352'];
+export function destinationAllowed(e164: string): boolean {
+  return ALLOWED_PREFIXES.some((p) => e164.startsWith(p));
 }
 
 /** Normalise un numéro FR en E.164 : 06... -> +336..., 0033... -> +33..., défaut FR. */

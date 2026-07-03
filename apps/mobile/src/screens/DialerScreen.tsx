@@ -65,7 +65,17 @@ export function DialerScreen({ initialNumber }: { initialNumber?: string }) {
       return;
     }
     // Appel PRO en VoIP (WebRTC) : audio dans l'app, numéro pro en présentation.
-    nav.navigate('Appel', { number: toE164Fr(number), callerId: proNumber, name: contactName || undefined });
+    const dest = toE164Fr(number);
+    // Pare-feu : destinations France / DOM / frontaliers uniquement (anti-fraude).
+    const allowed = ['+33', '+590', '+596', '+594', '+262', '+32', '+41', '+352'];
+    if (!allowed.some((p) => dest.startsWith(p))) {
+      Alert.alert(
+        'Appels internationaux indisponibles',
+        'Votre forfait couvre la France, les DOM, la Belgique, la Suisse et le Luxembourg.',
+      );
+      return;
+    }
+    nav.navigate('Appel', { number: dest, callerId: proNumber, name: contactName || undefined });
   }
 
   return (

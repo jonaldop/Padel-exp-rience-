@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { config } from '../config/config';
 
 /**
  * Stockage de données simple, persistant sur fichier JSON.
@@ -43,7 +44,11 @@ export interface Invoice {
   planName: string;
   baseAmount: number; // prix formule (TTC)
   discountPct: number;
-  total: number; // TTC après remise
+  /** Dépassement de minutes facturé (celui du MOIS PRÉCÉDENT, clos). */
+  overageMinutes?: number;
+  overageAmount?: number;
+  overagePeriod?: string; // YYYY-MM du dépassement
+  total: number; // TTC après remise (+ dépassement éventuel)
   status: 'due' | 'paid' | 'void';
   createdAt: string;
 }
@@ -430,7 +435,17 @@ export class DbService implements OnModuleInit {
       const period = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
       if (!existing.has(period)) {
         const pct = a.discountPct || 0;
-        const total = Math.round(baseAmount * (1 - pct / 100) * 100) / 100;
+        // Dépassement du MOIS PRÉCÉDENT (clos, donc définitif) : facturé au réel
+        // sur la facture du mois courant — sauf formules illimitées.
+        const prev = new Date(cur.getFullYear(), cur.getMonth() - 1, 1);
+        const prevPeriod = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+        const included = plan?.includedMinutes ?? 0;
+        const unlimited = included >= 99999;
+        const overMin = !unlimited && included > 0 && prev >= start
+          ? Math.max(0, this.minutesForMonth(accountId, prevPeriod) - included)
+          : 0;
+        const overAmt = Math.round(overMin * config.overageRatePerMinute * 100) / 100;
+        const total = Math.round((baseAmount * (1 - pct / 100) + overAmt) * 100) / 100;
         const seq = this.data.invoices.length + 1;
         this.data.invoices.push({
           id: randomUUID(),
@@ -441,6 +456,9 @@ export class DbService implements OnModuleInit {
           planName: plan?.name || a.plan,
           baseAmount,
           discountPct: pct,
+          overageMinutes: overMin || undefined,
+          overageAmount: overAmt || undefined,
+          overagePeriod: overMin ? prevPeriod : undefined,
           total,
           status: 'due',
           createdAt: this.now(),
@@ -1045,6 +1063,60 @@ export class DbService implements OnModuleInit {
    * Espace client : forfait courant + consommation (mois en cours + historique
    * mensuel). Sert à l'écran "Mon forfait" de l'app.
    */
+  /** Minutes consommées par un compte sur un mois donné (YYYY-MM). */
+  minutesForMonth(accountId: string, period: string): number {
+    const seconds = this.data.calls
+      .filter((c) => c.accountId === accountId && (c.startedAt || '').slice(0, 7) === period)
+      .reduce((s, c) => s + (c.durationS || 0), 0);
+    return Math.round(seconds / 60);
+  }
+
+  /**
+   * PARE-FEU USAGE (anti-fraude / anti-abus) : état des appels SORTANTS.
+   * - ok       : dans le forfait
+   * - overage  : au-delà des minutes incluses (autorisé, facturé au réel)
+   * - blocked  : plafond dur atteint -> appels sortants coupés
+   * Plafond dur : 2x les minutes incluses (mini +300), fair-use 4000 min
+   * pour les formules illimitées.
+   */
+  usageGuard(accountId: string): {
+    state: 'ok' | 'overage' | 'blocked';
+    usedMinutes: number;
+    includedMinutes: number;
+    capMinutes: number;
+  } {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    const plan = this.data.plans.find((p) => p.key === a?.plan) || null;
+    const included = plan?.includedMinutes ?? 0;
+    const unlimited = included >= 99999;
+    const period = this.now().slice(0, 7);
+    const used = this.minutesForMonth(accountId, period);
+    const cap = unlimited ? 4000 : included > 0 ? Math.max(included * 2, included + 300) : 500;
+    const state = used >= cap ? 'blocked' : !unlimited && included > 0 && used > included ? 'overage' : 'ok';
+    return { state, usedMinutes: used, includedMinutes: included, capMinutes: cap };
+  }
+
+  /** Comptes à surveiller (>80 % du plafond dur ou bloqués) pour l'admin. */
+  adminUsageAlerts() {
+    const alerts: any[] = [];
+    for (const a of this.data.accounts) {
+      if (a.status === 'canceled' || a.status === 'suspended') continue;
+      const g = this.usageGuard(a.id);
+      if (g.usedMinutes >= g.capMinutes * 0.8) {
+        const owner = this.data.users.find((u) => u.accountId === a.id && u.role === 'owner');
+        alerts.push({
+          accountId: a.id,
+          companyName: a.companyName,
+          email: owner?.email || '',
+          plan: a.plan,
+          ...g,
+          blocked: g.state === 'blocked',
+        });
+      }
+    }
+    return alerts.sort((x, y) => y.usedMinutes - x.usedMinutes);
+  }
+
   accountUsage(accountId: string, costPerMinute = 0.02) {
     const account = this.data.accounts.find((a) => a.id === accountId);
     const calls = this.data.calls.filter((c) => c.accountId === accountId);
