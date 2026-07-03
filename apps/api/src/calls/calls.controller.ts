@@ -69,6 +69,50 @@ export class CallsController {
     return this.db.listVoicemails(user.accountId);
   }
 
+  /**
+   * L'app DÉCLARE un appel SORTANT passé en WebRTC : ces appels partent
+   * directement de l'app vers Telnyx, le serveur ne les voit pas — sans ça,
+   * ils manquent à l'historique ET au décompte des minutes (pare-feu).
+   */
+  @UseGuards(JwtGuard)
+  @Post('report')
+  reportOutbound(
+    @CurrentUser() user: JwtPayload,
+    @Body() body: { to?: string; durationS?: number; status?: string },
+  ) {
+    const number = this.db.findFirstPhoneNumber(user.accountId);
+    if (!number) return { error: 'Aucun numéro pro configuré' };
+    const to = toE164Fr(body.to || '');
+    if (!to) return { error: 'Numéro invalide' };
+    const durationS = Math.max(0, Math.min(4 * 3600, Math.round(Number(body.durationS) || 0)));
+    const allowed = ['completed', 'canceled', 'failed'];
+    const status = allowed.includes(body.status || '')
+      ? (body.status as string)
+      : durationS > 0 ? 'completed' : 'canceled';
+    const call = this.db.createCall({
+      accountId: user.accountId,
+      phoneNumberId: number.id,
+      direction: 'outbound',
+      fromE164: number.e164,
+      toE164: to,
+      status,
+      durationS,
+    });
+    // startedAt = début réel (créé à la fin de l'appel).
+    this.db.updateCall(call.id, {
+      startedAt: new Date(Date.now() - durationS * 1000).toISOString(),
+      endedAt: new Date().toISOString(),
+    });
+    return { ok: true };
+  }
+
+  /** Marque tous les vocaux comme lus (éteint le badge de la cloche). */
+  @UseGuards(JwtGuard)
+  @Post('voicemails/mark-read')
+  markVoicemailsRead(@CurrentUser() user: JwtPayload) {
+    return { ok: true, updated: this.db.markVoicemailsRead(user.accountId) };
+  }
+
   /** Supprimer un message vocal (glisser-supprimer dans l'app). */
   @UseGuards(JwtGuard)
   @Delete('voicemails/:id')

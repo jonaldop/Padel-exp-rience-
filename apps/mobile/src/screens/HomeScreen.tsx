@@ -124,14 +124,14 @@ export function HomeScreen() {
               </Text>
             </View>
           </View>
-          <View style={s.bell}>
+          <TouchableOpacity style={s.bell} onPress={() => nav.navigate('Messages')}>
             <Text style={{ fontSize: 18 }}>🔔</Text>
             {unread > 0 && (
               <View style={s.bellBadge}>
                 <Text style={s.bellBadgeTxt}>{unread}</Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Activité du jour */}
