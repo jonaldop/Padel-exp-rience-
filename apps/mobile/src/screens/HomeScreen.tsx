@@ -134,27 +134,10 @@ export function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Activité du jour */}
-        <TouchableOpacity activeOpacity={0.9} onPress={() => nav.navigate('Statistiques')}>
-          <Glass strong style={{ marginTop: 18 }}>
-            <View style={s.cardHead}>
-              <Text style={s.cardTitle}>Activité du jour</Text>
-              <View style={s.pill}>
-                <Text style={s.pillTxt}>Aujourd'hui</Text>
-              </View>
-            </View>
-            <View style={s.tiles}>
-              <StatTile icon="📞" tint="#E8EEFF" value={stats.recus.value} label="Appels reçus" delta={stats.recus.delta} />
-              <StatTile icon="💬" tint="#EAF0FF" value={stats.messages.value} label="Messages" delta={stats.messages.delta} />
-              <StatTile icon="⏱️" tint="#E7F7EE" value={`${stats.taux.value}%`} label="Taux de réponse" delta={stats.taux.delta} />
-              <StatTile icon="👤" tint="#F3EAFF" value={stats.manques.value} label="Appels manqués" delta={stats.manques.delta} invert />
-            </View>
-          </Glass>
-        </TouchableOpacity>
-
-        {/* Réceptionniste IA (secrétariat : transcription + qualification) */}
+        {/* Réceptionniste IA (secrétariat : transcription + qualification).
+            L'« Activité du jour » vit dans Plus -> Statistiques (doublon retiré). */}
         <TouchableOpacity activeOpacity={0.9} onPress={() => nav.navigate('Receptionniste')}>
-          <Glass strong style={{ marginTop: 14 }}>
+          <Glass strong style={{ marginTop: 18 }}>
             <View style={s.cardHead}>
               <Text style={s.cardTitle}>Assistant IA</Text>
               <View style={[s.statusDot, { backgroundColor: ai ? '#E7F7EE' : '#F1F1F4' }]}>
