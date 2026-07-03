@@ -1,4 +1,4 @@
-import { Linking } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { API_URL } from './api';
 
@@ -31,7 +31,10 @@ export async function playVoicemail(
     try {
       const { Audio } = require('expo-av');
       await stopVoicemail();
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      try {
+        // Mode audio non bloquant : un échec ici ne doit pas empêcher la lecture.
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      } catch { /* on lit quand même */ }
       const res = await Audio.Sound.createAsync(
         { uri: audioUrl },
         { shouldPlay: true, progressUpdateIntervalMillis: 250 },
@@ -49,8 +52,10 @@ export async function playVoicemail(
       sound = res.sound;
       currentUrl = audioUrl;
       return 'inline';
-    } catch {
-      /* on retombe sur la page lecteur */
+    } catch (e: any) {
+      // DIAGNOSTIC (temporaire) : montre pourquoi la lecture interne échoue
+      // avant de basculer sur la page lecteur.
+      Alert.alert('Lecture interne impossible', String(e?.message || e).slice(0, 300));
     }
   }
   const q = new URLSearchParams({ src: audioUrl, from: meta?.from || '', date: meta?.date || '' });
