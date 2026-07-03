@@ -70,7 +70,7 @@ export function PlusScreen({ onLogout }: { onLogout: () => void }) {
 
         <Text style={s.version}>Joe — Ta ligne pro · v1.0 · {BUILD_TAG}</Text>
         <Text style={s.version}>
-          Binaire : lecteur audio {requireOptionalNativeModule('ExponentAV') ? '✓' : '✗'} · notifications {requireOptionalNativeModule('ExpoNotifications') ? '✓' : '✗'}
+          Binaire : lecteur audio {requireOptionalNativeModule('ExponentAV') ? '✓' : '✗'} · notifications {requireOptionalNativeModule('ExpoNotificationsEmitter') ? '✓' : '✗'}
         </Text>
       </ScrollView>
     </GradientBg>

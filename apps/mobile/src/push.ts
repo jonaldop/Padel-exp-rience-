@@ -16,7 +16,7 @@ import { navigate } from './nav';
 
 function loadModules(): { Notifications: any; Device: any } | null {
   try {
-    if (!requireOptionalNativeModule('ExpoNotifications')) return null; // ancien binaire
+    if (!requireOptionalNativeModule('ExpoNotificationsEmitter')) return null; // ancien binaire
     return { Notifications: require('expo-notifications'), Device: require('expo-device') };
   } catch {
     return null;
