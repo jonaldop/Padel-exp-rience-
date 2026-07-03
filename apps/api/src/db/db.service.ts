@@ -702,6 +702,10 @@ export class DbService implements OnModuleInit {
     );
   }
 
+  findCallById(id: string) {
+    return this.data.calls.find((c) => c.id === id) || null;
+  }
+
   findCallByProviderId(providerCallId: string) {
     const c = this.data.calls.find((x) => x.providerCallId === providerCallId);
     if (!c) return null;
