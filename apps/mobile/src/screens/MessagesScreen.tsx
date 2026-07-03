@@ -100,7 +100,7 @@ export function MessagesScreen() {
       `🎙️ Message vocal — ${who}`,
       when,
       text ? `\n« ${text} »` : null,
-      `\n▶️ Écouter : ${API_URL}/play?vm=${vm.id}`,
+      `\n▶️ Écouter : https://www.allojoe.fr/play?vm=${vm.id}`,
       `\n— Joe, ta ligne pro`,
     ].filter(Boolean);
     try {
@@ -110,6 +110,15 @@ export function MessagesScreen() {
 
   /** Lecture d'un vocal avec progression (ou pause/reprise si déjà en cours). */
   async function onPlay(vm: any) {
+    // Anciens messages (avant stockage de l'id d'enregistrement) : leur lien
+    // S3 expirait en 10 min — l'audio est définitivement perdu.
+    if (!vm.providerRecordingId && Date.now() - new Date(vm.createdAt).getTime() > 10 * 60_000) {
+      Alert.alert(
+        'Enregistrement expiré',
+        'Ce message date d\'une ancienne version : son audio n\'est plus disponible (la transcription reste). Les nouveaux messages sont conservés sans limite.',
+      );
+      return;
+    }
     if (playing?.id === vm.id) {
       const on = await togglePause();
       setPlaying((p) => (p ? { ...p, on } : p));
