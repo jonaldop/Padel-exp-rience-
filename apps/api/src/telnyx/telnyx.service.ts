@@ -536,6 +536,38 @@ export class TelnyxService {
     });
   }
 
+  /**
+   * SECRÉTAIRE CONVERSATIONNEL (V2) : l'IA Telnyx mène l'échange vocal avec
+   * l'appelant (questions/réponses) et renvoie les infos structurées via
+   * l'événement `call.ai_gather.ended`. Si l'API n'est pas disponible sur le
+   * compte, l'appelant retombe sur le répondeur classique (géré côté contrôleur).
+   */
+  gatherUsingAi(callControlId: string, greeting: string) {
+    return this.api(`/calls/${callControlId}/actions/gather_using_ai`, {
+      method: 'POST',
+      body: {
+        greeting,
+        language: 'fr',
+        voice: 'Polly.Lea-Neural',
+        parameters: {
+          type: 'object',
+          properties: {
+            nom: { type: 'string', description: "Nom de l'appelant" },
+            motif: {
+              type: 'string',
+              enum: ['devis', 'urgence', 'rdv', 'rappel', 'autre'],
+              description: "Raison de l'appel",
+            },
+            details: { type: 'string', description: 'Détail de la demande en une phrase' },
+            urgence: { type: 'boolean', description: "Est-ce urgent (aujourd'hui) ?" },
+            disponibilites: { type: 'string', description: 'Quand rappeler le client' },
+          },
+          required: ['motif', 'details'],
+        },
+      },
+    });
+  }
+
   /** Appel SORTANT (présente le numéro pro du compte). */
   async dial(to: string, from: string) {
     const appId = await this.ensureCallControlApp();

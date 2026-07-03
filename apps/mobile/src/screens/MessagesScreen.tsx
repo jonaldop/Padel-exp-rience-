@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
-import { formatFr } from '../format';
+import { formatFr, toE164Fr } from '../format';
 import { loadContacts, lookupContact } from '../contacts';
 
 type Segment = 'chats' | 'vocal';
@@ -27,10 +27,12 @@ export function MessagesScreen() {
   const [threads, setThreads] = useState<any[]>([]);
   const [vms, setVms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [proNumber, setProNumber] = useState<string | undefined>(undefined);
 
   const load = useCallback(() => {
     setLoading(true);
     loadContacts();
+    api.myNumbers().then((n: any[]) => setProNumber(n?.[0]?.e164)).catch(() => {});
     Promise.all([
       api.threads().then((t) => setThreads(Array.isArray(t) ? t : [])).catch(() => {}),
       api.voicemails().then((v) => setVms(Array.isArray(v) ? v : [])).catch(() => {}),
@@ -142,11 +144,25 @@ export function MessagesScreen() {
                     {vm.aiSummary ? <Text style={s.aiSum}>{vm.aiSummary}</Text> : null}
                     {vm.transcriptionText ? <Text style={s.txt}>« {vm.transcriptionText} »</Text> : null}
                   </View>
-                  {vm.audioUrl ? (
-                    <TouchableOpacity style={s.play} onPress={() => Linking.openURL(vm.audioUrl)}>
-                      <Ionicons name="play" size={17} color={colors.primary} />
-                    </TouchableOpacity>
-                  ) : null}
+                  <View style={{ gap: 8 }}>
+                    {vm.call?.fromE164 ? (
+                      <TouchableOpacity
+                        style={s.callBack}
+                        onPress={() => nav.navigate('Appel', {
+                          number: toE164Fr(vm.call.fromE164),
+                          callerId: proNumber,
+                          name: lookupContact(vm.call.fromE164) || undefined,
+                        })}
+                      >
+                        <Ionicons name="call" size={17} color={colors.green} />
+                      </TouchableOpacity>
+                    ) : null}
+                    {vm.audioUrl ? (
+                      <TouchableOpacity style={s.play} onPress={() => Linking.openURL(vm.audioUrl)}>
+                        <Ionicons name="play" size={17} color={colors.primary} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 </Glass>
               );
             }}
@@ -187,5 +203,6 @@ const s = StyleSheet.create({
   },
   badgeTxt: { color: '#fff', fontSize: 11.5, fontWeight: '800' },
   play: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E8EEFF', alignItems: 'center', justifyContent: 'center' },
+  callBack: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E7F7EE', alignItems: 'center', justifyContent: 'center' },
   empty: { color: colors.muted, textAlign: 'center', marginTop: 60, paddingHorizontal: 30, lineHeight: 21 },
 });

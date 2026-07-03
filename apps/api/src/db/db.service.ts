@@ -73,6 +73,8 @@ export interface PhoneSettings {
   recordingEnabled: boolean;
   aiEnabled: boolean;
   ringInApp?: boolean;
+  /** Secrétaire CONVERSATIONNEL (questions/réponses IA). true par défaut. */
+  aiConversational?: boolean;
 }
 export interface PhoneNumber {
   id: string;
@@ -185,9 +187,9 @@ interface Data {
 }
 
 const DEFAULT_PLANS: Plan[] = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 200, features: ['1 numéro pro', 'Appels & messagerie', 'Horaires & répondeur'], active: true },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 600, features: ['Tout Essentiel', 'Transcription', 'Renvoi avancé'], active: true },
-  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 1500, features: ['Tout Pro', 'Assistant IA', 'Multi-utilisateurs'], active: true },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 500, features: ['1 numéro pro', 'Appels & messagerie', 'Répondeur, horaires & transcription'], active: true },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1500, features: ['Tout Essentiel', 'Secrétariat IA (résumés, urgences)', 'Renvoi avancé'], active: true },
+  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France', 'Multi-utilisateurs'], active: true },
 ];
 
 const DEFAULT_SCHEDULE = JSON.stringify({
@@ -225,8 +227,27 @@ export class DbService implements OnModuleInit {
     // Amorce les formules par défaut au premier démarrage.
     if (!this.data.plans || this.data.plans.length === 0) {
       this.data.plans = DEFAULT_PLANS.map((p) => ({ ...p }));
-      this.save();
+    } else {
+      // Migration 2026-07 : minutes boostées (500/1500/illimité) — uniquement si
+      // le plan a encore ses anciennes valeurs d'origine (on ne touche pas aux
+      // formules personnalisées dans l'admin).
+      const bump: Record<string, { from: number; to: number; features: string[] }> = {
+        essentiel: { from: 200, to: 500, features: ['1 numéro pro', 'Appels & messagerie', 'Répondeur, horaires & transcription'] },
+        pro: { from: 600, to: 1500, features: ['Tout Essentiel', 'Secrétariat IA (résumés, urgences)', 'Renvoi avancé'] },
+        business: { from: 1500, to: 999999, features: ['Tout Pro', 'Appels illimités en France', 'Multi-utilisateurs'] },
+      };
+      let migrated = false;
+      for (const plan of this.data.plans) {
+        const b = bump[plan.key];
+        if (b && plan.includedMinutes === b.from) {
+          plan.includedMinutes = b.to;
+          plan.features = b.features;
+          migrated = true;
+        }
+      }
+      if (migrated) this.save();
     }
+    this.save();
   }
 
   private load() {
