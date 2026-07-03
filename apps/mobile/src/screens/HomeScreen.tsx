@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { api } from '../api';
 import { colors } from '../theme';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { GradientBg, Glass, Delta, Waveform } from '../ui';
+import { GradientBg, Glass, Waveform } from '../ui';
 import { formatFr, toE164Fr } from '../format';
 import { BUILD_TAG } from '../version';
 import { setLineStatusListener, LineStatus } from '../call/incomingCalls';
@@ -14,35 +14,6 @@ import { loadContacts, lookupContact } from '../contacts';
 function isSameDay(iso: string, ref: Date) {
   const d = new Date(iso);
   return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth() && d.getDate() === ref.getDate();
-}
-
-function computeStats(calls: any[], vms: any[]) {
-  const today = new Date();
-  const yest = new Date();
-  yest.setDate(today.getDate() - 1);
-
-  const inb = (c: any) => c.direction === 'inbound';
-  const answered = (c: any) => ['answered', 'completed', 'forwarded'].includes(c.status);
-  const missed = (c: any) => ['missed', 'failed', 'no_answer'].includes(c.status);
-
-  const day = (arr: any[], ref: Date, key = 'startedAt') => arr.filter((x) => isSameDay(x[key] || x.createdAt, ref));
-
-  const todayIn = day(calls, today).filter(inb);
-  const yestIn = day(calls, yest).filter(inb);
-
-  const pct = (a: number, b: number) => (b === 0 ? null : Math.round(((a - b) / b) * 100));
-
-  const rate = (arr: any[]) => {
-    if (arr.length === 0) return 0;
-    return Math.round((arr.filter(answered).length / arr.length) * 100);
-  };
-
-  return {
-    recus: { value: todayIn.length, delta: pct(todayIn.length, yestIn.length) },
-    messages: { value: day(vms, today, 'createdAt').length, delta: pct(day(vms, today, 'createdAt').length, day(vms, yest, 'createdAt').length) },
-    taux: { value: rate(todayIn), delta: pct(rate(todayIn), rate(yestIn)) },
-    manques: { value: todayIn.filter(missed).length, delta: pct(todayIn.filter(missed).length, yestIn.filter(missed).length) },
-  };
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -88,7 +59,6 @@ export function HomeScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const stats = computeStats(calls, vms);
   const name = me?.user?.firstName || me?.account?.companyName || '';
   const recent = calls.slice(0, 3);
   const unread = vms.filter((v) => !v.isRead).length;
@@ -219,35 +189,6 @@ export function HomeScreen() {
   );
 }
 
-function StatTile({
-  icon,
-  tint,
-  value,
-  label,
-  delta,
-  invert,
-}: {
-  icon: string;
-  tint: string;
-  value: number | string;
-  label: string;
-  delta: number | null;
-  invert?: boolean;
-}) {
-  // Pour "appels manqués", une hausse est négative -> on inverse la couleur.
-  const shownDelta = delta === null ? null : invert ? -delta : delta;
-  return (
-    <View style={s.tile}>
-      <View style={[s.tileIcon, { backgroundColor: tint }]}>
-        <Text style={{ fontSize: 17 }}>{icon}</Text>
-      </View>
-      <Text style={s.tileValue}>{value}</Text>
-      <Text style={s.tileLabel}>{label}</Text>
-      <Delta value={shownDelta} />
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 4 },
   hello: { fontSize: 15, color: colors.muted },
@@ -273,15 +214,6 @@ const s = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   pill: { backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
   pillTxt: { fontSize: 13, fontWeight: '600', color: colors.text },
-
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 14 },
-  tile: {
-    width: '48%', backgroundColor: 'rgba(255,255,255,0.65)', borderRadius: 18, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)',
-  },
-  tileIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  tileValue: { fontSize: 26, fontWeight: '800', color: colors.text },
-  tileLabel: { fontSize: 13, color: colors.muted, marginTop: 2, marginBottom: 4 },
 
   statusDot: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
 
