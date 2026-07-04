@@ -194,10 +194,12 @@ interface Data {
   appSettings: Record<string, string>;
 }
 
+// NB : includedMinutes = minutes d'appels SORTANTS. Les appels reçus sont
+// illimités sur toutes les formules (coût entrant négligeable, usage raisonnable).
 const DEFAULT_PLANS: Plan[] = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 500, features: ['1 numéro pro', 'Appels & messagerie', 'Répondeur, horaires & transcription'], active: true },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1500, features: ['Tout Essentiel', 'Secrétariat IA (résumés, urgences)', 'Renvoi avancé'], active: true },
-  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France', 'Multi-utilisateurs'], active: true },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 1000, features: ['1 numéro pro', 'Appels reçus illimités', '1 000 min d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 2000, features: ['Tout Essentiel', 'Appels reçus illimités', '2 000 min d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
+  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'], active: true },
 ];
 
 const DEFAULT_SCHEDULE = JSON.stringify({
@@ -239,17 +241,26 @@ export class DbService implements OnModuleInit {
       // Migration 2026-07 : minutes boostées (500/1500/illimité) — uniquement si
       // le plan a encore ses anciennes valeurs d'origine (on ne touche pas aux
       // formules personnalisées dans l'admin).
-      const bump: Record<string, { from: number; to: number; features: string[] }> = {
-        essentiel: { from: 200, to: 500, features: ['1 numéro pro', 'Appels & messagerie', 'Répondeur, horaires & transcription'] },
-        pro: { from: 600, to: 1500, features: ['Tout Essentiel', 'Secrétariat IA (résumés, urgences)', 'Renvoi avancé'] },
-        business: { from: 1500, to: 999999, features: ['Tout Pro', 'Appels illimités en France', 'Multi-utilisateurs'] },
+      // Migration 2026-07b : appels reçus illimités + minutes SORTANTES alignées
+      // sur la concurrence (1000/2000/illimité). Chaînée après la migration
+      // précédente (200→500→1000…) ; on ne touche pas aux formules custom.
+      const bumps: Record<string, { from: number; to: number }[]> = {
+        essentiel: [{ from: 200, to: 500 }, { from: 500, to: 1000 }],
+        pro: [{ from: 600, to: 1500 }, { from: 1500, to: 2000 }],
+        business: [{ from: 1500, to: 999999 }],
       };
       let migrated = false;
       for (const plan of this.data.plans) {
-        const b = bump[plan.key];
-        if (b && plan.includedMinutes === b.from) {
-          plan.includedMinutes = b.to;
-          plan.features = b.features;
+        for (const b of bumps[plan.key] || []) {
+          if (plan.includedMinutes === b.from) {
+            plan.includedMinutes = b.to;
+            migrated = true;
+          }
+        }
+        // Textes des formules par défaut remis à jour (si non custom).
+        const def = DEFAULT_PLANS.find((d) => d.key === plan.key);
+        if (def && plan.includedMinutes === def.includedMinutes && JSON.stringify(plan.features) !== JSON.stringify(def.features)) {
+          plan.features = [...def.features];
           migrated = true;
         }
       }
@@ -1114,10 +1125,19 @@ export class DbService implements OnModuleInit {
    * Espace client : forfait courant + consommation (mois en cours + historique
    * mensuel). Sert à l'écran "Mon forfait" de l'app.
    */
-  /** Minutes consommées par un compte sur un mois donné (YYYY-MM). */
+  /**
+   * Minutes SORTANTES consommées sur un mois (YYYY-MM). Les appels reçus sont
+   * illimités sur toutes les formules : seul le sortant décompte le forfait
+   * (c'est aussi la seule jambe coûteuse, cf. tarifs Telnyx mobile).
+   */
   minutesForMonth(accountId: string, period: string): number {
     const seconds = this.data.calls
-      .filter((c) => c.accountId === accountId && (c.startedAt || '').slice(0, 7) === period)
+      .filter(
+        (c) =>
+          c.accountId === accountId &&
+          c.direction === 'outbound' &&
+          (c.startedAt || '').slice(0, 7) === period,
+      )
       .reduce((s, c) => s + (c.durationS || 0), 0);
     return Math.round(seconds / 60);
   }
@@ -1127,8 +1147,9 @@ export class DbService implements OnModuleInit {
    * - ok       : dans le forfait
    * - overage  : au-delà des minutes incluses (autorisé, facturé au réel)
    * - blocked  : plafond dur atteint -> appels sortants coupés
-   * Plafond dur : 2x les minutes incluses (mini +300), fair-use 4000 min
-   * pour les formules illimitées.
+   * Plafond dur : 2x les minutes incluses (mini +300), fair-use 3000 min
+   * SORTANTES pour les formules illimitées (au-delà : cas pathologique,
+   * jamais un artisan — cf. analyse coûts Telnyx).
    */
   usageGuard(accountId: string): {
     state: 'ok' | 'overage' | 'blocked';
@@ -1142,7 +1163,7 @@ export class DbService implements OnModuleInit {
     const unlimited = included >= 99999;
     const period = this.now().slice(0, 7);
     const used = this.minutesForMonth(accountId, period);
-    const cap = unlimited ? 4000 : included > 0 ? Math.max(included * 2, included + 300) : 500;
+    const cap = unlimited ? 3000 : included > 0 ? Math.max(included * 2, included + 300) : 500;
     const state = used >= cap ? 'blocked' : !unlimited && included > 0 && used > included ? 'overage' : 'ok';
     return { state, usedMinutes: used, includedMinutes: included, capMinutes: cap };
   }
@@ -1180,12 +1201,14 @@ export class DbService implements OnModuleInit {
     const nowMonth = monthKey(this.now());
 
     // Agrégat par mois (12 derniers mois), tri décroissant.
-    const byMonth = new Map<string, { minutes: number; seconds: number; calls: number; inbound: number; outbound: number }>();
+    // Le forfait ne décompte que les minutes SORTANTES (reçus illimités).
+    const byMonth = new Map<string, { minutes: number; seconds: number; outSeconds: number; calls: number; inbound: number; outbound: number }>();
     for (const c of calls) {
       const m = monthKey(c.startedAt);
       if (!m) continue;
-      const e = byMonth.get(m) || { minutes: 0, seconds: 0, calls: 0, inbound: 0, outbound: 0 };
+      const e = byMonth.get(m) || { minutes: 0, seconds: 0, outSeconds: 0, calls: 0, inbound: 0, outbound: 0 };
       e.seconds += c.durationS || 0;
+      if (c.direction === 'outbound') e.outSeconds += c.durationS || 0;
       e.calls += 1;
       if (c.direction === 'inbound') e.inbound += 1; else e.outbound += 1;
       byMonth.set(m, e);
@@ -1193,7 +1216,7 @@ export class DbService implements OnModuleInit {
     const history = [...byMonth.entries()]
       .map(([month, e]) => ({
         month,
-        minutes: Math.round(e.seconds / 60),
+        minutes: Math.round(e.outSeconds / 60),
         calls: e.calls,
         inbound: e.inbound,
         outbound: e.outbound,
@@ -1201,8 +1224,8 @@ export class DbService implements OnModuleInit {
       .sort((a, b) => b.month.localeCompare(a.month))
       .slice(0, 12);
 
-    const cur = byMonth.get(nowMonth) || { seconds: 0, calls: 0, inbound: 0, outbound: 0, minutes: 0 } as any;
-    const minutesThisMonth = Math.round((cur.seconds || 0) / 60);
+    const cur = byMonth.get(nowMonth) || { seconds: 0, outSeconds: 0, calls: 0, inbound: 0, outbound: 0, minutes: 0 } as any;
+    const minutesThisMonth = Math.round((cur.outSeconds || 0) / 60);
     const remaining = includedMinutes ? Math.max(0, includedMinutes - minutesThisMonth) : 0;
     const overMinutes = includedMinutes ? Math.max(0, minutesThisMonth - includedMinutes) : minutesThisMonth;
     const percentUsed = includedMinutes ? Math.min(100, Math.round((minutesThisMonth / includedMinutes) * 100)) : 0;

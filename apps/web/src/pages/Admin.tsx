@@ -186,7 +186,8 @@ function UsageAlerts({ alerts }: { alerts: any[] }) {
         </div>
       ))}
       <p style={{ color: colors.muted, fontSize: 12.5, margin: '10px 0 0' }}>
-        Plafond dur : 2× les minutes incluses (fair-use 4 000 min sur l'illimité). Au-delà, les appels
+        Seules les minutes SORTANTES décomptent le forfait (appels reçus illimités). Plafond dur :
+        2× les minutes incluses (fair-use 3 000 min sortantes sur l'illimité). Au-delà, les appels
         sortants sont coupés automatiquement. Passez le compte sur une formule supérieure pour débloquer.
       </p>
     </Card>

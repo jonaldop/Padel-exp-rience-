@@ -373,7 +373,9 @@ export function Landing() {
                     <span className="per">/ mois</span>
                   </div>
                   <div className="lp-price-min">
-                    {p.includedMinutes >= 99999 ? 'Appels illimités en France' : `${p.includedMinutes} minutes incluses`}
+                    {p.includedMinutes >= 99999
+                      ? 'Appels illimités en France'
+                      : `Reçus illimités + ${p.includedMinutes.toLocaleString('fr-FR')} min sortantes`}
                   </div>
                   <ul>
                     {(p.features || []).map((f: string) => <li key={f}>{f}</li>)}

@@ -116,6 +116,17 @@ export class NumbersController {
     if (this.db.e164OwnedByOtherAccount(user.accountId, body.e164)) {
       return { error: 'Ce numéro est déjà attribué à un autre compte.' };
     }
+    // Garde-fou anti-abus : chaque numéro acheté nous coûte de l'argent chez
+    // Telnyx. Pendant l'essai gratuit (sans CB), on limite à 1 numéro par
+    // compte — le 2ᵉ numéro sera une option payante (V2).
+    const account = this.db.findAccountById(user.accountId);
+    const owned = this.db.listPhoneNumbers(user.accountId);
+    if (account?.status === 'trial' && owned.length >= 1) {
+      return {
+        error:
+          'Votre essai gratuit inclut 1 numéro pro. Activez votre abonnement pour ajouter des numéros supplémentaires.',
+      };
+    }
     let providerNumberId: string | null = null;
     if (this.telnyx.configured) {
       const res = await this.telnyx.buyNumber(body.e164, user.accountId);
