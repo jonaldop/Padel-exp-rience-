@@ -167,9 +167,9 @@ export const api = {
     }>('/admin/settings', {
       headers: { Authorization: `Bearer ${token}` },
     }),
-  adminSetStripeKey: (token: string, secretKey: string) =>
+  adminSetStripeKey: (token: string, secretKey: string, accountId?: string) =>
     request<{ ok?: boolean; configured?: boolean; keyMasked?: string; error?: string }>('/admin/settings/stripe', {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ secretKey }),
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ secretKey, accountId }),
     }),
   adminSetAiKey: (token: string, apiKey: string) =>
     request<{ ok?: boolean; configured?: boolean; provider?: string; keyMasked?: string; error?: string }>('/admin/settings/ai', {

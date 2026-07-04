@@ -197,6 +197,7 @@ function UsageAlerts({ alerts }: { alerts: any[] }) {
 function StripeSetup({ token }: { token: string }) {
   const [info, setInfo] = useState<any>(null);
   const [key, setKey] = useState('');
+  const [acctId, setAcctId] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -207,7 +208,7 @@ function StripeSetup({ token }: { token: string }) {
     setSaving(true);
     setMsg(null);
     try {
-      const r = await api.adminSetStripeKey(token, key.trim());
+      const r = await api.adminSetStripeKey(token, key.trim(), acctId.trim() || undefined);
       if (r.error) setMsg(`⚠️ ${r.error}`);
       else {
         setMsg(r.configured ? '✅ Clé vérifiée auprès de Stripe et enregistrée. Le bouton « Payer » est actif dans l’app.' : 'Clé retirée : paiement en ligne désactivé.');
@@ -232,17 +233,25 @@ function StripeSetup({ token }: { token: string }) {
         )}
       </div>
       <p style={{ color: colors.muted, fontSize: 13, margin: '8px 0 10px' }}>
-        Collez votre <b>clé secrète Stripe</b> (sk_live_… ou sk_test_… — Dashboard Stripe → Développeurs → Clés API).
+        Collez votre <b>clé secrète Stripe</b> (sk_live_…, sk_test_… ou sk_org_live_… — Dashboard Stripe → Développeurs → Clés API).
         Elle est vérifiée auprès de Stripe avant d'être enregistrée. Une fois posée, chaque facture « À payer »
         affiche un bouton <b>Payer</b> dans l'app, et le paiement marque la facture payée automatiquement.
+        <br />Clé d'<b>organisation</b> (sk_org_…) : indiquez aussi l'ID du compte à encaisser
+        (acct_… — visible dans Stripe → compte → Paramètres).
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Input
           type="password"
-          placeholder="sk_live_…"
+          placeholder="sk_live_… ou sk_org_live_…"
           value={key}
           onChange={(e) => setKey(e.target.value)}
           style={{ flex: 1, minWidth: 260 }}
+        />
+        <Input
+          placeholder="acct_… (si clé sk_org_)"
+          value={acctId}
+          onChange={(e) => setAcctId(e.target.value)}
+          style={{ width: 210 }}
         />
         <Button onClick={save} disabled={saving}>{saving ? 'Vérification…' : 'Enregistrer'}</Button>
       </div>

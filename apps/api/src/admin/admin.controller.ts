@@ -306,13 +306,15 @@ export class AdminController {
   @Post('settings/stripe')
   async setStripeKey(
     @Headers('authorization') authorization: string,
-    @Body() body: { secretKey?: string },
+    @Body() body: { secretKey?: string; accountId?: string },
   ) {
     this.authorize(authorization);
     const key = (body.secretKey || '').trim();
+    const accountId = (body.accountId || '').trim();
     if (!key) {
       // Champ vide -> retire la clé (désactive le paiement en ligne).
       this.db.setSetting('stripeSecretKey', '');
+      this.db.setSetting('stripeAccountId', '');
       return { ok: true, configured: false };
     }
     // Formats acceptés : sk_live_/sk_test_ (classiques), sk_org_live_/sk_org_test_
@@ -321,8 +323,19 @@ export class AdminController {
     if (!/^(sk|rk)(_org)?_(live|test)_/.test(key)) {
       return { error: 'Clé invalide : attendu une clé secrète Stripe (sk_live_…, sk_test_… ou sk_org_live_…).' };
     }
+    // Clé « organisation » : il faut préciser quel compte Stripe viser.
+    if (key.startsWith('sk_org_') && !accountId) {
+      return {
+        error:
+          "Clé d'organisation détectée (sk_org_…) : renseignez aussi l'ID du compte (acct_…) — Stripe → sélectionnez le compte → Paramètres → l'identifiant commence par acct_. Ou utilisez la clé standard du compte (sk_live_…).",
+      };
+    }
+    if (accountId && !/^acct_/.test(accountId)) {
+      return { error: "ID de compte invalide : il commence par acct_…" };
+    }
     // Vérifie la clé en direct auprès de Stripe avant de l'enregistrer.
     this.db.setSetting('stripeSecretKey', key);
+    this.db.setSetting('stripeAccountId', accountId);
     const check = await this.stripe.verifyKey();
     if (!check.ok) {
       this.db.setSetting('stripeSecretKey', '');
