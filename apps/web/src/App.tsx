@@ -7,6 +7,7 @@ import { Numbers } from './pages/Numbers';
 import { Clients } from './pages/Clients';
 import { Admin } from './pages/Admin';
 import { Voicemails } from './pages/Voicemails';
+import { Legal } from './pages/Legal';
 import { Softphone } from './softphone/Softphone';
 import { colors, GlassBackground } from './ui';
 import { useIsMobile } from './useIsMobile';
@@ -52,6 +53,11 @@ export function App() {
   const params = new URLSearchParams(window.location.search);
   const isAdmin = path === '/admin' || params.has('admin');
   if (isAdmin) return <Admin />;
+
+  // Pages légales (mentions, confidentialité, CGV) — publiques.
+  if (path === '/mentions-legales') return <Legal page="mentions" />;
+  if (path === '/confidentialite') return <Legal page="confidentialite" />;
+  if (path === '/cgv') return <Legal page="cgv" />;
 
   // Racine du domaine = SITE COMMERCIAL (découverte + inscription + abonnement).
   // L'espace client vit sur /app. Les liens ?reset= / ?signup= (emails, site)

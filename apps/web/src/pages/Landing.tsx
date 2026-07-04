@@ -454,9 +454,18 @@ export function Landing() {
                 <a href="/app?signup=1">Créer un compte</a>
                 <a href="/app">Se connecter</a>
               </div>
+              <div className="lp-footer-col">
+                <strong>Légal</strong>
+                <a href="/mentions-legales">Mentions légales</a>
+                <a href="/confidentialite">Confidentialité</a>
+                <a href="/cgv">CGV</a>
+              </div>
             </div>
           </div>
-          <div className="lp-copy">© {new Date().getFullYear()} Joe — Ta ligne pro. Tous droits réservés.</div>
+          <div className="lp-copy">
+            © {new Date().getFullYear()} Joe — Ta ligne pro, un service{' '}
+            <b>Webmarketing Services</b> (SIREN 749 919 155). Tous droits réservés.
+          </div>
         </div>
       </footer>
     </div>
