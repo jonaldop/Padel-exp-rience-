@@ -3,7 +3,7 @@ import { api, auth } from '../api';
 import { formatFr } from '../format';
 import '../auth.css';
 
-type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'number' | 'welcome';
+type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'pick' | 'number' | 'welcome';
 
 // Types de numéros proposés à l'inscription (les 06/07 n'existent pas en VoIP)
 const NUM_TYPES = [
@@ -48,6 +48,8 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [numLoading, setNumLoading] = useState(false);
   const [numBuying, setNumBuying] = useState<string | null>(null);
   const [chosenNumber, setChosenNumber] = useState<string | null>(null);
+  // Numéro choisi AVANT la création du compte (réservé au moment de l'inscription)
+  const [draftNumber, setDraftNumber] = useState<any | null>(null);
 
   // Détecte un lien de réinitialisation (…?reset=TOKEN) ou une arrivée depuis
   // le site commercial (…?signup=1&plan=pro).
@@ -60,7 +62,10 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
       return;
     }
     if (params.has('signup')) {
-      setMode('register');
+      // Inscription : le client choisit d'abord SON numéro (étape 1), le
+      // compte vient après — le numéro est réservé à la création.
+      setMode('pick');
+      loadNumbers('geographic', '');
       const p = params.get('plan');
       if (p) setPlan(p);
     }
@@ -93,10 +98,26 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
           const b = await api.billingStatus();
           setBillingEnabled(Boolean(b?.enabled));
         } catch { /* billing indisponible → on continue */ }
-        // Étape suivante : le client choisit son numéro pro.
-        setMode('number');
-        loadNumbers('geographic', '');
         window.history.replaceState({}, '', window.location.pathname);
+        if (draftNumber) {
+          // Le numéro choisi à l'étape 1 est réservé maintenant.
+          try {
+            const r = await api.buyNumber(draftNumber.e164, draftNumber.type);
+            if (!r?.error) {
+              setChosenNumber(draftNumber.e164);
+              setMode('welcome');
+              return;
+            }
+          } catch { /* numéro pris entre-temps → on repropose */ }
+          setDraftNumber(null);
+          setError('Ce numéro vient d’être pris — choisissez-en un autre 👇');
+          setMode('number');
+          loadNumbers(numType, numContains);
+        } else {
+          // Pas de numéro choisi : on le propose maintenant.
+          setMode('number');
+          loadNumbers('geographic', '');
+        }
       } else if (mode === 'forgot') {
         const res = await api.forgot(email);
         setInfo('Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.');
@@ -166,11 +187,28 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     register: { h: 'Créez votre ligne pro', p: 'Essai gratuit 14 jours — sans carte bancaire.' },
     forgot: { h: 'Mot de passe oublié', p: 'On vous envoie un lien de réinitialisation.' },
     reset: { h: 'Nouveau mot de passe', p: 'Choisissez un mot de passe sécurisé.' },
+    pick: { h: 'Choisissez votre numéro 📞', p: 'Étape 1 sur 2 — il sera réservé dès la création de votre compte.' },
     number: { h: 'Choisissez votre numéro 📞', p: 'Votre futur numéro pro — réservé instantanément.' },
     welcome: { h: 'Votre compte est prêt 🎉', p: 'Votre essai gratuit vient de démarrer.' },
   };
 
   const goMode = (m: Mode) => { setMode(m); setError(null); setInfo(null); };
+
+  /** Entrée dans l'inscription : numéro d'abord (sauf s'il est déjà choisi). */
+  const goSignup = () => {
+    setError(null);
+    setInfo(null);
+    if (draftNumber) { setMode('register'); return; }
+    setMode('pick');
+    if (!numAvailable.length) loadNumbers('geographic', '');
+  };
+
+  /** Depuis le formulaire : revenir changer le numéro choisi. */
+  const goSignupChange = () => {
+    setError(null);
+    setMode('pick');
+    if (!numAvailable.length) loadNumbers('geographic', '');
+  };
 
   // Copie du panneau de gauche selon le contexte
   const brandCopy = mode === 'login'
@@ -220,22 +258,24 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
             <p>{heads[mode].p}</p>
           </div>
 
-          {/* Onglets Connexion / Inscription (uniquement sur ces 2 modes) */}
-          {(mode === 'login' || mode === 'register') && (
+          {/* Onglets Connexion / Inscription */}
+          {(mode === 'login' || mode === 'register' || mode === 'pick') && (
             <div className="au-tabs">
               <button className={`au-tab${mode === 'login' ? ' on' : ''}`} onClick={() => goMode('login')} type="button">
                 Se connecter
               </button>
-              <button className={`au-tab${mode === 'register' ? ' on' : ''}`} onClick={() => goMode('register')} type="button">
+              <button className={`au-tab${mode !== 'login' ? ' on' : ''}`} onClick={goSignup} type="button">
                 S’inscrire
               </button>
             </div>
           )}
 
-          {mode === 'number' ? (
-            /* ===== Étape post-inscription : choix du numéro pro ===== */
+          {mode === 'pick' || mode === 'number' ? (
+            /* ===== Choix du numéro pro (étape 1 avant compte, ou repli après) ===== */
             <div>
-              <div className="au-alert ok">✅ Compte créé ! Dernière étape : votre numéro professionnel.</div>
+              {mode === 'number' && !error && (
+                <div className="au-alert ok">✅ Compte créé ! Dernière étape : votre numéro professionnel.</div>
+              )}
 
               <div className="au-field" style={{ marginTop: 14 }}>
                 <label>Type de numéro</label>
@@ -288,7 +328,16 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
                         type="button"
                         className="au-num-choose"
                         disabled={numBuying !== null}
-                        onClick={() => chooseNumber(a)}
+                        onClick={() => {
+                          if (mode === 'pick') {
+                            // Avant le compte : on mémorise le choix, réservation à l'inscription.
+                            setDraftNumber(a);
+                            setError(null);
+                            setMode('register');
+                          } else {
+                            chooseNumber(a);
+                          }
+                        }}
                       >
                         {numBuying === a.e164 ? '…' : 'Choisir'}
                       </button>
@@ -298,9 +347,15 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
               )}
 
               <div className="au-foot">
-                <button type="button" className="au-link" onClick={() => setMode('welcome')}>
-                  Choisir mon numéro plus tard →
-                </button>
+                {mode === 'pick' ? (
+                  <button type="button" className="au-link" onClick={() => { setDraftNumber(null); setMode('register'); }}>
+                    Choisir mon numéro plus tard →
+                  </button>
+                ) : (
+                  <button type="button" className="au-link" onClick={() => setMode('welcome')}>
+                    Choisir mon numéro plus tard →
+                  </button>
+                )}
               </div>
             </div>
           ) : mode === 'welcome' ? (
@@ -339,6 +394,17 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
             <form onSubmit={submit}>
               {mode === 'register' && (
                 <>
+                  {draftNumber && (
+                    <div className="au-draftnum">
+                      <div>
+                        <div className="lbl">Votre numéro</div>
+                        <strong>📞 {formatFr(draftNumber.e164)}</strong>
+                      </div>
+                      <button type="button" className="au-link" onClick={goSignupChange}>
+                        Changer
+                      </button>
+                    </div>
+                  )}
                   <div className="au-field">
                     <label>Votre forfait</label>
                     <div className="au-plans">
@@ -410,7 +476,9 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
                   : mode === 'login'
                     ? 'Se connecter'
                     : mode === 'register'
-                      ? 'Commencer l’essai gratuit'
+                      ? draftNumber
+                        ? 'Réserver mon numéro — essai gratuit'
+                        : 'Commencer l’essai gratuit'
                       : mode === 'forgot'
                         ? 'Envoyer le lien'
                         : 'Changer mon mot de passe'}
