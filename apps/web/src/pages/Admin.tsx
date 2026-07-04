@@ -211,7 +211,9 @@ function StripeSetup({ token }: { token: string }) {
       const r = await api.adminSetStripeKey(token, key.trim(), acctId.trim() || undefined);
       if (r.error) setMsg(`⚠️ ${r.error}`);
       else {
-        setMsg(r.configured ? '✅ Clé vérifiée auprès de Stripe et enregistrée. Le bouton « Payer » est actif dans l’app.' : 'Clé retirée : paiement en ligne désactivé.');
+        setMsg(r.configured
+          ? `✅ Clé vérifiée auprès de Stripe et enregistrée${(r as any).accountId ? ` (compte détecté : ${(r as any).accountId})` : ''}. Le bouton « Payer » est actif dans l’app.`
+          : 'Clé retirée : paiement en ligne désactivé.');
         setKey('');
         load();
       }

@@ -73,6 +73,22 @@ export class StripeService {
     }
   }
 
+  /**
+   * Comptes accessibles par une clé ORGANISATION (sk_org_…) : sert à détecter
+   * automatiquement le compte à encaisser sans demander l'acct_… à l'admin.
+   */
+  async listAccessibleAccounts(): Promise<{ id: string; name: string }[]> {
+    const res = await this.api<any>('/accounts?limit=100');
+    return (res?.data || []).map((a: any) => ({
+      id: a.id,
+      name:
+        a.settings?.dashboard?.display_name ||
+        a.business_profile?.name ||
+        a.email ||
+        a.id,
+    }));
+  }
+
   /** Crée une session Stripe Checkout pour payer une facture. Renvoie l'URL. */
   async checkoutForInvoice(invoice: Invoice, customerEmail?: string): Promise<{ url: string }> {
     const base = config.publicApiUrl;
