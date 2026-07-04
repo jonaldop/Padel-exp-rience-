@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,28 +9,61 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  ScrollView,
 } from 'react-native';
 import { api, auth } from '../api';
 import { colors } from '../theme';
+import { formatFr } from '../format';
+
+// Formules affichées à l'inscription (remplacées par l'API au chargement)
+const FALLBACK_PLANS = [
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99 },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29 },
+  { key: 'business', name: 'Business', monthlyPrice: 49 },
+];
+
+// Types de numéros proposés (les 06/07 n'existent pas en VoIP)
+const NUM_TYPES: [string, string][] = [
+  ['geographic', 'Régional (01-05)'],
+  ['non_geo', 'National (09)'],
+];
 
 export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'number'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Forfait choisi à l'inscription
+  const [plans, setPlans] = useState<any[]>(FALLBACK_PLANS);
+  const [plan, setPlan] = useState('pro');
+  // Étape "choisissez votre numéro"
+  const [numType, setNumType] = useState('geographic');
+  const [numContains, setNumContains] = useState('');
+  const [numAvailable, setNumAvailable] = useState<any[]>([]);
+  const [numLoading, setNumLoading] = useState(false);
+  const [numBuying, setNumBuying] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.plans().then((r) => { if (r?.plans?.length) setPlans(r.plans); }).catch(() => {});
+  }, []);
 
   async function submit() {
     setError(null);
     setLoading(true);
     try {
-      const res =
-        mode === 'login'
-          ? await api.login(email, password)
-          : await api.register({ email, password, companyName });
-      await auth.set(res.token);
-      onLoggedIn();
+      if (mode === 'login') {
+        const res = await api.login(email, password);
+        await auth.set(res.token);
+        onLoggedIn();
+      } else {
+        const res = await api.register({ email, password, companyName, plan });
+        await auth.set(res.token);
+        // Étape suivante : le client choisit son numéro pro.
+        setMode('number');
+        loadNumbers('geographic', '');
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -38,73 +71,206 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
     }
   }
 
+  async function loadNumbers(t = numType, c = numContains) {
+    setNumLoading(true);
+    try {
+      const r = await api.availableNumbers(t, c);
+      setNumAvailable(Array.isArray(r) ? r : []);
+    } catch {
+      setNumAvailable([]);
+    } finally {
+      setNumLoading(false);
+    }
+  }
+
+  async function chooseNumber(a: any) {
+    setError(null);
+    setNumBuying(a.e164);
+    try {
+      const r = await api.buyNumber(a.e164, a.type);
+      if (r?.error) { setError(r.error); return; }
+      onLoggedIn();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setNumBuying(null);
+    }
+  }
+
+  const priceOf = (n: number) => n?.toLocaleString('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0 });
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={s.container}
     >
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <View style={s.logo}>
         <Image source={require('../../assets/mascotte.png')} style={s.logoImg} resizeMode="contain" />
       </View>
       <Text style={s.title}>Joe</Text>
       <Text style={s.tag}>Ta ligne pro</Text>
       <Text style={s.subtitle}>
-        {mode === 'login' ? 'Connexion à votre espace' : 'Créez votre compte'}
+        {mode === 'login'
+          ? 'Connexion à votre espace'
+          : mode === 'register'
+            ? 'Créez votre compte — essai gratuit 14 jours'
+            : 'Choisissez votre numéro pro 📞'}
       </Text>
 
-      <View style={s.card}>
-        {mode === 'register' && (
-          <TextInput
-            style={s.input}
-            placeholder="Nom de l'entreprise"
-            value={companyName}
-            onChangeText={setCompanyName}
-            autoCapitalize="words"
-          />
-        )}
-        <TextInput
-          style={s.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={s.input}
-          placeholder="Mot de passe"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        {error && <Text style={s.error}>⚠️ {error}</Text>}
-        <TouchableOpacity style={s.button} onPress={submit} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={s.buttonText}>
-              {mode === 'login' ? 'Se connecter' : 'Créer mon compte'}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      {mode === 'number' ? (
+        <View style={s.card}>
+          <Text style={s.numIntro}>
+            ✅ Compte créé ! Votre numéro est réservé instantanément et inclus dans votre forfait.
+          </Text>
 
-      <TouchableOpacity
-        onPress={() => {
-          setMode(mode === 'login' ? 'register' : 'login');
-          setError(null);
-        }}
-      >
-        <Text style={s.link}>
-          {mode === 'login' ? "Pas de compte ? S'inscrire" : 'Déjà inscrit ? Se connecter'}
-        </Text>
-      </TouchableOpacity>
+          <View style={s.numTypes}>
+            {NUM_TYPES.map(([key, label]) => {
+              const on = numType === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[s.numType, on && s.numTypeOn]}
+                  onPress={() => { setNumType(key); loadNumbers(key, numContains); }}
+                >
+                  <Text style={[s.numTypeTxt, on && s.numTypeTxtOn]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+            <TextInput
+              style={[s.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="Chiffres : 01, 4242…"
+              placeholderTextColor={colors.muted}
+              value={numContains}
+              onChangeText={setNumContains}
+              keyboardType="number-pad"
+              returnKeyType="search"
+              onSubmitEditing={() => loadNumbers()}
+            />
+            <TouchableOpacity style={s.searchBtn} onPress={() => loadNumbers()}>
+              <Text style={{ fontSize: 18 }}>🔍</Text>
+            </TouchableOpacity>
+          </View>
+
+          {error && <Text style={[s.error, { marginTop: 10 }]}>⚠️ {error}</Text>}
+
+          {numLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 22 }} />
+          ) : numAvailable.length === 0 ? (
+            <Text style={s.numEmpty}>Aucun numéro trouvé — essayez d'autres chiffres ou l'autre type.</Text>
+          ) : (
+            <View style={{ marginTop: 12, gap: 8 }}>
+              {numAvailable.slice(0, 5).map((a) => (
+                <View key={a.e164} style={s.numRow}>
+                  <View>
+                    <Text style={s.numE164}>{formatFr(a.e164)}</Text>
+                    <Text style={s.numSub}>Inclus dans votre forfait</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[s.numChoose, numBuying !== null && { opacity: 0.5 }]}
+                    disabled={numBuying !== null}
+                    onPress={() => chooseNumber(a)}
+                  >
+                    <Text style={s.numChooseTxt}>{numBuying === a.e164 ? '…' : 'Choisir'}</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity onPress={onLoggedIn}>
+            <Text style={[s.link, { marginTop: 16, marginBottom: 2 }]}>Choisir mon numéro plus tard →</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <View style={s.card}>
+            {mode === 'register' && (
+              <>
+                <View style={s.plans}>
+                  {plans.map((p) => {
+                    const on = plan === p.key;
+                    return (
+                      <TouchableOpacity
+                        key={p.key}
+                        style={[s.plan, on && s.planOn]}
+                        onPress={() => setPlan(p.key)}
+                      >
+                        <Text style={[s.planName, on && { color: colors.primary }]}>{p.name}</Text>
+                        <Text style={s.planPrice}>{priceOf(p.monthlyPrice)} €/mois</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <TextInput
+                  style={s.input}
+                  placeholder="Nom de l'entreprise"
+                  placeholderTextColor={colors.muted}
+                  value={companyName}
+                  onChangeText={setCompanyName}
+                  autoCapitalize="words"
+                />
+              </>
+            )}
+            <TextInput
+              style={s.input}
+              placeholder="Email"
+              placeholderTextColor={colors.muted}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <TextInput
+              style={s.input}
+              placeholder="Mot de passe"
+              placeholderTextColor={colors.muted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+            {error && <Text style={s.error}>⚠️ {error}</Text>}
+            <TouchableOpacity style={s.button} onPress={submit} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={s.buttonText}>
+                  {mode === 'login' ? 'Se connecter' : "Commencer l'essai gratuit"}
+                </Text>
+              )}
+            </TouchableOpacity>
+            {mode === 'register' && (
+              <Text style={s.reassure}>✓ Sans carte bancaire · ✓ Sans engagement</Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            onPress={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              setError(null);
+            }}
+          >
+            <Text style={s.link}>
+              {mode === 'login' ? "Pas de compte ? S'inscrire" : 'Déjà inscrit ? Se connecter'}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: 24 },
+  container: { flex: 1, backgroundColor: colors.bg },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingVertical: 48 },
   logo: {
     alignSelf: 'center',
     width: 84,
@@ -139,6 +305,7 @@ const s = StyleSheet.create({
     padding: 14,
     fontSize: 16,
     marginBottom: 12,
+    color: colors.text,
   },
   button: {
     backgroundColor: colors.primary,
@@ -150,4 +317,38 @@ const s = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   error: { color: colors.red, marginBottom: 10 },
   link: { color: colors.primary, textAlign: 'center', marginTop: 18, fontWeight: '600' },
+  reassure: { textAlign: 'center', color: colors.muted, fontSize: 12.5, marginTop: 12 },
+  // Forfaits (inscription)
+  plans: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  plan: {
+    flex: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff',
+  },
+  planOn: { borderWidth: 2, borderColor: colors.primary, backgroundColor: '#EFEBFF' },
+  planName: { fontSize: 13.5, fontWeight: '800', color: colors.text },
+  planPrice: { fontSize: 11.5, color: colors.muted, marginTop: 2 },
+  // Étape numéro
+  numIntro: { fontSize: 13.5, color: '#1a7f37', backgroundColor: '#e7f9ec', borderRadius: 10, padding: 10, lineHeight: 18 },
+  numTypes: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  numType: {
+    flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff',
+  },
+  numTypeOn: { borderWidth: 2, borderColor: colors.primary, backgroundColor: '#EFEBFF' },
+  numTypeTxt: { fontSize: 13, fontWeight: '700', color: colors.muted },
+  numTypeTxtOn: { color: colors.primary },
+  searchBtn: {
+    width: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff',
+  },
+  numEmpty: { color: colors.muted, fontSize: 13.5, textAlign: 'center', marginVertical: 18, lineHeight: 19 },
+  numRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff', borderRadius: 13, borderWidth: 1, borderColor: colors.border,
+    paddingVertical: 11, paddingHorizontal: 13,
+  },
+  numE164: { fontSize: 16, fontWeight: '800', color: colors.text, letterSpacing: 0.3 },
+  numSub: { fontSize: 11.5, color: colors.muted, marginTop: 1 },
+  numChoose: { backgroundColor: colors.primary, borderRadius: 11, paddingVertical: 9, paddingHorizontal: 16 },
+  numChooseTxt: { color: '#fff', fontSize: 13.5, fontWeight: '800' },
 });

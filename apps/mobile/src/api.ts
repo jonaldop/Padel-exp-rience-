@@ -44,7 +44,7 @@ async function request<T = any>(path: string, opts: RequestInit = {}): Promise<T
 }
 
 export const api = {
-  register: (data: { email: string; password: string; companyName: string; firstName?: string }) =>
+  register: (data: { email: string; password: string; companyName: string; firstName?: string; plan?: string }) =>
     request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   login: (email: string, password: string) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -81,6 +81,15 @@ export const api = {
     request<any>('/messages/send', { method: 'POST', body: JSON.stringify({ to, body }) }),
 
   myNumbers: () => request('/numbers'),
+  availableNumbers: (type?: string, contains?: string) => {
+    const p = new URLSearchParams();
+    if (type) p.set('type', type);
+    if (contains) p.set('contains', contains);
+    const qs = p.toString();
+    return request<any[]>('/numbers/available' + (qs ? `?${qs}` : ''));
+  },
+  buyNumber: (e164: string, type?: string) =>
+    request<any>('/numbers/buy', { method: 'POST', body: JSON.stringify({ e164, type }) }),
   updateNumberSettings: (id: string, patch: any) =>
     request(`/numbers/${id}/settings`, { method: 'PATCH', body: JSON.stringify(patch) }),
   previewGreeting: (body: { numberId?: string; which: 'open' | 'closed'; text?: string; voice?: string; to: string }) =>
