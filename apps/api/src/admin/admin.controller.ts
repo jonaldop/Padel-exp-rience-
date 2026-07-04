@@ -310,7 +310,7 @@ export class AdminController {
   ) {
     this.authorize(authorization);
     const key = (body.secretKey || '').trim();
-    const accountId = (body.accountId || '').trim();
+    let accountId = (body.accountId || '').trim();
     if (!key) {
       // Champ vide -> retire la clé (désactive le paiement en ligne).
       this.db.setSetting('stripeSecretKey', '');
@@ -323,15 +323,35 @@ export class AdminController {
     if (!/^(sk|rk)(_org)?_(live|test)_/.test(key)) {
       return { error: 'Clé invalide : attendu une clé secrète Stripe (sk_live_…, sk_test_… ou sk_org_live_…).' };
     }
-    // Clé « organisation » : il faut préciser quel compte Stripe viser.
-    if (key.startsWith('sk_org_') && !accountId) {
-      return {
-        error:
-          "Clé d'organisation détectée (sk_org_…) : renseignez aussi l'ID du compte (acct_…) — Stripe → sélectionnez le compte → Paramètres → l'identifiant commence par acct_. Ou utilisez la clé standard du compte (sk_live_…).",
-      };
-    }
     if (accountId && !/^acct_/.test(accountId)) {
       return { error: "ID de compte invalide : il commence par acct_…" };
+    }
+    // Clé « organisation » sans compte précisé : on DÉTECTE le compte tout
+    // seul en listant les comptes accessibles avec cette clé.
+    if (key.startsWith('sk_org_') && !accountId) {
+      this.db.setSetting('stripeSecretKey', key);
+      this.db.setSetting('stripeAccountId', '');
+      try {
+        const accounts = await this.stripe.listAccessibleAccounts();
+        if (accounts.length === 1) {
+          accountId = accounts[0].id;
+        } else if (accounts.length > 1) {
+          this.db.setSetting('stripeSecretKey', '');
+          return {
+            error:
+              `Cette clé donne accès à ${accounts.length} comptes — indiquez lequel encaisse Joe dans le champ acct_ : ` +
+              accounts.map((a) => `${a.id} (${a.name})`).join(' · '),
+          };
+        } else {
+          this.db.setSetting('stripeSecretKey', '');
+          return { error: "Aucun compte accessible avec cette clé — vérifiez la clé, ou indiquez l'acct_… manuellement." };
+        }
+      } catch (e) {
+        this.db.setSetting('stripeSecretKey', '');
+        return {
+          error: `Détection du compte impossible (${(e as Error).message}). Indiquez l'ID du compte (acct_…) dans le champ à côté de la clé.`,
+        };
+      }
     }
     // Vérifie la clé en direct auprès de Stripe avant de l'enregistrer.
     this.db.setSetting('stripeSecretKey', key);
@@ -341,7 +361,12 @@ export class AdminController {
       this.db.setSetting('stripeSecretKey', '');
       return { error: `Clé refusée par Stripe : ${check.error}` };
     }
-    return { ok: true, configured: true, keyMasked: `${key.slice(0, 7)}…${key.slice(-4)}` };
+    return {
+      ok: true,
+      configured: true,
+      keyMasked: `${key.slice(0, 7)}…${key.slice(-4)}`,
+      accountId: accountId || undefined,
+    };
   }
 
   /** Configure le push VoIP iOS (certificat APNs) dans Telnyx. */
