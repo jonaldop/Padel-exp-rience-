@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react';
 import { api, auth } from '../api';
+import { formatFr } from '../format';
 import '../auth.css';
 
-type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'welcome';
+type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'number' | 'welcome';
+
+// Types de numéros proposés à l'inscription (les 06/07 n'existent pas en VoIP)
+const NUM_TYPES = [
+  { key: 'geographic', label: 'Régional (01-05)' },
+  { key: 'non_geo', label: 'National (09)' },
+];
 
 // Formules affichées dans le tunnel d'inscription (remplacées par l'API)
 const FALLBACK_PLANS = [
@@ -34,6 +41,13 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [plan, setPlan] = useState<string>('pro');
   const [billingEnabled, setBillingEnabled] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
+  // Étape "choisissez votre numéro" (juste après la création du compte)
+  const [numType, setNumType] = useState('geographic');
+  const [numContains, setNumContains] = useState('');
+  const [numAvailable, setNumAvailable] = useState<any[]>([]);
+  const [numLoading, setNumLoading] = useState(false);
+  const [numBuying, setNumBuying] = useState<string | null>(null);
+  const [chosenNumber, setChosenNumber] = useState<string | null>(null);
 
   // Détecte un lien de réinitialisation (…?reset=TOKEN) ou une arrivée depuis
   // le site commercial (…?signup=1&plan=pro).
@@ -77,14 +91,12 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
         auth.token = res.token;
         try {
           const b = await api.billingStatus();
-          if (b?.enabled) {
-            setBillingEnabled(true);
-            setMode('welcome');
-            window.history.replaceState({}, '', window.location.pathname);
-            return;
-          }
+          setBillingEnabled(Boolean(b?.enabled));
         } catch { /* billing indisponible → on continue */ }
-        onLoggedIn();
+        // Étape suivante : le client choisit son numéro pro.
+        setMode('number');
+        loadNumbers('geographic', '');
+        window.history.replaceState({}, '', window.location.pathname);
       } else if (mode === 'forgot') {
         const res = await api.forgot(email);
         setInfo('Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.');
@@ -100,6 +112,34 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  /** Recherche des numéros disponibles (étape post-inscription). */
+  async function loadNumbers(t = numType, c = numContains) {
+    setNumLoading(true);
+    try {
+      setNumAvailable(await api.availableNumbers(t, c));
+    } catch {
+      setNumAvailable([]);
+    } finally {
+      setNumLoading(false);
+    }
+  }
+
+  /** Réserve le numéro choisi et passe à l'étape de bienvenue. */
+  async function chooseNumber(a: any) {
+    setError(null);
+    setNumBuying(a.e164);
+    try {
+      const r = await api.buyNumber(a.e164, a.type);
+      if (r?.error) { setError(r.error); return; }
+      setChosenNumber(a.e164);
+      setMode('welcome');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setNumBuying(null);
     }
   }
 
@@ -126,6 +166,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     register: { h: 'Créez votre ligne pro', p: 'Essai gratuit 14 jours — sans carte bancaire.' },
     forgot: { h: 'Mot de passe oublié', p: 'On vous envoie un lien de réinitialisation.' },
     reset: { h: 'Nouveau mot de passe', p: 'Choisissez un mot de passe sécurisé.' },
+    number: { h: 'Choisissez votre numéro 📞', p: 'Votre futur numéro pro — réservé instantanément.' },
     welcome: { h: 'Votre compte est prêt 🎉', p: 'Votre essai gratuit vient de démarrer.' },
   };
 
@@ -191,12 +232,89 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
             </div>
           )}
 
-          {mode === 'welcome' ? (
+          {mode === 'number' ? (
+            /* ===== Étape post-inscription : choix du numéro pro ===== */
+            <div>
+              <div className="au-alert ok">✅ Compte créé ! Dernière étape : votre numéro professionnel.</div>
+
+              <div className="au-field" style={{ marginTop: 14 }}>
+                <label>Type de numéro</label>
+                <div className="au-numtypes">
+                  {NUM_TYPES.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      className={`au-numtype${numType === t.key ? ' on' : ''}`}
+                      onClick={() => { setNumType(t.key); loadNumbers(t.key, numContains); }}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="au-field">
+                <label>Envie d’un numéro facile à retenir ? (optionnel)</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    className="au-input"
+                    value={numContains}
+                    onChange={(e) => setNumContains(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); loadNumbers(); } }}
+                    placeholder="Chiffres : 01, 4242, 0000…"
+                    style={{ flex: 1 }}
+                  />
+                  <button type="button" className="au-btn-soft" style={{ marginTop: 0, width: 'auto', padding: '0 18px' }} onClick={() => loadNumbers()}>
+                    🔍
+                  </button>
+                </div>
+              </div>
+
+              {error && <div className="au-alert err">⚠️ {error}</div>}
+
+              {numLoading ? (
+                <p style={{ color: '#7a7f9a', textAlign: 'center', margin: '18px 0' }}>Recherche de numéros…</p>
+              ) : numAvailable.length === 0 ? (
+                <div className="au-alert info">Aucun numéro trouvé pour ces critères — essayez d’autres chiffres ou l’autre type.</div>
+              ) : (
+                <div className="au-numlist">
+                  {numAvailable.slice(0, 6).map((a) => (
+                    <div key={a.e164} className="au-numrow">
+                      <div>
+                        <strong>{formatFr(a.e164)}</strong>
+                        <span>Inclus dans votre forfait</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="au-num-choose"
+                        disabled={numBuying !== null}
+                        onClick={() => chooseNumber(a)}
+                      >
+                        {numBuying === a.e164 ? '…' : 'Choisir'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="au-foot">
+                <button type="button" className="au-link" onClick={() => setMode('welcome')}>
+                  Choisir mon numéro plus tard →
+                </button>
+              </div>
+            </div>
+          ) : mode === 'welcome' ? (
             /* ===== Étape post-inscription : essai lancé + abonnement ===== */
             <div>
               <div className="au-alert ok">
                 ✅ Votre essai gratuit de 14 jours commence maintenant. Aucun débit avant la fin de l’essai.
               </div>
+              {chosenNumber && (
+                <div className="au-welcome-plan" style={{ marginTop: 12 }}>
+                  <div className="lbl">Votre numéro pro</div>
+                  <div className="row"><strong>📞 {formatFr(chosenNumber)}</strong></div>
+                </div>
+              )}
               {chosenPlan && (
                 <div className="au-welcome-plan">
                   <div className="lbl">Votre forfait</div>

@@ -171,6 +171,31 @@
 .au-welcome-plan .row .price { font-weight: 800; font-size: 18px; }
 .au-welcome-plan .row .price small { color: var(--muted); font-size: 13px; font-weight: 600; }
 
+/* Étape "Choisissez votre numéro" (post-inscription) */
+.au-numtypes { display: flex; gap: 8px; }
+.au-numtype {
+  flex: 1; padding: 10px 8px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--line); background: #fbfbfd; color: var(--muted);
+  font-size: 13.5px; font-weight: 700; transition: all 0.15s ease;
+}
+.au-numtype.on {
+  border: 2px solid var(--brand2); background: rgba(124, 92, 240, 0.06);
+  color: var(--brand2); padding: 9px 7px;
+}
+.au-numlist { display: grid; gap: 8px; margin-top: 4px; }
+.au-numrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 14px; border-radius: 13px; border: 1px solid var(--line); background: #fbfbfd;
+}
+.au-numrow strong { display: block; font-size: 16px; letter-spacing: 0.02em; }
+.au-numrow span { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+.au-num-choose {
+  border: none; cursor: pointer; border-radius: 11px; padding: 9px 16px;
+  background: var(--grad); color: #fff; font-size: 13.5px; font-weight: 800;
+  box-shadow: 0 6px 14px rgba(124, 92, 240, 0.28);
+}
+.au-num-choose:disabled { opacity: 0.55; cursor: default; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
   .au { grid-template-columns: 1fr; }
