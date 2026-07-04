@@ -91,6 +91,9 @@ export const api = {
   },
   buyNumber: (e164: string, type?: string) =>
     request<any>('/numbers/buy', { method: 'POST', body: JSON.stringify({ e164, type }) }),
+  // Réserve le numéro choisi à l'inscription : acheté après paiement.
+  reserveNumber: (e164: string, type?: string) =>
+    request<any>('/numbers/reserve', { method: 'POST', body: JSON.stringify({ e164, type }) }),
   updateNumberSettings: (id: string, patch: any) =>
     request(`/numbers/${id}/settings`, { method: 'PATCH', body: JSON.stringify(patch) }),
   previewGreeting: (body: { numberId?: string; which: 'open' | 'closed'; text?: string; voice?: string; to: string }) =>

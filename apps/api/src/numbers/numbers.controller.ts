@@ -109,6 +109,26 @@ export class NumbersController {
     return { imported, skipped };
   }
 
+  /** Le paiement en ligne est-il branché (clé Stripe env ou back-office) ? */
+  private get billingConfigured(): boolean {
+    return Boolean(process.env.STRIPE_SECRET_KEY || this.db.getSetting('stripeSecretKey'));
+  }
+
+  /**
+   * Réserver un numéro EN ATTENTE DE PAIEMENT : mémorisé sur le compte,
+   * il sera réellement acheté chez Telnyx à la confirmation de l'abonnement
+   * Stripe (le client paie d'abord — le numéro nous coûte de l'argent).
+   */
+  @Post('reserve')
+  reserve(@CurrentUser() user: JwtPayload, @Body() body: { e164: string; type?: string }) {
+    if (!body?.e164) return { error: 'Numéro manquant' };
+    if (this.db.e164OwnedByOtherAccount(user.accountId, body.e164)) {
+      return { error: 'Ce numéro est déjà attribué à un autre compte.' };
+    }
+    this.db.setPendingNumber(user.accountId, { e164: body.e164, type: body.type });
+    return { ok: true, pending: { e164: body.e164, type: body.type } };
+  }
+
   /** Acheter un nouveau numéro et l'attribuer au compte. */
   @Post('buy')
   async buy(@CurrentUser() user: JwtPayload, @Body() body: { e164: string; type?: string }) {
@@ -116,15 +136,24 @@ export class NumbersController {
     if (this.db.e164OwnedByOtherAccount(user.accountId, body.e164)) {
       return { error: 'Ce numéro est déjà attribué à un autre compte.' };
     }
-    // Garde-fou anti-abus : chaque numéro acheté nous coûte de l'argent chez
-    // Telnyx. Pendant l'essai gratuit (sans CB), on limite à 1 numéro par
-    // compte — le 2ᵉ numéro sera une option payante (V2).
     const account = this.db.findAccountById(user.accountId);
     const owned = this.db.listPhoneNumbers(user.accountId);
+    // PAIEMENT D'ABORD : dès que Stripe est branché, un compte non payant ne
+    // peut pas déclencher d'achat — il réserve (pendingNumber) et paie.
+    if (this.billingConfigured && account?.status === 'trial') {
+      this.db.setPendingNumber(user.accountId, { e164: body.e164, type: body.type });
+      return {
+        error:
+          'Votre numéro est réservé. Activez votre abonnement pour le mettre en service — il sera acheté automatiquement après le paiement.',
+        reserved: true,
+      };
+    }
+    // Garde-fou anti-abus (mode sans paiement en ligne) : chaque numéro coûte
+    // chez Telnyx -> 1 numéro par compte non abonné, le 2ᵉ sera payant (V2).
     if (account?.status === 'trial' && owned.length >= 1) {
       return {
         error:
-          'Votre essai gratuit inclut 1 numéro pro. Activez votre abonnement pour ajouter des numéros supplémentaires.',
+          'Votre compte inclut 1 numéro pro. Activez votre abonnement pour ajouter des numéros supplémentaires.',
       };
     }
     let providerNumberId: string | null = null;

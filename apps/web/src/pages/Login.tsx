@@ -94,16 +94,21 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
       } else if (mode === 'register') {
         const res = await api.register({ email, password, companyName, firstName, plan });
         auth.token = res.token;
+        let billingOn = false;
         try {
           const b = await api.billingStatus();
-          setBillingEnabled(Boolean(b?.enabled));
+          billingOn = Boolean(b?.enabled);
+          setBillingEnabled(billingOn);
         } catch { /* billing indisponible → on continue */ }
         window.history.replaceState({}, '', window.location.pathname);
         if (draftNumber) {
-          // Le numéro choisi à l'étape 1 est réservé maintenant.
+          // PAIEMENT D'ABORD : quand Stripe est branché, le numéro est réservé
+          // et acheté automatiquement après le paiement de l'abonnement.
           try {
-            const r = await api.buyNumber(draftNumber.e164, draftNumber.type);
-            if (!r?.error) {
+            const r = billingOn
+              ? await api.reserveNumber(draftNumber.e164, draftNumber.type)
+              : await api.buyNumber(draftNumber.e164, draftNumber.type);
+            if (!r?.error || r?.reserved) {
               setChosenNumber(draftNumber.e164);
               setMode('welcome');
               return;
@@ -148,13 +153,16 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     }
   }
 
-  /** Réserve le numéro choisi et passe à l'étape de bienvenue. */
+  /** Réserve/achète le numéro choisi (post-inscription) et passe à la bienvenue. */
   async function chooseNumber(a: any) {
     setError(null);
     setNumBuying(a.e164);
     try {
-      const r = await api.buyNumber(a.e164, a.type);
-      if (r?.error) { setError(r.error); return; }
+      // Stripe branché -> simple réservation (achat après paiement).
+      const r = billingEnabled
+        ? await api.reserveNumber(a.e164, a.type)
+        : await api.buyNumber(a.e164, a.type);
+      if (r?.error && !r?.reserved) { setError(r.error); return; }
       setChosenNumber(a.e164);
       setMode('welcome');
     } catch (err: any) {
@@ -184,12 +192,17 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
 
   const heads: Record<Mode, { h: string; p: string }> = {
     login: { h: 'Bon retour 👋', p: 'Connectez-vous à votre espace Joe.' },
-    register: { h: 'Créez votre ligne pro', p: 'Essai gratuit 14 jours — sans carte bancaire.' },
+    register: { h: 'Créez votre ligne pro', p: 'Votre numéro est mis en service dès le paiement.' },
     forgot: { h: 'Mot de passe oublié', p: 'On vous envoie un lien de réinitialisation.' },
     reset: { h: 'Nouveau mot de passe', p: 'Choisissez un mot de passe sécurisé.' },
     pick: { h: 'Choisissez votre numéro 📞', p: 'Étape 1 sur 2 — il sera réservé dès la création de votre compte.' },
     number: { h: 'Choisissez votre numéro 📞', p: 'Votre futur numéro pro — réservé instantanément.' },
-    welcome: { h: 'Votre compte est prêt 🎉', p: 'Votre essai gratuit vient de démarrer.' },
+    welcome: {
+      h: 'Votre compte est prêt 🎉',
+      p: billingEnabled
+        ? 'Plus qu’une étape : activez votre abonnement pour mettre votre ligne en service.'
+        : 'Votre essai vient de démarrer.',
+    },
   };
 
   const goMode = (m: Mode) => { setMode(m); setError(null); setInfo(null); };
@@ -213,7 +226,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   // Copie du panneau de gauche selon le contexte
   const brandCopy = mode === 'login'
     ? { h: 'Votre ligne pro vous attend.', s: 'Vos appels, vos messages et vos clients, réunis dans une seule application.' }
-    : { h: 'La ligne pro des artisans et indépendants.', s: 'Un vrai numéro professionnel, prêt en 5 minutes. Testez 14 jours, gratuitement.' };
+    : { h: 'La ligne pro des artisans et indépendants.', s: 'Un vrai numéro professionnel, prêt en 5 minutes. Sans engagement.' };
 
   return (
     <div className="au">
@@ -359,14 +372,16 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
               </div>
             </div>
           ) : mode === 'welcome' ? (
-            /* ===== Étape post-inscription : essai lancé + abonnement ===== */
+            /* ===== Étape post-inscription : activation de l'abonnement ===== */
             <div>
               <div className="au-alert ok">
-                ✅ Votre essai gratuit de 14 jours commence maintenant. Aucun débit avant la fin de l’essai.
+                {billingEnabled
+                  ? '✅ Compte créé ! Votre numéro est réservé — il est mis en service dès le paiement.'
+                  : '✅ Votre compte est créé.'}
               </div>
               {chosenNumber && (
                 <div className="au-welcome-plan" style={{ marginTop: 12 }}>
-                  <div className="lbl">Votre numéro pro</div>
+                  <div className="lbl">{billingEnabled ? 'Votre numéro (réservé pour vous)' : 'Votre numéro pro'}</div>
                   <div className="row"><strong>📞 {formatFr(chosenNumber)}</strong></div>
                 </div>
               )}
@@ -382,11 +397,13 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
               {error && <div className="au-alert err" style={{ marginTop: 14 }}>⚠️ {error}</div>}
               {billingEnabled && (
                 <button className="au-btn" onClick={activateSubscription} disabled={subLoading} style={{ marginTop: 18 }}>
-                  {subLoading ? '…' : '💳 Activer mon abonnement'}
+                  {subLoading
+                    ? '…'
+                    : `💳 Payer ${chosenPlan ? `${priceOf(chosenPlan.monthlyPrice)} €/mois` : ''} et activer ma ligne`}
                 </button>
               )}
               <button className="au-btn-soft" onClick={onLoggedIn} style={{ marginTop: 12 }}>
-                Découvrir mon espace →
+                {billingEnabled ? 'Plus tard — découvrir mon espace →' : 'Découvrir mon espace →'}
               </button>
               <p className="au-reassure">Sans engagement — résiliable à tout moment depuis votre espace.</p>
             </div>
@@ -477,15 +494,15 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
                     ? 'Se connecter'
                     : mode === 'register'
                       ? draftNumber
-                        ? 'Réserver mon numéro — essai gratuit'
-                        : 'Commencer l’essai gratuit'
+                        ? 'Réserver mon numéro'
+                        : 'Créer mon compte'
                       : mode === 'forgot'
                         ? 'Envoyer le lien'
                         : 'Changer mon mot de passe'}
               </button>
 
               {mode === 'register' && (
-                <p className="au-reassure">✓ Sans carte bancaire &nbsp;·&nbsp; ✓ Sans engagement &nbsp;·&nbsp; ✓ Résiliable en 1 clic</p>
+                <p className="au-reassure">✓ Sans engagement &nbsp;·&nbsp; ✓ Résiliable en 1 clic &nbsp;·&nbsp; ✓ Paiement sécurisé Stripe</p>
               )}
 
               {(mode === 'forgot' || mode === 'reset') && (

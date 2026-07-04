@@ -22,7 +22,7 @@ Plombiers, électriciens, menuisiers, peintres, paysagistes, taxis et VTC, coiff
 - **Pro — 29 €/mois** : tout Essentiel, appels reçus illimités + 2 000 min sortantes, secrétariat IA (résumés, urgences).
 - **Business — 49 €/mois** : tout Pro, appels illimités en France (usage professionnel raisonnable), multi-utilisateurs.
 
-Tous les forfaits incluent **14 jours d'essai gratuit sans carte bancaire**. Abonnement mensuel, sans engagement, résiliable en un clic. Paiement sécurisé par carte bancaire (Stripe), facture disponible chaque mois.
+Le numéro pro est inclus dans le forfait, activé immédiatement après souscription. Abonnement mensuel, sans engagement, résiliable en un clic. Paiement sécurisé par carte bancaire (Stripe), facture disponible chaque mois.
 
 ## Points clés / différenciateurs
 
@@ -34,7 +34,7 @@ Tous les forfaits incluent **14 jours d'essai gratuit sans carte bancaire**. Abo
 ## Liens
 
 - Site : https://www.allojoe.fr/
-- Créer un compte / essai gratuit : https://www.allojoe.fr/app?signup=1
+- Créer un compte / obtenir un numéro : https://www.allojoe.fr/app?signup=1
 - Se connecter : https://www.allojoe.fr/app
 
 ## Contact

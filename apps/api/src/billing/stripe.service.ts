@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Account, DbService, Invoice } from '../db/db.service';
+import { TelnyxService } from '../telnyx/telnyx.service';
 import { config } from '../config/config';
 
 /**
@@ -13,7 +14,10 @@ import { config } from '../config/config';
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
 
-  constructor(private readonly db: DbService) {}
+  constructor(
+    private readonly db: DbService,
+    private readonly telnyx: TelnyxService,
+  ) {}
 
   /** Clé secrète active (env prioritaire, sinon réglage back-office). */
   get secretKey(): string {
@@ -114,6 +118,8 @@ export class StripeService {
         const period = new Date().toISOString().slice(0, 7);
         this.db.recordPaidInvoice(accountId, period, (s.amount_total || 0) / 100);
         this.logger.log(`Abonnement Stripe activé pour le compte ${accountId} (${s.subscription})`);
+        // Le numéro réservé à l'inscription est acheté MAINTENANT (client payant).
+        await this.activatePendingNumber(accountId);
       }
     } else {
       const invoiceId = s?.metadata?.invoiceId;
@@ -143,6 +149,48 @@ export class StripeService {
     const acc = this.db.findAccountById(accountId);
     if (acc && acc.status === 'past_due') this.db.updateAccountStatus(accountId, 'active');
     this.logger.log(`Prélèvement Stripe encaissé : compte ${accountId}, période ${period}`);
+    // Filet de sécurité : si le webhook arrive avant la page de succès.
+    await this.activatePendingNumber(accountId);
+  }
+
+  /**
+   * Achète chez Telnyx le numéro réservé à l'inscription (pendingNumber),
+   * une fois le paiement confirmé. Idempotent : le pending est effacé après
+   * achat, un second appel ne fait rien.
+   */
+  async activatePendingNumber(accountId: string): Promise<void> {
+    const acc = this.db.findAccountById(accountId);
+    const pending = acc?.pendingNumber;
+    if (!pending?.e164) return;
+    if (this.db.e164OwnedByOtherAccount(accountId, pending.e164)) {
+      // Pris entre-temps : on efface, le client choisira un autre numéro
+      // depuis son espace (cas rarissime).
+      this.db.setPendingNumber(accountId, null);
+      this.logger.warn(`Numéro réservé ${pending.e164} déjà pris — compte ${accountId} devra rechoisir`);
+      return;
+    }
+    let providerNumberId: string | null = null;
+    if (this.telnyx.configured) {
+      try {
+        const res = await this.telnyx.buyNumber(pending.e164, accountId);
+        providerNumberId = res.providerNumberId;
+      } catch (e) {
+        // Achat Telnyx échoué (numéro retiré du stock…) : on garde le pending
+        // pour re-tenter au prochain paiement/webhook, et on alerte dans les logs.
+        this.logger.error(`Achat Telnyx échoué pour ${pending.e164} (compte ${accountId}) : ${(e as Error).message}`);
+        return;
+      }
+    }
+    this.db.createPhoneNumber({
+      accountId,
+      e164: pending.e164,
+      type: pending.type,
+      providerNumberId,
+      origin: 'new',
+      status: 'active',
+    });
+    this.db.setPendingNumber(accountId, null);
+    this.logger.log(`Numéro ${pending.e164} activé après paiement (compte ${accountId})`);
   }
 
   /** Échec de prélèvement : passe le compte en impayé (après re-vérification). */

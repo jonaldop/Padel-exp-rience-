@@ -11,9 +11,9 @@ import '../landing.css';
 
 // Formules par défaut (affichées immédiatement, remplacées par l'API)
 const FALLBACK_PLANS = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 500, features: ['1 numéro pro', 'Appels & messagerie', 'Répondeur, horaires & transcription'] },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1500, features: ['Tout Essentiel', 'Secrétariat IA (résumés, urgences)', 'Renvoi avancé'] },
-  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France', 'Multi-utilisateurs'] },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 1000, features: ['1 numéro pro', 'Appels reçus illimités', '1 000 min d’appels sortants', 'Répondeur, horaires & transcription'] },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 2000, features: ['Tout Essentiel', 'Appels reçus illimités', '2 000 min d’appels sortants', 'Secrétariat IA (résumés, urgences)'] },
+  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'] },
 ];
 
 const TRADES = ['🔧 Plombiers', '⚡ Électriciens', '🪚 Menuisiers', '🎨 Peintres', '🌿 Paysagistes', '🚕 Taxis & VTC', '💇 Coiffeurs', '🏋️ Coachs', '🧹 Services à domicile', '📸 Photographes'];
@@ -32,7 +32,7 @@ const FAQ = [
   { q: 'Est-ce que je garde mon numéro personnel ?', a: 'Oui. Votre numéro et votre forfait actuels ne changent pas d’un millimètre. Joe ajoute une deuxième ligne, 100 % professionnelle, à côté. Vous savez toujours si un appel est pro ou perso avant de décrocher.' },
   { q: 'Comment mes clients me joignent-ils ?', a: 'Ils composent votre numéro pro comme n’importe quel numéro. Votre téléphone sonne via l’app Joe, même verrouillé ou en veille, avec le nom du client affiché. S’ils laissent un message, vous recevez la transcription en texte.' },
   { q: 'La qualité des appels est-elle bonne ?', a: 'Oui — les appels passent en haute définition par internet, sur l’infrastructure télécom professionnelle qui équipe aussi les grands centres d’appels. En 4G/5G ou Wi-Fi, la qualité est au niveau d’un appel classique, souvent meilleure.' },
-  { q: 'Puis-je essayer avant de payer ?', a: `Oui : 14 jours d'essai gratuit, sans carte bancaire. Vous créez votre compte, choisissez votre numéro et testez en conditions réelles. Vous n'activez l'abonnement que si Joe vous convient.` },
+  { q: 'Quand ma ligne est-elle activée ?', a: 'Immédiatement : vous choisissez votre numéro, créez votre compte et réglez votre abonnement — votre ligne est en service dans la minute. Sans engagement : vous résiliez en un clic, à tout moment.' },
   { q: 'Y a-t-il un engagement ?', a: 'Aucun. L’abonnement est mensuel et se résilie en un clic depuis votre espace, sans préavis, sans frais cachés, sans appel à un service client pour vous retenir.' },
 ];
 
@@ -88,7 +88,7 @@ export function Landing() {
           <div className="lp-nav-cta">
             <a href="/app" className="lp-btn lp-btn-ghost lp-btn-nav">Se connecter</a>
             <button className="lp-btn lp-btn-primary lp-btn-nav" onClick={() => signup()}>
-              Essai gratuit
+              Obtenir mon numéro
             </button>
           </div>
         </div>
@@ -110,12 +110,12 @@ export function Landing() {
             </p>
             <div className="lp-hero-cta reveal in d2">
               <button className="lp-btn lp-btn-primary lg" onClick={() => signup()}>
-                Essayer gratuitement 14 jours
+                Obtenir mon numéro maintenant
               </button>
               <a href="#tarifs" className="lp-btn lp-btn-ghost lg">Voir les tarifs</a>
             </div>
             <div className="lp-hero-note reveal in d3">
-              <span>✓ Sans carte bancaire</span>
+              <span>✓ Numéro inclus dans le forfait</span>
               <span>✓ Sans engagement</span>
               <span>✓ Résiliable en 1 clic</span>
             </div>
@@ -269,7 +269,7 @@ export function Landing() {
             <div className="lp-step reveal">
               <div className="lp-step-num">1</div>
               <h3>Créez votre compte</h3>
-              <p>Votre email, le nom de votre entreprise, c’est parti. L’essai de 14 jours démarre immédiatement, sans carte bancaire.</p>
+              <p>Votre email, le nom de votre entreprise, votre règlement sécurisé — et votre ligne est en service dans la minute.</p>
               <span className="lp-step-time">⏱ 2 minutes</span>
             </div>
             <div className="lp-step reveal d1">
@@ -357,8 +357,8 @@ export function Landing() {
             <p className="lp-kicker reveal">Tarifs</p>
             <h2 className="lp-h2 reveal">Simple. Sans surprise.</h2>
             <p className="lp-lead reveal d1">
-              14 jours d’essai gratuit sur tous les forfaits, sans carte bancaire.
-              Abonnement mensuel, résiliable à tout moment.
+              Votre numéro pro est inclus dans le forfait.
+              Abonnement mensuel, sans engagement, résiliable à tout moment en un clic.
             </p>
           </div>
           <div className="lp-pricing-grid">
@@ -379,7 +379,7 @@ export function Landing() {
                   </div>
                   <ul>
                     {(p.features || []).map((f: string) => <li key={f}>{f}</li>)}
-                    <li>14 jours d’essai gratuit</li>
+                    <li>Sans engagement — résiliable en 1 clic</li>
                   </ul>
                   <button
                     className={`lp-btn ${hot ? 'lp-btn-primary' : 'lp-btn-ghost'}`}
@@ -420,7 +420,7 @@ export function Landing() {
         <div className="lp-container">
           <div className="lp-final-card reveal">
             <h2>Prêt à passer pro ?</h2>
-            <p>Votre ligne professionnelle en 5 minutes. 14 jours offerts pour l’essayer.</p>
+            <p>Votre ligne professionnelle en 5 minutes. Sans engagement, résiliable en un clic.</p>
             <button className="lp-btn lp-btn-white" onClick={() => signup()}>
               Créer ma ligne pro →
             </button>
