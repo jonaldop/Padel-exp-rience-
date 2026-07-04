@@ -72,6 +72,9 @@ export const api = {
   numberStatus: (id: string) => request(`/numbers/${id}/status`),
   buyNumber: (e164: string, type?: string) =>
     request('/numbers/buy', { method: 'POST', body: JSON.stringify({ e164, type }) }),
+  // Réserve le numéro choisi à l'inscription : acheté après paiement.
+  reserveNumber: (e164: string, type?: string) =>
+    request('/numbers/reserve', { method: 'POST', body: JSON.stringify({ e164, type }) }),
   importNumbers: () => request('/numbers/import', { method: 'POST', body: '{}' }),
   updateSettings: (id: string, patch: any) =>
     request(`/numbers/${id}/settings`, { method: 'PATCH', body: JSON.stringify(patch) }),

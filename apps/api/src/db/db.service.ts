@@ -32,6 +32,12 @@ export interface Account {
   /** Abonnement Stripe (prélèvement automatique mensuel). */
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
+  /**
+   * Numéro choisi à l'inscription, EN ATTENTE DE PAIEMENT : il n'est acheté
+   * chez Telnyx qu'une fois l'abonnement Stripe confirmé (le numéro nous
+   * coûte de l'argent — pas d'achat sans client payant).
+   */
+  pendingNumber?: { e164: string; type?: string } | null;
 }
 
 /** Facture mensuelle d'abonnement (générée automatiquement, hors période d'essai). */
@@ -367,6 +373,15 @@ export class DbService implements OnModuleInit {
     const a = this.data.accounts.find((x) => x.id === accountId);
     if (!a) return null;
     a.status = status;
+    this.save();
+    return a;
+  }
+
+  /** Numéro réservé en attente de paiement (null pour effacer). */
+  setPendingNumber(accountId: string, pending: { e164: string; type?: string } | null): Account | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return null;
+    a.pendingNumber = pending;
     this.save();
     return a;
   }
@@ -1035,7 +1050,7 @@ export class DbService implements OnModuleInit {
       case 'active':
         return { aJour: true, libelle: 'Abonnement actif (à jour)' };
       case 'trial':
-        return { aJour: true, libelle: 'Période d’essai' };
+        return { aJour: true, libelle: 'En attente d’activation (abonnement non réglé)' };
       case 'past_due':
         return { aJour: false, libelle: 'Paiement en retard' };
       case 'suspended':

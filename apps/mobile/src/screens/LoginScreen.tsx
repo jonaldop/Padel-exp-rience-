@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
+  Linking,
+  Alert,
 } from 'react-native';
 import { api, auth } from '../api';
 import { colors } from '../theme';
@@ -47,6 +49,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
   // Numéro choisi AVANT la création du compte (réservé à l'inscription)
   const [draftNumber, setDraftNumber] = useState<any | null>(null);
   const [accountCreated, setAccountCreated] = useState(false);
+  const [billingOn, setBillingOn] = useState(false);
 
   useEffect(() => {
     api.plans().then((r) => { if (r?.plans?.length) setPlans(r.plans); }).catch(() => {});
@@ -64,11 +67,24 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
         const res = await api.register({ email, password, companyName, plan });
         await auth.set(res.token);
         setAccountCreated(true);
+        let billing = false;
+        try {
+          const b = await api.billingStatus();
+          billing = Boolean(b?.enabled);
+          setBillingOn(billing);
+        } catch { /* billing indisponible → mode sans paiement */ }
         if (draftNumber) {
-          // Le numéro choisi à l'étape 1 est réservé maintenant.
+          // PAIEMENT D'ABORD : Stripe branché -> réservation, achat après
+          // confirmation du paiement ; sinon achat direct (mode test).
           try {
-            const r = await api.buyNumber(draftNumber.e164, draftNumber.type);
-            if (!r?.error) { onLoggedIn(); return; }
+            const r = billing
+              ? await api.reserveNumber(draftNumber.e164, draftNumber.type)
+              : await api.buyNumber(draftNumber.e164, draftNumber.type);
+            if (!r?.error || r?.reserved) {
+              if (billing) await paySubscription(draftNumber.e164);
+              onLoggedIn();
+              return;
+            }
           } catch { /* numéro pris entre-temps → on repropose */ }
           setDraftNumber(null);
           setError("Ce numéro vient d'être pris — choisissez-en un autre 👇");
@@ -109,14 +125,32 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
     setError(null);
     setNumBuying(a.e164);
     try {
-      const r = await api.buyNumber(a.e164, a.type);
-      if (r?.error) { setError(r.error); return; }
+      const r = billingOn
+        ? await api.reserveNumber(a.e164, a.type)
+        : await api.buyNumber(a.e164, a.type);
+      if (r?.error && !r?.reserved) { setError(r.error); return; }
+      if (billingOn) await paySubscription(a.e164);
       onLoggedIn();
     } catch (e: any) {
       setError(e.message);
     } finally {
       setNumBuying(null);
     }
+  }
+
+  /** Ouvre la page de paiement Stripe (Safari) : le numéro réservé est
+   *  acheté et mis en service automatiquement après le paiement. */
+  async function paySubscription(e164: string) {
+    try {
+      const r = await api.subscribe();
+      if (r?.url) {
+        Alert.alert(
+          '📞 Numéro réservé !',
+          'Réglez votre abonnement sur la page qui s\u2019ouvre : votre ligne est mise en service immédiatement après le paiement.',
+        );
+        await Linking.openURL(r.url);
+      }
+    } catch { /* le paiement reste possible depuis Mon forfait */ }
   }
 
   /** Bouton S'inscrire : le choix du numéro est la première étape. */
@@ -147,7 +181,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
         {mode === 'login'
           ? 'Connexion à votre espace'
           : mode === 'register'
-            ? 'Créez votre compte — essai gratuit 14 jours'
+            ? 'Créez votre compte'
             : 'Choisissez votre numéro pro 📞'}
       </Text>
 
@@ -155,8 +189,8 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
         <View style={s.card}>
           <Text style={s.numIntro}>
             {accountCreated
-              ? '✅ Compte créé ! Votre numéro est réservé instantanément et inclus dans votre forfait.'
-              : 'Étape 1 sur 2 — votre numéro sera réservé dès la création de votre compte. Inclus dans votre forfait.'}
+              ? '✅ Compte créé ! Choisissez votre numéro — il est mis en service dès le paiement de votre abonnement.'
+              : 'Étape 1 sur 2 — votre numéro est inclus dans votre forfait et mis en service dès le paiement.'}
           </Text>
 
           <View style={s.numTypes}>
@@ -294,13 +328,13 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
                   {mode === 'login'
                     ? 'Se connecter'
                     : draftNumber
-                      ? 'Réserver mon numéro — essai gratuit'
-                      : "Commencer l'essai gratuit"}
+                      ? 'Réserver mon numéro'
+                      : 'Créer mon compte'}
                 </Text>
               )}
             </TouchableOpacity>
             {mode === 'register' && (
-              <Text style={s.reassure}>✓ Sans carte bancaire · ✓ Sans engagement</Text>
+              <Text style={s.reassure}>✓ Sans engagement · ✓ Résiliable en 1 clic</Text>
             )}
           </View>
 
