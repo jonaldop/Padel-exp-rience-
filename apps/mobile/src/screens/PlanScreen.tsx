@@ -185,7 +185,7 @@ export function PlanScreen() {
                       <Text style={{ fontWeight: '800', color: colors.text }}>{tm?.minutes ?? 0} min</Text>
                       {isUnlimited(usage.plan.includedMinutes)
                         ? ' — appels illimités en France ∞'
-                        : usage.plan.includedMinutes ? ` / ${usage.plan.includedMinutes} min incluses` : ' ce mois-ci'}
+                        : usage.plan.includedMinutes ? ` / ${usage.plan.includedMinutes} min sortantes (reçus illimités)` : ' ce mois-ci'}
                     </Text>
                     {!!usage.plan.includedMinutes && !isUnlimited(usage.plan.includedMinutes) && (
                       <Text style={[s.gaugeTxt, { fontWeight: '700', color: barColor }]}>{barPct}%</Text>
