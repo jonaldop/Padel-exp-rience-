@@ -33,6 +33,11 @@ export class StripeService {
       method: params ? 'POST' : 'GET',
       headers: {
         Authorization: `Bearer ${this.secretKey}`,
+        // Version d'API épinglée : obligatoire avec les clés « organisation »
+        // (sk_org_…), qui n'ont pas de version par défaut. Version stable dont
+        // les champs correspondent à ce que lit notre code (invoice.subscription,
+        // subscription_details.metadata, checkout sessions…).
+        'Stripe-Version': '2024-06-20',
         ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
       },
       body: params ? new URLSearchParams(params).toString() : undefined,
