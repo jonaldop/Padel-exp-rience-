@@ -10,6 +10,21 @@ import { JwtPayload } from '../auth/auth.service';
  * Le client achète "chez nous" -> notre back appelle Telnyx avec NOTRE clé,
  * puis attribue le numéro à son compte (docs/04, tickets NUM-1, FLOW-1).
  */
+/**
+ * Recherche PUBLIQUE de numéros disponibles : utilisée par le tunnel
+ * d'inscription (site + app) AVANT la création du compte — le client choisit
+ * son numéro d'abord, il n'est réellement acheté qu'une fois le compte créé.
+ */
+@Controller('public/numbers')
+export class PublicNumbersController {
+  constructor(private readonly telnyx: TelnyxService) {}
+
+  @Get('available')
+  available(@Query('type') type?: string, @Query('contains') contains?: string) {
+    return this.telnyx.searchAvailableNumbers({ country: 'FR', type, contains, limit: 20 });
+  }
+}
+
 @UseGuards(JwtGuard)
 @Controller('numbers')
 export class NumbersController {

@@ -44,6 +44,9 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [numAvailable, setNumAvailable] = useState<any[]>([]);
   const [numLoading, setNumLoading] = useState(false);
   const [numBuying, setNumBuying] = useState<string | null>(null);
+  // Numéro choisi AVANT la création du compte (réservé à l'inscription)
+  const [draftNumber, setDraftNumber] = useState<any | null>(null);
+  const [accountCreated, setAccountCreated] = useState(false);
 
   useEffect(() => {
     api.plans().then((r) => { if (r?.plans?.length) setPlans(r.plans); }).catch(() => {});
@@ -60,9 +63,21 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
       } else {
         const res = await api.register({ email, password, companyName, plan });
         await auth.set(res.token);
-        // Étape suivante : le client choisit son numéro pro.
-        setMode('number');
-        loadNumbers('geographic', '');
+        setAccountCreated(true);
+        if (draftNumber) {
+          // Le numéro choisi à l'étape 1 est réservé maintenant.
+          try {
+            const r = await api.buyNumber(draftNumber.e164, draftNumber.type);
+            if (!r?.error) { onLoggedIn(); return; }
+          } catch { /* numéro pris entre-temps → on repropose */ }
+          setDraftNumber(null);
+          setError("Ce numéro vient d'être pris — choisissez-en un autre 👇");
+          setMode('number');
+          loadNumbers(numType, numContains);
+        } else {
+          setMode('number');
+          loadNumbers('geographic', '');
+        }
       }
     } catch (e: any) {
       setError(e.message);
@@ -84,6 +99,13 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
   }
 
   async function chooseNumber(a: any) {
+    if (!accountCreated) {
+      // Avant le compte : on mémorise le choix, réservation à l'inscription.
+      setDraftNumber(a);
+      setError(null);
+      setMode('register');
+      return;
+    }
     setError(null);
     setNumBuying(a.e164);
     try {
@@ -95,6 +117,13 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
     } finally {
       setNumBuying(null);
     }
+  }
+
+  /** Bouton S'inscrire : le choix du numéro est la première étape. */
+  function startSignup() {
+    setError(null);
+    setMode('number');
+    if (!numAvailable.length) loadNumbers('geographic', '');
   }
 
   const priceOf = (n: number) => n?.toLocaleString('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0 });
@@ -125,7 +154,9 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
       {mode === 'number' ? (
         <View style={s.card}>
           <Text style={s.numIntro}>
-            ✅ Compte créé ! Votre numéro est réservé instantanément et inclus dans votre forfait.
+            {accountCreated
+              ? '✅ Compte créé ! Votre numéro est réservé instantanément et inclus dans votre forfait.'
+              : 'Étape 1 sur 2 — votre numéro sera réservé dès la création de votre compte. Inclus dans votre forfait.'}
           </Text>
 
           <View style={s.numTypes}>
@@ -185,15 +216,33 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
             </View>
           )}
 
-          <TouchableOpacity onPress={onLoggedIn}>
+          <TouchableOpacity
+            onPress={accountCreated ? onLoggedIn : () => { setDraftNumber(null); setMode('register'); }}
+          >
             <Text style={[s.link, { marginTop: 16, marginBottom: 2 }]}>Choisir mon numéro plus tard →</Text>
           </TouchableOpacity>
+          {!accountCreated && (
+            <TouchableOpacity onPress={() => { setError(null); setMode('login'); }}>
+              <Text style={[s.link, { marginTop: 12, marginBottom: 2 }]}>Déjà inscrit ? Se connecter</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <>
           <View style={s.card}>
             {mode === 'register' && (
               <>
+                {draftNumber && (
+                  <View style={s.draftNum}>
+                    <View>
+                      <Text style={s.draftLbl}>Votre numéro</Text>
+                      <Text style={s.draftE164}>📞 {formatFr(draftNumber.e164)}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => { setError(null); setMode('number'); }}>
+                      <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13.5 }}>Changer</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <View style={s.plans}>
                   {plans.map((p) => {
                     const on = plan === p.key;
@@ -242,7 +291,11 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={s.buttonText}>
-                  {mode === 'login' ? 'Se connecter' : "Commencer l'essai gratuit"}
+                  {mode === 'login'
+                    ? 'Se connecter'
+                    : draftNumber
+                      ? 'Réserver mon numéro — essai gratuit'
+                      : "Commencer l'essai gratuit"}
                 </Text>
               )}
             </TouchableOpacity>
@@ -253,8 +306,8 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
 
           <TouchableOpacity
             onPress={() => {
-              setMode(mode === 'login' ? 'register' : 'login');
-              setError(null);
+              if (mode === 'login') startSignup();
+              else { setError(null); setMode('login'); }
             }}
           >
             <Text style={s.link}>
@@ -351,4 +404,12 @@ const s = StyleSheet.create({
   numSub: { fontSize: 11.5, color: colors.muted, marginTop: 1 },
   numChoose: { backgroundColor: colors.primary, borderRadius: 11, paddingVertical: 9, paddingHorizontal: 16 },
   numChooseTxt: { color: '#fff', fontSize: 13.5, fontWeight: '800' },
+  // Numéro choisi avant l'inscription (rappel dans le formulaire)
+  draftNum: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 2, borderColor: colors.primary, backgroundColor: '#EFEBFF',
+    borderRadius: 13, paddingVertical: 10, paddingHorizontal: 13, marginBottom: 12,
+  },
+  draftLbl: { fontSize: 11.5, color: colors.muted, fontWeight: '600' },
+  draftE164: { fontSize: 16, fontWeight: '800', color: colors.text, marginTop: 1 },
 });

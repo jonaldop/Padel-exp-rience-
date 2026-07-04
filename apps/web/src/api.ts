@@ -64,7 +64,9 @@ export const api = {
     if (type) p.set('type', type);
     if (contains) p.set('contains', contains);
     const qs = p.toString();
-    return request('/numbers/available' + (qs ? `?${qs}` : ''));
+    // Endpoint public : la recherche marche aussi avant la création du compte
+    // (tunnel d'inscription "choisissez votre numéro d'abord").
+    return request('/public/numbers/available' + (qs ? `?${qs}` : ''));
   },
   myNumbers: () => request('/numbers'),
   numberStatus: (id: string) => request(`/numbers/${id}/status`),

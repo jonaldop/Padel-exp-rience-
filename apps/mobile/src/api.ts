@@ -86,7 +86,8 @@ export const api = {
     if (type) p.set('type', type);
     if (contains) p.set('contains', contains);
     const qs = p.toString();
-    return request<any[]>('/numbers/available' + (qs ? `?${qs}` : ''));
+    // Endpoint public : la recherche marche aussi avant la création du compte.
+    return request<any[]>('/public/numbers/available' + (qs ? `?${qs}` : ''));
   },
   buyNumber: (e164: string, type?: string) =>
     request<any>('/numbers/buy', { method: 'POST', body: JSON.stringify({ e164, type }) }),
