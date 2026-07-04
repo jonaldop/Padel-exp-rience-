@@ -24,6 +24,14 @@ export class StripeService {
     return process.env.STRIPE_SECRET_KEY || this.db.getSetting('stripeSecretKey');
   }
 
+  /**
+   * Compte ciblé (acct_…) : obligatoire avec une clé « organisation »
+   * (sk_org_…) qui dessert plusieurs comptes Stripe.
+   */
+  get accountContext(): string {
+    return process.env.STRIPE_ACCOUNT_ID || this.db.getSetting('stripeAccountId') || '';
+  }
+
   get configured(): boolean {
     return Boolean(this.secretKey);
   }
@@ -38,6 +46,10 @@ export class StripeService {
         // les champs correspondent à ce que lit notre code (invoice.subscription,
         // subscription_details.metadata, checkout sessions…).
         'Stripe-Version': '2024-06-20',
+        // Clé organisation : préciser le compte cible.
+        ...(this.secretKey.startsWith('sk_org_') && this.accountContext
+          ? { 'Stripe-Context': this.accountContext }
+          : {}),
         ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
       },
       body: params ? new URLSearchParams(params).toString() : undefined,
