@@ -8,6 +8,7 @@ import { Clients } from './pages/Clients';
 import { Admin } from './pages/Admin';
 import { Voicemails } from './pages/Voicemails';
 import { Legal } from './pages/Legal';
+import { CookieBanner } from './CookieBanner';
 import { Softphone } from './softphone/Softphone';
 import { colors, GlassBackground } from './ui';
 import { useIsMobile } from './useIsMobile';
@@ -55,17 +56,17 @@ export function App() {
   if (isAdmin) return <Admin />;
 
   // Pages légales (mentions, confidentialité, CGV) — publiques.
-  if (path === '/mentions-legales') return <Legal page="mentions" />;
-  if (path === '/confidentialite') return <Legal page="confidentialite" />;
-  if (path === '/cgv') return <Legal page="cgv" />;
+  if (path === '/mentions-legales') return <><Legal page="mentions" /><CookieBanner /></>;
+  if (path === '/confidentialite') return <><Legal page="confidentialite" /><CookieBanner /></>;
+  if (path === '/cgv') return <><Legal page="cgv" /><CookieBanner /></>;
 
   // Racine du domaine = SITE COMMERCIAL (découverte + inscription + abonnement).
   // L'espace client vit sur /app. Les liens ?reset= / ?signup= (emails, site)
   // doivent entrer dans l'espace même s'ils pointent sur la racine.
   const isApp = path === '/app' || path.startsWith('/app/') || params.has('reset') || params.has('signup');
-  if (!isApp) return <Landing />;
+  if (!isApp) return <><Landing /><CookieBanner /></>;
 
-  if (!authed) return <Login onLoggedIn={() => setAuthed(true)} />;
+  if (!authed) return <><Login onLoggedIn={() => setAuthed(true)} /><CookieBanner /></>;
 
   const Brand = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -100,6 +101,7 @@ export function App() {
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
       <GlassBackground />
+      <CookieBanner />
       <div style={{ position: 'relative', zIndex: 1 }}>
       <header
         style={{
