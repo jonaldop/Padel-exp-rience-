@@ -315,8 +315,11 @@ export class AdminController {
       this.db.setSetting('stripeSecretKey', '');
       return { ok: true, configured: false };
     }
-    if (!/^(sk|rk)_(live|test)_/.test(key)) {
-      return { error: 'Clé invalide : attendu une clé secrète Stripe (sk_live_… ou sk_test_…).' };
+    // Formats acceptés : sk_live_/sk_test_ (classiques), sk_org_live_/sk_org_test_
+    // (comptes organisation), rk_… (clés restreintes). La vraie validation est
+    // l'appel à l'API Stripe juste en dessous.
+    if (!/^(sk|rk)(_org)?_(live|test)_/.test(key)) {
+      return { error: 'Clé invalide : attendu une clé secrète Stripe (sk_live_…, sk_test_… ou sk_org_live_…).' };
     }
     // Vérifie la clé en direct auprès de Stripe avant de l'enregistrer.
     this.db.setSetting('stripeSecretKey', key);
