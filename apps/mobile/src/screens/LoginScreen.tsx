@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { api, auth } from '../api';
 import { colors } from '../theme';
@@ -43,9 +44,10 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
       style={s.container}
     >
       <View style={s.logo}>
-        <Text style={{ fontSize: 34 }}>📞</Text>
+        <Image source={require('../../assets/mascotte.png')} style={s.logoImg} resizeMode="contain" />
       </View>
       <Text style={s.title}>Joe</Text>
+      <Text style={s.tag}>Ta ligne pro</Text>
       <Text style={s.subtitle}>
         {mode === 'login' ? 'Connexion à votre espace' : 'Créez votre compte'}
       </Text>
@@ -105,16 +107,23 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: 24 },
   logo: {
     alignSelf: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    backgroundColor: '#e6f0ff',
+    width: 84,
+    height: 84,
+    borderRadius: 22,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
   },
+  logoImg: { width: 72, height: 46 },
   title: { fontSize: 26, fontWeight: '800', textAlign: 'center', color: colors.text },
-  subtitle: { fontSize: 15, color: colors.muted, textAlign: 'center', marginBottom: 24 },
+  tag: { fontSize: 13, fontWeight: '600', color: colors.muted, textAlign: 'center', marginTop: -2 },
+  subtitle: { fontSize: 15, color: colors.muted, textAlign: 'center', marginTop: 8, marginBottom: 24 },
   card: {
     backgroundColor: colors.card,
     borderRadius: 18,
