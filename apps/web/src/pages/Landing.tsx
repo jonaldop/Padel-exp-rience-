@@ -11,7 +11,7 @@ import '../landing.css';
 
 // Formules par défaut (affichées immédiatement, remplacées par l'API)
 const FALLBACK_PLANS = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 360, features: ['1 numéro pro', 'Appels reçus illimités', '6 h d’appels sortants', 'Répondeur, horaires & transcription'] },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 300, features: ['1 numéro pro', 'Appels reçus illimités', '5 h d’appels sortants', 'Répondeur, horaires & transcription'] },
   { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 720, features: ['Tout Essentiel', 'Appels reçus illimités', '12 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'] },
   { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 1200, features: ['Tout Pro', 'Appels reçus illimités', '20 h d’appels sortants', 'Multi-utilisateurs'] },
 ];
@@ -24,7 +24,7 @@ const PLAN_META: Record<string, { tagline: string; features: string[] }> = {
     features: [
       'Votre numéro pro (01-05 ou 09) inclus',
       'Appels reçus illimités',
-      '6 h d’appels sortants',
+      '5 h d’appels sortants',
       'Répondeur intelligent : chaque message transcrit en texte',
       'Horaires d’ouverture automatiques',
       'App iPhone + espace web sur ordinateur',
