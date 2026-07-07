@@ -8,7 +8,7 @@ import { api } from '../api';
 import { colors } from '../theme';
 import { GradientBg, Glass } from '../ui';
 
-export function ProfileScreen() {
+export function ProfileScreen({ onLogout }: { onLogout?: () => void }) {
   const insets = useSafeAreaInsets();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -38,6 +38,42 @@ export function ProfileScreen() {
       Alert.alert('Erreur', e.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** Suppression définitive du compte (App Store 5.1.1 / RGPD). */
+  function confirmDelete() {
+    Alert.alert(
+      'Supprimer votre compte ?',
+      'Cette action est définitive : votre numéro sera libéré, vos messages, enregistrements et données effacés, et votre abonnement annulé.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Continuer',
+          style: 'destructive',
+          onPress: () =>
+            Alert.prompt(
+              'Confirmez avec votre mot de passe',
+              undefined,
+              [
+                { text: 'Annuler', style: 'cancel' },
+                { text: 'Supprimer définitivement', style: 'destructive', onPress: (pwd) => doDelete(pwd || '') },
+              ],
+              'secure-text',
+            ),
+        },
+      ],
+    );
+  }
+
+  async function doDelete(pwd: string) {
+    try {
+      const r = await api.deleteAccount(pwd);
+      if (r?.error) { Alert.alert('Impossible', r.error); return; }
+      Alert.alert('Compte supprimé', 'Toutes vos données ont été effacées. Merci d\u2019avoir essayé Joe.');
+      onLogout?.();
+    } catch (e: any) {
+      Alert.alert('Impossible', e.message || 'Réessayez plus tard.');
     }
   }
 
@@ -112,6 +148,20 @@ export function ProfileScreen() {
         >
           <Text style={s.saveTxt}>{pwdSaving ? '…' : 'Changer le mot de passe'}</Text>
         </TouchableOpacity>
+
+        {/* Zone dangereuse : suppression du compte (exigence App Store) */}
+        <Text style={[s.title, { fontSize: 20, marginTop: 32, color: colors.red }]}>Zone dangereuse</Text>
+        <Glass strong>
+          <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18 }}>
+            La suppression de votre compte est définitive : numéro libéré, messages et
+            enregistrements effacés, abonnement annulé.
+          </Text>
+          <TouchableOpacity style={{ marginTop: 12 }} onPress={confirmDelete}>
+            <Text style={{ color: colors.red, fontWeight: '800', fontSize: 15 }}>
+              Supprimer mon compte
+            </Text>
+          </TouchableOpacity>
+        </Glass>
       </ScrollView>
       </KeyboardAvoidingView>
     </GradientBg>

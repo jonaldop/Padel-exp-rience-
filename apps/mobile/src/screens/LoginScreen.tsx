@@ -141,6 +141,14 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
   /** Ouvre la page de paiement Stripe (Safari) : le numéro réservé est
    *  acheté et mis en service automatiquement après le paiement. */
   async function paySubscription(e164: string) {
+    // App Store 3.1.1 : l'app iOS ne vend rien — l'activation se fait sur le web.
+    if (Platform.OS === 'ios') {
+      Alert.alert(
+        '📞 Numéro réservé !',
+        `Votre compte est créé et le ${formatFr(e164)} est réservé. Pour le mettre en service, activez votre abonnement depuis votre espace sur www.allojoe.fr.`,
+      );
+      return;
+    }
     try {
       const r = await api.subscribe();
       if (r?.url) {
@@ -150,7 +158,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
         );
         await Linking.openURL(r.url);
       }
-    } catch { /* le paiement reste possible depuis Mon forfait */ }
+    } catch { /* le paiement reste possible depuis l'espace web */ }
   }
 
   /** Bouton S'inscrire : le choix du numéro est la première étape. */

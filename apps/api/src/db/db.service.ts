@@ -386,6 +386,37 @@ export class DbService implements OnModuleInit {
     return a;
   }
 
+  /**
+   * SUPPRESSION DE COMPTE (exigence App Store 5.1.1 + droit à l'effacement
+   * RGPD) : efface toutes les données du compte. Les factures sont conservées
+   * (obligation comptable, 10 ans). Renvoie les numéros supprimés pour que
+   * l'appelant les libère chez Telnyx.
+   */
+  deleteAccount(accountId: string): { numbers: PhoneNumber[] } {
+    const numbers = this.data.phoneNumbers.filter((n) => n.accountId === accountId);
+    const numberIds = new Set(numbers.map((n) => n.id));
+    const userIds = new Set(
+      this.data.users.filter((u) => u.accountId === accountId).map((u) => u.id),
+    );
+    this.data.phoneNumbers = this.data.phoneNumbers.filter((n) => n.accountId !== accountId);
+    this.data.settings = this.data.settings.filter((s) => !numberIds.has(s.phoneNumberId));
+    this.data.users = this.data.users.filter((u) => u.accountId !== accountId);
+    this.data.resets = this.data.resets.filter((r) => !userIds.has(r.userId));
+    // Les vocaux sont rattachés aux appels (callId), pas directement au compte.
+    const callIds = new Set(
+      this.data.calls.filter((c) => c.accountId === accountId).map((c) => c.id),
+    );
+    this.data.calls = this.data.calls.filter((c) => c.accountId !== accountId);
+    this.data.voicemails = this.data.voicemails.filter((v) => !callIds.has(v.callId));
+    this.data.clients = this.data.clients.filter((c) => c.accountId !== accountId);
+    this.data.messages = this.data.messages.filter((m) => m.accountId !== accountId);
+    this.data.devices = this.data.devices.filter((d) => d.accountId !== accountId);
+    this.data.adminNotes = this.data.adminNotes.filter((n) => n.accountId !== accountId);
+    this.data.accounts = this.data.accounts.filter((a) => a.id !== accountId);
+    this.save();
+    return { numbers };
+  }
+
   // ── Essai, remise, facturation ─────────────────────────────────────────────
 
   /**
