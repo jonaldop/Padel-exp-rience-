@@ -11,8 +11,8 @@ import '../landing.css';
 
 // Formules par défaut (affichées immédiatement, remplacées par l'API)
 const FALLBACK_PLANS = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 1000, features: ['1 numéro pro', 'Appels reçus illimités', '1 000 min d’appels sortants', 'Répondeur, horaires & transcription'] },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 2000, features: ['Tout Essentiel', 'Appels reçus illimités', '2 000 min d’appels sortants', 'Secrétariat IA (résumés, urgences)'] },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 600, features: ['1 numéro pro', 'Appels reçus illimités', '10 h d’appels sortants', 'Répondeur, horaires & transcription'] },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1800, features: ['Tout Essentiel', 'Appels reçus illimités', '30 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'] },
   { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'] },
 ];
 
@@ -24,7 +24,7 @@ const PLAN_META: Record<string, { tagline: string; features: string[] }> = {
     features: [
       'Votre numéro pro (01-05 ou 09) inclus',
       'Appels reçus illimités',
-      '1 000 min d’appels sortants',
+      '10 h d’appels sortants',
       'Répondeur intelligent : chaque message transcrit en texte',
       'Horaires d’ouverture automatiques',
       'App iPhone + espace web sur ordinateur',
@@ -34,7 +34,7 @@ const PLAN_META: Record<string, { tagline: string; features: string[] }> = {
     tagline: 'Pour l’artisan qui vit au téléphone',
     features: [
       'Tout Essentiel, et :',
-      '2 000 min d’appels sortants',
+      '30 h d’appels sortants',
       'Secrétariat IA : résumé + qualification de chaque message (devis, urgence, RDV)',
       'Urgences détectées et mises en avant',
       'Fiches clients & historique complet',
@@ -106,6 +106,8 @@ export function Landing() {
   };
 
   const price = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0 });
+  // Quota sortant affiché en heures quand c'est rond (600 min -> « 10 h »).
+  const hours = (min: number) => (min % 60 === 0 ? `${min / 60} h` : `${min.toLocaleString('fr-FR')} min`);
 
   return (
     <div className="lp" ref={ref}>
@@ -415,7 +417,7 @@ export function Landing() {
                   <div className="lp-price-min">
                     {p.includedMinutes >= 99999
                       ? '∞ Appels illimités en France'
-                      : `📞 Reçus illimités + ${p.includedMinutes.toLocaleString('fr-FR')} min sortantes`}
+                      : `📞 Reçus illimités + ${hours(p.includedMinutes)} d’appels sortants`}
                   </div>
                   <ul>
                     {features.map((f: string) => <li key={f} className={f.endsWith(':') ? 'all-prev' : ''}>{f}</li>)}

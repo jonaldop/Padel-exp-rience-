@@ -307,7 +307,11 @@ export function PlanScreen() {
                     <Text style={s.price}>{eur(p.monthlyPrice)}<Text style={s.month}> HT/mois</Text></Text>
                   </View>
                   <Text style={s.included}>
-                    {isUnlimited(p.includedMinutes) ? 'Appels illimités en France' : p.includedMinutes ? `Reçus illimités + ${p.includedMinutes} min sortantes` : 'Minutes à l’usage'}
+                    {isUnlimited(p.includedMinutes)
+                      ? 'Appels illimités en France'
+                      : p.includedMinutes
+                        ? `Reçus illimités + ${p.includedMinutes % 60 === 0 ? `${p.includedMinutes / 60} h` : `${p.includedMinutes} min`} d’appels sortants`
+                        : 'Minutes à l’usage'}
                   </Text>
                   {(p.features || []).map((f) => (
                     <Text key={f} style={s.feature}>• {f}</Text>
