@@ -143,8 +143,11 @@ export class CallsController {
     }
     const guard = this.db.usageGuard(user.accountId);
     if (guard.state === 'blocked') {
+      const unlimited = guard.includedMinutes >= 99999;
       return {
-        error: `Plafond mensuel atteint (${guard.capMinutes} min). Contactez-nous pour augmenter votre forfait.`,
+        error: unlimited
+          ? `Usage professionnel raisonnable dépassé (${guard.capMinutes} min sortantes ce mois-ci). Contactez-nous.`
+          : `Vos ${guard.includedMinutes} minutes sortantes du mois sont épuisées. Passez à la formule supérieure (Plus → Mon forfait) pour continuer à appeler — les appels reçus restent illimités.`,
       };
     }
 

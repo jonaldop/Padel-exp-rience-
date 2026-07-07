@@ -187,9 +187,9 @@ function UsageAlerts({ alerts }: { alerts: any[] }) {
         </div>
       ))}
       <p style={{ color: colors.muted, fontSize: 12.5, margin: '10px 0 0' }}>
-        Seules les minutes SORTANTES décomptent le forfait (appels reçus illimités). Plafond dur :
-        2× les minutes incluses (fair-use 3 000 min sortantes sur l'illimité). Au-delà, les appels
-        sortants sont coupés automatiquement. Passez le compte sur une formule supérieure pour débloquer.
+        Seules les minutes SORTANTES décomptent le forfait (appels reçus illimités). Pas de
+        hors-forfait : minutes incluses épuisées = appels sortants coupés automatiquement (fair-use
+        3 000 min sortantes sur l'illimité). Le client passe à la formule supérieure pour débloquer.
       </p>
     </Card>
   );

@@ -495,17 +495,11 @@ export class DbService implements OnModuleInit {
       const period = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
       if (!existing.has(period)) {
         const pct = a.discountPct || 0;
-        // Dépassement du MOIS PRÉCÉDENT (clos, donc définitif) : facturé au réel
-        // sur la facture du mois courant — sauf formules illimitées.
-        const prev = new Date(cur.getFullYear(), cur.getMonth() - 1, 1);
-        const prevPeriod = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
-        const included = plan?.includedMinutes ?? 0;
-        const unlimited = included >= 99999;
-        const overMin = !unlimited && included > 0 && prev >= start
-          ? Math.max(0, this.minutesForMonth(accountId, prevPeriod) - included)
-          : 0;
-        const overAmt = Math.round(overMin * config.overageRatePerMinute * 100) / 100;
-        const total = Math.round((baseAmount * (1 - pct / 100) + overAmt) * 100) / 100;
+        // PAS de hors-forfait chez Joe : minutes épuisées = appels sortants
+        // coupés + passage à la formule supérieure. La facture = l'abonnement.
+        const overMin = 0;
+        const overAmt = 0;
+        const total = Math.round(baseAmount * (1 - pct / 100) * 100) / 100;
         const seq = this.data.invoices.length + 1;
         this.data.invoices.push({
           id: randomUUID(),
@@ -518,7 +512,7 @@ export class DbService implements OnModuleInit {
           discountPct: pct,
           overageMinutes: overMin || undefined,
           overageAmount: overAmt || undefined,
-          overagePeriod: overMin ? prevPeriod : undefined,
+          overagePeriod: undefined,
           total,
           status: 'due',
           createdAt: this.now(),
@@ -1309,12 +1303,11 @@ export class DbService implements OnModuleInit {
   }
 
   /**
-   * PARE-FEU USAGE (anti-fraude / anti-abus) : état des appels SORTANTS.
-   * - ok       : dans le forfait
-   * - overage  : au-delà des minutes incluses (autorisé, facturé au réel)
-   * - blocked  : plafond dur atteint -> appels sortants coupés
-   * Plafond dur : 2x les minutes incluses (mini +300), fair-use 3000 min
-   * SORTANTES pour les formules illimitées (au-delà : cas pathologique,
+   * PARE-FEU USAGE : état des appels SORTANTS. PAS de hors-forfait chez Joe :
+   * - ok      : dans le forfait
+   * - blocked : minutes incluses épuisées -> appels sortants coupés, le client
+   *             passe à la formule supérieure pour continuer.
+   * Formules illimitées : fair-use 3000 min sortantes/mois (cas pathologique,
    * jamais un artisan — cf. analyse coûts Telnyx).
    */
   usageGuard(accountId: string): {
@@ -1329,8 +1322,8 @@ export class DbService implements OnModuleInit {
     const unlimited = included >= 99999;
     const period = this.now().slice(0, 7);
     const used = this.minutesForMonth(accountId, period);
-    const cap = unlimited ? 3000 : included > 0 ? Math.max(included * 2, included + 300) : 500;
-    const state = used >= cap ? 'blocked' : !unlimited && included > 0 && used > included ? 'overage' : 'ok';
+    const cap = unlimited ? 3000 : included > 0 ? included : 500;
+    const state = used >= cap ? 'blocked' : 'ok';
     return { state, usedMinutes: used, includedMinutes: included, capMinutes: cap };
   }
 
@@ -1418,7 +1411,7 @@ export class DbService implements OnModuleInit {
         remainingMinutes: remaining,
         overMinutes,
         percentUsed,
-        extraCost: Math.round(overMinutes * costPerMinute * 100) / 100,
+        extraCost: 0, // pas de hors-forfait : au-delà des minutes, on passe au forfait supérieur
       },
       totals: {
         minutes: Math.round(totalSeconds / 60),
