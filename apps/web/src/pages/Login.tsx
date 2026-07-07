@@ -13,9 +13,9 @@ const NUM_TYPES = [
 
 // Formules affichées dans le tunnel d'inscription (remplacées par l'API)
 const FALLBACK_PLANS = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99 },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99 },
   { key: 'pro', name: 'Pro', monthlyPrice: 29 },
-  { key: 'business', name: 'Business', monthlyPrice: 49 },
+  { key: 'business', name: 'Business', monthlyPrice: 45 },
 ];
 
 // Arguments de vente du panneau de gauche (varient selon connexion / inscription)
@@ -399,7 +399,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
                 <button className="au-btn" onClick={activateSubscription} disabled={subLoading} style={{ marginTop: 18 }}>
                   {subLoading
                     ? '…'
-                    : `💳 Payer ${chosenPlan ? `${priceOf(chosenPlan.monthlyPrice)} €/mois` : ''} et activer ma ligne`}
+                    : `💳 Payer ${chosenPlan ? `${priceOf(chosenPlan.monthlyPrice)} € HT/mois` : ''} et activer ma ligne`}
                 </button>
               )}
               <button className="au-btn-soft" onClick={onLoggedIn} style={{ marginTop: 12 }}>
@@ -433,7 +433,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
                           onClick={() => setPlan(p.key)}
                         >
                           <div className="au-plan-name">{p.name}</div>
-                          <div className="au-plan-price">{priceOf(p.monthlyPrice)} €/mois</div>
+                          <div className="au-plan-price">{priceOf(p.monthlyPrice)} € HT/mois</div>
                         </button>
                       ))}
                     </div>

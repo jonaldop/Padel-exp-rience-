@@ -99,7 +99,7 @@ export function PlanScreen() {
     if (plan.key === usage?.plan?.key) return;
     Alert.alert(
       'Changer de formule',
-      `Passer à la formule ${plan.name} (${eur(plan.monthlyPrice)}/mois) ?`,
+      `Passer à la formule ${plan.name} (${eur(plan.monthlyPrice)} HT/mois) ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -172,10 +172,10 @@ export function PlanScreen() {
                   {(usage.discountPct || 0) > 0 ? (
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={s.priceStruck}>{eur(usage.plan.monthlyPrice)}</Text>
-                      <Text style={s.curPrice}>{eur(usage.effectiveMonthlyPrice)}<Text style={s.month}>/mois</Text></Text>
+                      <Text style={s.curPrice}>{eur(usage.effectiveMonthlyPrice)}<Text style={s.month}> HT/mois</Text></Text>
                     </View>
                   ) : (
-                    <Text style={s.curPrice}>{eur(usage.plan.monthlyPrice)}<Text style={s.month}>/mois</Text></Text>
+                    <Text style={s.curPrice}>{eur(usage.plan.monthlyPrice)}<Text style={s.month}> HT/mois</Text></Text>
                   )}
                 </View>
 
@@ -233,7 +233,7 @@ export function PlanScreen() {
                   ) : (
                     <TouchableOpacity style={s.subscribeBtn} onPress={startSubscription} disabled={subscribing}>
                       <Text style={s.subscribeBtnTxt}>
-                        {subscribing ? '…' : `💳 Activer le prélèvement automatique (${eur(usage.effectiveMonthlyPrice ?? usage.plan.monthlyPrice)}/mois)`}
+                        {subscribing ? '…' : `💳 Activer le prélèvement automatique (${eur(usage.effectiveMonthlyPrice ?? usage.plan.monthlyPrice)} HT/mois)`}
                       </Text>
                     </TouchableOpacity>
                   )
@@ -304,10 +304,10 @@ export function PlanScreen() {
                 <Glass key={p.key} strong style={[s.card, active && s.cardActive]}>
                   <View style={s.cardHead}>
                     <Text style={s.planName}>{p.name}</Text>
-                    <Text style={s.price}>{eur(p.monthlyPrice)}<Text style={s.month}>/mois</Text></Text>
+                    <Text style={s.price}>{eur(p.monthlyPrice)}<Text style={s.month}> HT/mois</Text></Text>
                   </View>
                   <Text style={s.included}>
-                    {isUnlimited(p.includedMinutes) ? 'Appels illimités en France' : p.includedMinutes ? `${p.includedMinutes} min incluses` : 'Minutes à l’usage'}
+                    {isUnlimited(p.includedMinutes) ? 'Appels illimités en France' : p.includedMinutes ? `Reçus illimités + ${p.includedMinutes} min sortantes` : 'Minutes à l’usage'}
                   </Text>
                   {(p.features || []).map((f) => (
                     <Text key={f} style={s.feature}>• {f}</Text>

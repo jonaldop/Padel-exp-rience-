@@ -183,8 +183,9 @@ function Cgv() {
 
       <H>3. Tarifs et facturation</H>
       <p>
-        Les tarifs en vigueur sont affichés sur {COMPANY.site}. L'abonnement est mensuel, payé d'avance par
-        prélèvement automatique. Les appels reçus sont illimités dans le cadre d'un usage professionnel
+        Les tarifs en vigueur sont affichés sur {COMPANY.site} et s'entendent <b>hors taxes</b> (service
+        réservé aux professionnels) ; la TVA au taux en vigueur (20 %) s'ajoute à la facturation.
+        L'abonnement est mensuel, payé d'avance par prélèvement automatique. Les appels reçus sont illimités dans le cadre d'un usage professionnel
         raisonnable. Les appels sortants sont inclus à hauteur du volume de la formule choisie ; une fois
         ce volume épuisé, les appels sortants sont suspendus jusqu'au mois suivant ou au passage à une
         formule supérieure — aucun hors-forfait n'est facturé. Les formules « illimitées »

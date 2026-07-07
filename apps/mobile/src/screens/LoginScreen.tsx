@@ -19,9 +19,9 @@ import { formatFr } from '../format';
 
 // Formules affichées à l'inscription (remplacées par l'API au chargement)
 const FALLBACK_PLANS = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99 },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99 },
   { key: 'pro', name: 'Pro', monthlyPrice: 29 },
-  { key: 'business', name: 'Business', monthlyPrice: 49 },
+  { key: 'business', name: 'Business', monthlyPrice: 45 },
 ];
 
 // Types de numéros proposés (les 06/07 n'existent pas en VoIP)
@@ -295,7 +295,7 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
                         onPress={() => setPlan(p.key)}
                       >
                         <Text style={[s.planName, on && { color: colors.primary }]}>{p.name}</Text>
-                        <Text style={s.planPrice}>{priceOf(p.monthlyPrice)} €/mois</Text>
+                        <Text style={s.planPrice}>{priceOf(p.monthlyPrice)} € HT/mois</Text>
                       </TouchableOpacity>
                     );
                   })}

@@ -11,9 +11,9 @@ import '../landing.css';
 
 // Formules par défaut (affichées immédiatement, remplacées par l'API)
 const FALLBACK_PLANS = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 1000, features: ['1 numéro pro', 'Appels reçus illimités', '1 000 min d’appels sortants', 'Répondeur, horaires & transcription'] },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 1000, features: ['1 numéro pro', 'Appels reçus illimités', '1 000 min d’appels sortants', 'Répondeur, horaires & transcription'] },
   { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 2000, features: ['Tout Essentiel', 'Appels reçus illimités', '2 000 min d’appels sortants', 'Secrétariat IA (résumés, urgences)'] },
-  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'] },
+  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'] },
 ];
 
 const TRADES = ['🔧 Plombiers', '⚡ Électriciens', '🪚 Menuisiers', '🎨 Peintres', '🌿 Paysagistes', '🚕 Taxis & VTC', '💇 Coiffeurs', '🏋️ Coachs', '🧹 Services à domicile', '📸 Photographes'];
@@ -309,7 +309,7 @@ export function Landing() {
                 <tbody>
                   <tr>
                     <td>Prix</td>
-                    <td className="joe-col">dès {price(plans[0]?.monthlyPrice ?? 14.99)} €/mois</td>
+                    <td className="joe-col">dès {price(plans[0]?.monthlyPrice ?? 12.99)} € HT/mois</td>
                     <td>téléphone + forfait</td>
                     <td>installation + abonnement</td>
                   </tr>
@@ -357,8 +357,8 @@ export function Landing() {
             <p className="lp-kicker reveal">Tarifs</p>
             <h2 className="lp-h2 reveal">Simple. Sans surprise.</h2>
             <p className="lp-lead reveal d1">
-              Votre numéro pro est inclus dans le forfait.
-              Abonnement mensuel, sans engagement, résiliable à tout moment en un clic.
+              Votre numéro pro est inclus dans le forfait — aucun hors-forfait, jamais.
+              Prix HT (TVA 20 %). Abonnement mensuel, sans engagement, résiliable en un clic.
             </p>
           </div>
           <div className="lp-pricing-grid">
@@ -370,7 +370,7 @@ export function Landing() {
                   <div className="lp-price-name">{p.name}</div>
                   <div className="lp-price-amount">
                     <span className="n">{price(p.monthlyPrice)} €</span>
-                    <span className="per">/ mois</span>
+                    <span className="per">HT / mois</span>
                   </div>
                   <div className="lp-price-min">
                     {p.includedMinutes >= 99999

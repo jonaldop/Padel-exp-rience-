@@ -18,11 +18,11 @@ Plombiers, électriciens, menuisiers, peintres, paysagistes, taxis et VTC, coiff
 
 ## Tarifs
 
-- **Essentiel — 14,99 €/mois** : 1 numéro pro, appels reçus illimités + 1 000 min d'appels sortants, répondeur, horaires & transcription.
-- **Pro — 29 €/mois** : tout Essentiel, appels reçus illimités + 2 000 min sortantes, secrétariat IA (résumés, urgences).
-- **Business — 49 €/mois** : tout Pro, appels illimités en France (usage professionnel raisonnable), multi-utilisateurs.
+- **Essentiel — 12,99 € HT/mois** : 1 numéro pro, appels reçus illimités + 1 000 min d'appels sortants, répondeur, horaires & transcription.
+- **Pro — 29 € HT/mois** : tout Essentiel, appels reçus illimités + 2 000 min sortantes, secrétariat IA (résumés, urgences).
+- **Business — 45 € HT/mois** : tout Pro, appels illimités en France (usage professionnel raisonnable), multi-utilisateurs.
 
-Le numéro pro est inclus dans le forfait, activé immédiatement après souscription. Abonnement mensuel, sans engagement, résiliable en un clic. Paiement sécurisé par carte bancaire (Stripe), facture disponible chaque mois.
+Prix hors taxes (clientèle professionnelle, TVA 20 % en sus). Le numéro pro est inclus dans le forfait, activé immédiatement après souscription. Aucun hors-forfait : minutes épuisées = passage à la formule supérieure. Abonnement mensuel, sans engagement, résiliable en un clic. Paiement sécurisé par carte bancaire (Stripe), facture avec TVA chaque mois.
 
 ## Points clés / différenciateurs
 
