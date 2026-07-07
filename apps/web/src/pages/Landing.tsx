@@ -16,6 +16,42 @@ const FALLBACK_PLANS = [
   { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'] },
 ];
 
+// Contenu marketing des cartes tarifs (les prix/minutes restent pilotés par l'API ;
+// pour une formule inconnue on retombe sur ses features API).
+const PLAN_META: Record<string, { tagline: string; features: string[] }> = {
+  essentiel: {
+    tagline: 'Pour démarrer en pro',
+    features: [
+      'Votre numéro pro (01-05 ou 09) inclus',
+      'Appels reçus illimités',
+      '1 000 min d’appels sortants',
+      'Répondeur intelligent : chaque message transcrit en texte',
+      'Horaires d’ouverture automatiques',
+      'App iPhone + espace web sur ordinateur',
+    ],
+  },
+  pro: {
+    tagline: 'Pour l’artisan qui vit au téléphone',
+    features: [
+      'Tout Essentiel, et :',
+      '2 000 min d’appels sortants',
+      'Secrétariat IA : résumé + qualification de chaque message (devis, urgence, RDV)',
+      'Urgences détectées et mises en avant',
+      'Fiches clients & historique complet',
+      'Statistiques d’activité détaillées',
+    ],
+  },
+  business: {
+    tagline: 'Pour les gros volumes & les équipes',
+    features: [
+      'Tout Pro, et :',
+      'Appels illimités en France (usage pro raisonnable)',
+      'Multi-utilisateurs',
+      'Support prioritaire',
+    ],
+  },
+};
+
 const TRADES = ['🔧 Plombiers', '⚡ Électriciens', '🪚 Menuisiers', '🎨 Peintres', '🌿 Paysagistes', '🚕 Taxis & VTC', '💇 Coiffeurs', '🏋️ Coachs', '🧹 Services à domicile', '📸 Photographes'];
 
 const FEATURES = [
@@ -363,36 +399,47 @@ export function Landing() {
           </div>
           <div className="lp-pricing-grid">
             {plans.map((p, i) => {
-              const hot = i === 1;
+              const hot = p.key === 'pro' || (plans.length === 3 && i === 1);
+              const meta = PLAN_META[p.key];
+              const features = meta?.features ?? p.features ?? [];
               return (
                 <div key={p.key} className={`lp-price${hot ? ' hot' : ''} reveal d${i}`}>
                   {hot && <div className="lp-price-badge">⭐ Le plus choisi</div>}
                   <div className="lp-price-name">{p.name}</div>
+                  {meta && <div className="lp-price-tagline">{meta.tagline}</div>}
                   <div className="lp-price-amount">
                     <span className="n">{price(p.monthlyPrice)} €</span>
                     <span className="per">HT / mois</span>
                   </div>
+                  <div className="lp-price-ttc">soit {price(Math.round(p.monthlyPrice * 1.2 * 100) / 100)} € TTC — TVA récupérable</div>
                   <div className="lp-price-min">
                     {p.includedMinutes >= 99999
-                      ? 'Appels illimités en France'
-                      : `Reçus illimités + ${p.includedMinutes.toLocaleString('fr-FR')} min sortantes`}
+                      ? '∞ Appels illimités en France'
+                      : `📞 Reçus illimités + ${p.includedMinutes.toLocaleString('fr-FR')} min sortantes`}
                   </div>
                   <ul>
-                    {(p.features || []).map((f: string) => <li key={f}>{f}</li>)}
-                    <li>Sans engagement — résiliable en 1 clic</li>
+                    {features.map((f: string) => <li key={f} className={f.endsWith(':') ? 'all-prev' : ''}>{f}</li>)}
                   </ul>
                   <button
                     className={`lp-btn ${hot ? 'lp-btn-primary' : 'lp-btn-ghost'}`}
                     onClick={() => signup(p.key)}
                   >
-                    Commencer avec {p.name}
+                    Choisir {p.name}
                   </button>
                 </div>
               );
             })}
           </div>
+          <div className="lp-pricing-reassure reveal">
+            <span>✓ Numéro inclus</span>
+            <span>✓ Aucun hors-forfait, jamais</span>
+            <span>✓ Sans engagement</span>
+            <span>✓ Activation immédiate</span>
+          </div>
           <p className="lp-pricing-note reveal">
-            Paiement sécurisé par carte bancaire (Stripe) · Facture disponible chaque mois dans votre espace
+            Prix hors taxes — clientèle professionnelle, TVA 20 % récupérable · Paiement sécurisé Stripe ·
+            Facture avec TVA chaque mois dans votre espace · Une fois les minutes sortantes épuisées, passez
+            simplement à la formule supérieure : rien n'est facturé en plus, les appels reçus continuent.
           </p>
         </div>
       </section>
