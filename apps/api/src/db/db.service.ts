@@ -38,6 +38,8 @@ export interface Account {
    * coûte de l'argent — pas d'achat sans client payant).
    */
   pendingNumber?: { e164: string; type?: string } | null;
+  /** Alertes conso déjà envoyées ce mois-ci (80 %, 100 % du quota sortant). */
+  usageAlerts?: { period: string; levels: number[] } | null;
 }
 
 /** Facture mensuelle d'abonnement (générée automatiquement, hors période d'essai). */
@@ -1357,6 +1359,39 @@ export class DbService implements OnModuleInit {
     const cap = unlimited ? 2000 : included > 0 ? included : 500;
     const state = used >= cap ? 'blocked' : 'ok';
     return { state, usedMinutes: used, includedMinutes: included, capMinutes: cap };
+  }
+
+  /**
+   * Alerte conso CLIENT à envoyer ? 80 % et 100 % du quota sortant, chacune
+   * une seule fois par mois (marquée envoyée immédiatement — idempotent).
+   */
+  usageAlertDue(accountId: string): {
+    level: 80 | 100;
+    usedMinutes: number;
+    quotaMinutes: number;
+    remainingMinutes: number;
+  } | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return null;
+    const g = this.usageGuard(accountId);
+    if (!g.capMinutes || g.includedMinutes >= 99999) return null;
+    const period = this.now().slice(0, 7);
+    if (!a.usageAlerts || a.usageAlerts.period !== period) {
+      a.usageAlerts = { period, levels: [] };
+    }
+    const pct = g.usedMinutes / g.capMinutes;
+    let level: 80 | 100 | null = null;
+    if (pct >= 1 && !a.usageAlerts.levels.includes(100)) level = 100;
+    else if (pct >= 0.8 && pct < 1 && !a.usageAlerts.levels.includes(80)) level = 80;
+    if (!level) return null;
+    a.usageAlerts.levels.push(level);
+    this.save();
+    return {
+      level,
+      usedMinutes: g.usedMinutes,
+      quotaMinutes: g.capMinutes,
+      remainingMinutes: Math.max(0, g.capMinutes - g.usedMinutes),
+    };
   }
 
   /** Comptes à surveiller (>80 % du plafond dur ou bloqués) pour l'admin. */

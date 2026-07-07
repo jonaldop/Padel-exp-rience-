@@ -25,6 +25,15 @@ type Usage = {
   history: { month: string; minutes: number; calls: number; inbound: number; outbound: number }[];
 };
 
+/** Durée lisible : 213 -> « 3 h 33 », 45 -> « 45 min ». */
+const fmtDur = (min?: number) => {
+  const m = Math.max(0, Math.round(min ?? 0));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? `${h} h ${String(r).padStart(2, '0')}` : `${h} h`;
+};
+
 const eur = (n?: number) =>
   (n ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
@@ -183,10 +192,10 @@ export function PlanScreen() {
                 <View style={{ marginTop: 14 }}>
                   <View style={s.gaugeRow}>
                     <Text style={s.gaugeTxt}>
-                      <Text style={{ fontWeight: '800', color: colors.text }}>{tm?.minutes ?? 0} min</Text>
+                      <Text style={{ fontWeight: '800', color: colors.text }}>{fmtDur(tm?.minutes)}</Text>
                       {isUnlimited(usage.plan.includedMinutes)
                         ? ' — appels illimités en France ∞'
-                        : usage.plan.includedMinutes ? ` / ${usage.plan.includedMinutes} min sortantes (reçus illimités)` : ' ce mois-ci'}
+                        : usage.plan.includedMinutes ? ` / ${fmtDur(usage.plan.includedMinutes)} sortantes (reçus illimités)` : ' ce mois-ci'}
                     </Text>
                     {!!usage.plan.includedMinutes && !isUnlimited(usage.plan.includedMinutes) && (
                       <Text style={[s.gaugeTxt, { fontWeight: '700', color: barColor }]}>{barPct}%</Text>
@@ -198,8 +207,8 @@ export function PlanScreen() {
                   {!!usage.plan.includedMinutes && !isUnlimited(usage.plan.includedMinutes) && (
                     <Text style={s.gaugeSub}>
                       {tm && (tm.remainingMinutes ?? 0) <= 0
-                        ? 'Minutes sortantes épuisées — passez à la formule supérieure ci-dessous pour continuer à appeler (appels reçus toujours illimités).'
-                        : `Il vous reste ${tm?.remainingMinutes ?? 0} min sortantes ce mois-ci`}
+                        ? 'Temps d’appels sortants épuisé — passez à la formule supérieure ci-dessous pour continuer à appeler (appels reçus toujours illimités).'
+                        : `Il vous reste ${fmtDur(tm?.remainingMinutes)} d’appels sortants ce mois-ci`}
                     </Text>
                   )}
                 </View>
@@ -249,7 +258,7 @@ export function PlanScreen() {
                   <View key={h.month} style={[s.histRow, i > 0 && s.histDivider]}>
                     <Text style={s.histMonth}>{monthLabel(h.month)}</Text>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={s.histMin}>{h.minutes} min</Text>
+                      <Text style={s.histMin}>{fmtDur(h.minutes)}</Text>
                       <Text style={s.histSub}>{h.calls} appel{h.calls > 1 ? 's' : ''} · ↙{h.inbound} ↗{h.outbound}</Text>
                     </View>
                   </View>

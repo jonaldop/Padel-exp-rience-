@@ -75,6 +75,34 @@ export class CallsController {
    * ils manquent à l'historique ET au décompte des minutes (pare-feu).
    */
   @UseGuards(JwtGuard)
+  /** Durée lisible : 90 -> « 1 h 30 », 45 -> « 45 min ». */
+  private fmtDur(min: number): string {
+    const m = Math.max(0, Math.round(min));
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return r ? `${h} h ${String(r).padStart(2, '0')}` : `${h} h`;
+  }
+
+  /** Push au client à 80 % puis 100 % du quota sortant (1 fois/mois chacun). */
+  private maybeUsageAlert(accountId: string) {
+    const due = this.db.usageAlertDue(accountId);
+    if (!due) return;
+    if (due.level === 100) {
+      this.push.notifyAccount(accountId, {
+        title: '🚫 Minutes sortantes épuisées',
+        body: `Vos ${this.fmtDur(due.quotaMinutes)} d'appels sortants du mois sont utilisées. Les appels reçus continuent normalement. Passez à la formule supérieure (Plus → Mon forfait) pour continuer à appeler.`,
+        data: { type: 'usage', level: 100 },
+      });
+    } else {
+      this.push.notifyAccount(accountId, {
+        title: '⏳ Forfait bientôt épuisé',
+        body: `Plus que ${this.fmtDur(due.remainingMinutes)} d'appels sortants ce mois-ci. Besoin de plus ? La formule supérieure vous attend dans Plus → Mon forfait.`,
+        data: { type: 'usage', level: 80 },
+      });
+    }
+  }
+
   @Post('report')
   reportOutbound(
     @CurrentUser() user: JwtPayload,
@@ -103,6 +131,8 @@ export class CallsController {
       startedAt: new Date(Date.now() - durationS * 1000).toISOString(),
       endedAt: new Date().toISOString(),
     });
+    // Jauge forfait : alerte client à 80 % / 100 % du quota sortant.
+    this.maybeUsageAlert(user.accountId);
     return { ok: true };
   }
 
@@ -590,6 +620,8 @@ export class CallsController {
             endedAt: new Date().toISOString(),
             durationS,
           });
+          // Jauge forfait : alerte client à 80 % / 100 % du quota sortant.
+          if (call.direction === 'outbound') this.maybeUsageAlert(call.accountId);
           // Notif push appel manqué : cas clair (status resté 'ringing') OU appel
           // in-app non décroché (ringing-app + cause "sans réponse" côté SIP).
           const cause = `${payload.hangup_cause || ''} ${payload.sip_hangup_cause || ''}`;
