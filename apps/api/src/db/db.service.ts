@@ -208,8 +208,8 @@ interface Data {
 // ⚠️ Les prix sont HORS TAXES (clientèle professionnelle) : la TVA 20 % est
 // ajoutée à la facturation (Stripe prélève le TTC).
 const DEFAULT_PLANS: Plan[] = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 600, features: ['1 numéro pro', 'Appels reçus illimités', '10 h d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1800, features: ['Tout Essentiel', 'Appels reçus illimités', '30 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 480, features: ['1 numéro pro', 'Appels reçus illimités', '8 h d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1200, features: ['Tout Essentiel', 'Appels reçus illimités', '20 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
   { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'], active: true },
 ];
 
@@ -259,9 +259,10 @@ export class DbService implements OnModuleInit {
       // sur la concurrence (1000/2000/illimité). Chaînée après la migration
       // précédente (200→500→1000…) ; on ne touche pas aux formules custom.
       const bumps: Record<string, { from: number; to: number }[]> = {
-        // Historique : 200→500→1000→600 (10 h) ; 600→1500→2000→1800 (30 h).
-        essentiel: [{ from: 200, to: 500 }, { from: 500, to: 1000 }, { from: 1000, to: 600 }],
-        pro: [{ from: 600, to: 1500 }, { from: 1500, to: 2000 }, { from: 2000, to: 1800 }],
+        // Historique : 200→500→1000→600→480 (8 h) ; 600→1500→2000→1800→1200 (20 h).
+        // Quotas calibrés pour rester bénéficiaires MÊME saturés 100 % mobile.
+        essentiel: [{ from: 200, to: 500 }, { from: 500, to: 1000 }, { from: 1000, to: 600 }, { from: 600, to: 480 }],
+        pro: [{ from: 600, to: 1500 }, { from: 1500, to: 2000 }, { from: 2000, to: 1800 }, { from: 1800, to: 1200 }],
         business: [{ from: 1500, to: 999999 }],
       };
       // Migration 2026-07c : passage des prix par défaut en HT
@@ -1336,8 +1337,8 @@ export class DbService implements OnModuleInit {
    * - ok      : dans le forfait
    * - blocked : minutes incluses épuisées -> appels sortants coupés, le client
    *             passe à la formule supérieure pour continuer.
-   * Formules illimitées : fair-use 3000 min sortantes/mois (cas pathologique,
-   * jamais un artisan — cf. analyse coûts Telnyx).
+   * Formules illimitées : fair-use 2000 min (33 h) sortantes/mois — seuil où
+   * Business reste bénéficiaire même saturé 100 % mobile.
    */
   usageGuard(accountId: string): {
     state: 'ok' | 'overage' | 'blocked';
@@ -1351,7 +1352,7 @@ export class DbService implements OnModuleInit {
     const unlimited = included >= 99999;
     const period = this.now().slice(0, 7);
     const used = this.minutesForMonth(accountId, period);
-    const cap = unlimited ? 3000 : included > 0 ? included : 500;
+    const cap = unlimited ? 2000 : included > 0 ? included : 500;
     const state = used >= cap ? 'blocked' : 'ok';
     return { state, usedMinutes: used, includedMinutes: included, capMinutes: cap };
   }
