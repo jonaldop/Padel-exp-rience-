@@ -11,9 +11,9 @@ import '../landing.css';
 
 // Formules par défaut (affichées immédiatement, remplacées par l'API)
 const FALLBACK_PLANS = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 480, features: ['1 numéro pro', 'Appels reçus illimités', '8 h d’appels sortants', 'Répondeur, horaires & transcription'] },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1200, features: ['Tout Essentiel', 'Appels reçus illimités', '20 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'] },
-  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'] },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 360, features: ['1 numéro pro', 'Appels reçus illimités', '6 h d’appels sortants', 'Répondeur, horaires & transcription'] },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 720, features: ['Tout Essentiel', 'Appels reçus illimités', '12 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'] },
+  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 1200, features: ['Tout Pro', 'Appels reçus illimités', '20 h d’appels sortants', 'Multi-utilisateurs'] },
 ];
 
 // Contenu marketing des cartes tarifs (les prix/minutes restent pilotés par l'API ;
@@ -24,7 +24,7 @@ const PLAN_META: Record<string, { tagline: string; features: string[] }> = {
     features: [
       'Votre numéro pro (01-05 ou 09) inclus',
       'Appels reçus illimités',
-      '8 h d’appels sortants',
+      '6 h d’appels sortants',
       'Répondeur intelligent : chaque message transcrit en texte',
       'Horaires d’ouverture automatiques',
       'App iPhone + espace web sur ordinateur',
@@ -34,7 +34,7 @@ const PLAN_META: Record<string, { tagline: string; features: string[] }> = {
     tagline: 'Pour l’artisan qui vit au téléphone',
     features: [
       'Tout Essentiel, et :',
-      '20 h d’appels sortants',
+      '12 h d’appels sortants',
       'Secrétariat IA : résumé + qualification de chaque message (devis, urgence, RDV)',
       'Urgences détectées et mises en avant',
       'Fiches clients & historique complet',
@@ -45,7 +45,7 @@ const PLAN_META: Record<string, { tagline: string; features: string[] }> = {
     tagline: 'Pour les gros volumes & les équipes',
     features: [
       'Tout Pro, et :',
-      'Appels illimités en France (usage pro raisonnable)',
+      '20 h d’appels sortants',
       'Multi-utilisateurs',
       'Support prioritaire',
     ],
