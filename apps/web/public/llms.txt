@@ -18,7 +18,7 @@ Plombiers, électriciens, menuisiers, peintres, paysagistes, taxis et VTC, coiff
 
 ## Tarifs
 
-- **Essentiel — 12,99 € HT/mois** : 1 numéro pro, appels reçus illimités + 6 h d'appels sortants, répondeur, horaires & transcription.
+- **Essentiel — 12,99 € HT/mois** : 1 numéro pro, appels reçus illimités + 5 h d'appels sortants, répondeur, horaires & transcription.
 - **Pro — 29 € HT/mois** : tout Essentiel, appels reçus illimités + 12 h d'appels sortants, secrétariat IA (résumés, urgences).
 - **Business — 45 € HT/mois** : tout Pro, appels reçus illimités + 20 h d'appels sortants, multi-utilisateurs.
 
