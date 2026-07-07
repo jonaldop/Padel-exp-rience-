@@ -302,6 +302,20 @@ export class AdminController {
     };
   }
 
+  /** Coûts & marges réels du mois : par compte + totaux + barème. */
+  @Get('costs')
+  costs(@Headers('authorization') authorization: string) {
+    this.authorize(authorization);
+    return this.db.adminCosts();
+  }
+
+  /** Met à jour le barème de coûts unitaires (Telnyx, Stripe, infra). */
+  @Post('settings/costs')
+  setCosts(@Headers('authorization') authorization: string, @Body() body: Record<string, unknown>) {
+    this.authorize(authorization);
+    return { ok: true, rates: this.db.setCostRates(body || {}) };
+  }
+
   /** Enregistre la clé Stripe (vérifiée auprès de Stripe avant sauvegarde). */
   @Post('settings/stripe')
   async setStripeKey(

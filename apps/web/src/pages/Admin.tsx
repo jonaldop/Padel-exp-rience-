@@ -115,6 +115,7 @@ export function Admin() {
               <>
                 <UsageAlerts alerts={dashboard.usageAlerts || []} />
                 <Dashboard dashboard={dashboard} eur={eur} />
+                <CostsPanel token={token} eur={eur} />
                 <StripeSetup token={token} />
                 <AiSetup token={token} />
                 <DebugCalls token={token} />
@@ -189,6 +190,129 @@ function UsageAlerts({ alerts }: { alerts: any[] }) {
         Seules les minutes SORTANTES décomptent le forfait (appels reçus illimités). Plafond dur :
         2× les minutes incluses (fair-use 3 000 min sortantes sur l'illimité). Au-delà, les appels
         sortants sont coupés automatiquement. Passez le compte sur une formule supérieure pour débloquer.
+      </p>
+    </Card>
+  );
+}
+
+/** Coûts & marges réels : barème modifiable + détail par compte + totaux. */
+function CostsPanel({ token, eur }: { token: string; eur: (n: number) => string }) {
+  const [data, setData] = useState<any>(null);
+  const [edit, setEdit] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [openDetail, setOpenDetail] = useState(false);
+
+  const load = () => api.adminCosts(token).then(setData).catch(() => {});
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  if (!data) return null;
+  const r = data.rates;
+  const t = data.totals;
+
+  const RATE_FIELDS: [string, string, number][] = [
+    ['costInboundPerMin', 'Min. entrante (€)', r.inboundPerMin],
+    ['costOutFixedPerMin', 'Min. sortante fixe (€)', r.outFixedPerMin],
+    ['costOutMobilePerMin', 'Min. sortante mobile (€)', r.outMobilePerMin],
+    ['costNumberPerMonth', 'Numéro (€/mois)', r.numberPerMonth],
+    ['costVoicemailEach', 'Vocal+IA (€/message)', r.voicemailEach],
+    ['costStripePct', 'Stripe (%)', r.stripePct],
+    ['costStripeFixed', 'Stripe fixe (€)', r.stripeFixed],
+    ['costFixedMonthly', 'Infra fixe (€/mois)', r.fixedMonthly],
+  ];
+
+  async function saveRates() {
+    setSaving(true);
+    try {
+      await api.adminSetCosts(token, edit);
+      setEdit({});
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card style={{ padding: 16, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <p style={{ fontWeight: 700, margin: 0 }}>💰 Coûts & marges réels — {data.period}</p>
+        <span style={{ fontSize: 13, fontWeight: 800, color: t.net >= 0 ? colors.green : colors.red }}>
+          Net : {eur(t.net)}{t.netPct !== null ? ` (${t.netPct} % du CA)` : ''}
+        </span>
+      </div>
+
+      {/* Totaux */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '12px 0' }}>
+        {[
+          ['Revenu encaissé (abonnés)', eur(t.revenue), colors.primary],
+          ['Coûts variables (télécom+Stripe)', eur(t.variableCosts), colors.amber],
+          ['Coûts fixes (infra)', eur(t.fixedMonthly), colors.muted],
+          ['Résultat net du mois', eur(t.net), t.net >= 0 ? colors.green : colors.red],
+        ].map(([label, value, color]) => (
+          <div key={label as string} style={{ flex: '1 1 150px', background: '#fbfbfd', border: `1px solid ${colors.border}`, borderRadius: 12, padding: '10px 12px' }}>
+            <div style={{ fontSize: 11.5, color: colors.muted }}>{label}</div>
+            <div style={{ fontWeight: 800, fontSize: 17, color: color as string }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Détail par compte */}
+      <button onClick={() => setOpenDetail(!openDetail)} style={{ background: 'transparent', border: 'none', color: colors.primary, fontWeight: 700, cursor: 'pointer', padding: 0, fontSize: 13.5 }}>
+        {openDetail ? '▾ Masquer le détail par compte' : `▸ Détail par compte (${data.accounts.length})`}
+      </button>
+      {openDetail && (
+        <div style={{ overflowX: 'auto', marginTop: 8 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <thead>
+              <tr style={{ color: colors.muted, textAlign: 'left' }}>
+                {['Compte', 'Statut', 'Revenu', 'Min ↙', 'Min ↗fixe', 'Min ↗mobile', 'N°', 'Vocaux', 'Coût total', 'Marge'].map((h) => (
+                  <th key={h} style={{ padding: '6px 8px', borderBottom: `1px solid ${colors.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.accounts.map((a: any) => (
+                <tr key={a.accountId}>
+                  <td style={{ padding: '6px 8px', fontWeight: 700 }}>{a.entreprise}</td>
+                  <td style={{ padding: '6px 8px', color: colors.muted }}>{a.statut === 'active' ? 'Abonné' : a.statut === 'trial' ? 'Non payé' : a.statut}</td>
+                  <td style={{ padding: '6px 8px' }}>{eur(a.revenue)}</td>
+                  <td style={{ padding: '6px 8px' }}>{a.minutes.in}</td>
+                  <td style={{ padding: '6px 8px' }}>{a.minutes.outFixed}</td>
+                  <td style={{ padding: '6px 8px' }}>{a.minutes.outMobile}</td>
+                  <td style={{ padding: '6px 8px' }}>{a.numbers}</td>
+                  <td style={{ padding: '6px 8px' }}>{a.voicemails}</td>
+                  <td style={{ padding: '6px 8px' }}>{eur(a.total)}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 800, color: a.margin >= 0 ? colors.green : colors.red }}>
+                    {eur(a.margin)}{a.marginPct !== null ? ` (${a.marginPct} %)` : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Barème modifiable */}
+      <p style={{ fontWeight: 700, fontSize: 13.5, margin: '16px 0 6px' }}>Barème unitaire (tarifs Telnyx/Stripe — modifiable)</p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {RATE_FIELDS.map(([key, label, val]) => (
+          <label key={key} style={{ fontSize: 11.5, color: colors.muted }}>
+            {label}
+            <Input
+              type="number"
+              step="0.0001"
+              value={edit[key] ?? String(val)}
+              onChange={(e) => setEdit({ ...edit, [key]: e.target.value })}
+              style={{ display: 'block', width: 130, marginTop: 3 }}
+            />
+          </label>
+        ))}
+      </div>
+      <Button onClick={saveRates} disabled={saving || !Object.keys(edit).length} style={{ marginTop: 10 }}>
+        {saving ? '…' : 'Enregistrer le barème'}
+      </Button>
+      <p style={{ color: colors.muted, fontSize: 12, marginTop: 10, marginBottom: 0 }}>
+        Revenu compté uniquement sur les comptes <b>abonnés</b> (un compte en essai/non payé rapporte 0).
+        Sortant mobile détecté sur les destinations +33 6/7. Le « net » déduit aussi les coûts fixes d'infrastructure.
       </p>
     </Card>
   );

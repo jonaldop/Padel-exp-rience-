@@ -1148,6 +1148,126 @@ export class DbService implements OnModuleInit {
       .sort((x, y) => (y.créé || '').localeCompare(x.créé || ''));
   }
 
+  // ── Modèle de coûts réels (back-office « Coûts & marges ») ─────────────────
+
+  /**
+   * Barème de coûts unitaires. Valeurs par défaut = tarifs publics Telnyx
+   * France + Stripe UE (juillet 2026) ; chaque taux est modifiable depuis le
+   * back-office (persisté dans appSettings, préfixe cost*).
+   */
+  costRates() {
+    const g = (k: string, d: number) => {
+      const v = parseFloat(this.getSetting(k));
+      return Number.isFinite(v) && v >= 0 ? v : d;
+    };
+    return {
+      inboundPerMin: g('costInboundPerMin', 0.0052), // minute entrante Telnyx FR
+      outFixedPerMin: g('costOutFixedPerMin', 0.00455), // sortant vers fixe
+      outMobilePerMin: g('costOutMobilePerMin', 0.0192), // sortant vers mobile
+      numberPerMonth: g('costNumberPerMonth', 1.0), // location du numéro /mois
+      voicemailEach: g('costVoicemailEach', 0.02), // vocal : enregistrement + transcription + analyse IA
+      stripePct: g('costStripePct', 1.5), // commission Stripe (%)
+      stripeFixed: g('costStripeFixed', 0.25), // part fixe Stripe /transaction
+      fixedMonthly: g('costFixedMonthly', 25), // infra (Railway, Vercel, domaine…) /mois
+    };
+  }
+
+  setCostRates(input: Record<string, unknown>) {
+    const keys = [
+      'costInboundPerMin', 'costOutFixedPerMin', 'costOutMobilePerMin',
+      'costNumberPerMonth', 'costVoicemailEach', 'costStripePct',
+      'costStripeFixed', 'costFixedMonthly',
+    ];
+    for (const k of keys) {
+      const v = parseFloat(String(input[k]));
+      if (Number.isFinite(v) && v >= 0) this.setSetting(k, String(v));
+    }
+    return this.costRates();
+  }
+
+  /** Coût réel d'un compte sur un mois (YYYY-MM), poste par poste. */
+  accountCost(accountId: string, period: string) {
+    const r = this.costRates();
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    const calls = this.data.calls.filter(
+      (c) => c.accountId === accountId && (c.startedAt || '').slice(0, 7) === period,
+    );
+    let inSec = 0;
+    let outFixedSec = 0;
+    let outMobileSec = 0;
+    for (const c of calls) {
+      const d = c.durationS || 0;
+      if (c.direction === 'inbound') inSec += d;
+      else if (/^\+33[67]/.test((c as any).toE164 || '')) outMobileSec += d;
+      else outFixedSec += d;
+    }
+    const callIds = new Set(calls.map((c) => c.id));
+    const voicemails = this.data.voicemails.filter((v) => callIds.has(v.callId)).length;
+    const numbers = this.data.phoneNumbers.filter((n) => n.accountId === accountId).length;
+
+    // Revenu encaissé : seulement les comptes abonnés (un essai/non payé = 0).
+    const revenue = a && a.status === 'active' ? this.effectivePrice(a) : 0;
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const telecom =
+      (inSec / 60) * r.inboundPerMin +
+      (outFixedSec / 60) * r.outFixedPerMin +
+      (outMobileSec / 60) * r.outMobilePerMin;
+    const numbersCost = numbers * r.numberPerMonth;
+    const vmCost = voicemails * r.voicemailEach;
+    const stripeFees = revenue > 0 ? revenue * (r.stripePct / 100) + r.stripeFixed : 0;
+    const total = telecom + numbersCost + vmCost + stripeFees;
+    return {
+      revenue: r2(revenue),
+      minutes: {
+        in: Math.round(inSec / 60),
+        outFixed: Math.round(outFixedSec / 60),
+        outMobile: Math.round(outMobileSec / 60),
+      },
+      numbers,
+      voicemails,
+      telecom: r2(telecom),
+      numbersCost: r2(numbersCost),
+      vmCost: r2(vmCost),
+      stripeFees: r2(stripeFees),
+      total: r2(total),
+      margin: r2(revenue - total),
+      marginPct: revenue > 0 ? Math.round(((revenue - total) / revenue) * 100) : null,
+    };
+  }
+
+  /** Tableau « Coûts & marges » complet du mois en cours (tous comptes). */
+  adminCosts() {
+    const period = this.now().slice(0, 7);
+    const rates = this.costRates();
+    const accounts = this.data.accounts
+      .filter((a) => a.status !== 'canceled')
+      .map((a) => ({
+        accountId: a.id,
+        entreprise: a.companyName,
+        plan: a.plan,
+        statut: a.status,
+        ...this.accountCost(a.id, period),
+      }))
+      .sort((x, y) => x.margin - y.margin); // les pires marges en premier
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const sum = (f: (x: any) => number) => r2(accounts.reduce((s, x) => s + f(x), 0));
+    const revenue = sum((x) => x.revenue);
+    const variableCosts = sum((x) => x.total);
+    const net = r2(revenue - variableCosts - rates.fixedMonthly);
+    return {
+      period,
+      rates,
+      accounts,
+      totals: {
+        revenue,
+        variableCosts,
+        fixedMonthly: rates.fixedMonthly,
+        net,
+        netPct: revenue > 0 ? Math.round((net / revenue) * 100) : null,
+      },
+    };
+  }
+
   /** Synthèse globale pour le tableau de bord admin. */
   adminSummary(costPerMinute = 0.02) {
     const accounts = this.adminListAccounts(costPerMinute);
