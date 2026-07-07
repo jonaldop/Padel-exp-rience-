@@ -208,8 +208,8 @@ interface Data {
 // ⚠️ Les prix sont HORS TAXES (clientèle professionnelle) : la TVA 20 % est
 // ajoutée à la facturation (Stripe prélève le TTC).
 const DEFAULT_PLANS: Plan[] = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 1000, features: ['1 numéro pro', 'Appels reçus illimités', '1 000 min d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 2000, features: ['Tout Essentiel', 'Appels reçus illimités', '2 000 min d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 600, features: ['1 numéro pro', 'Appels reçus illimités', '10 h d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1800, features: ['Tout Essentiel', 'Appels reçus illimités', '30 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
   { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'], active: true },
 ];
 
@@ -259,8 +259,9 @@ export class DbService implements OnModuleInit {
       // sur la concurrence (1000/2000/illimité). Chaînée après la migration
       // précédente (200→500→1000…) ; on ne touche pas aux formules custom.
       const bumps: Record<string, { from: number; to: number }[]> = {
-        essentiel: [{ from: 200, to: 500 }, { from: 500, to: 1000 }],
-        pro: [{ from: 600, to: 1500 }, { from: 1500, to: 2000 }],
+        // Historique : 200→500→1000→600 (10 h) ; 600→1500→2000→1800 (30 h).
+        essentiel: [{ from: 200, to: 500 }, { from: 500, to: 1000 }, { from: 1000, to: 600 }],
+        pro: [{ from: 600, to: 1500 }, { from: 1500, to: 2000 }, { from: 2000, to: 1800 }],
         business: [{ from: 1500, to: 999999 }],
       };
       // Migration 2026-07c : passage des prix par défaut en HT
