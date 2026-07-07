@@ -197,9 +197,9 @@ export function PlanScreen() {
                   )}
                   {!!usage.plan.includedMinutes && !isUnlimited(usage.plan.includedMinutes) && (
                     <Text style={s.gaugeSub}>
-                      {tm && tm.overMinutes > 0
-                        ? `Dépassement : ${tm.overMinutes} min (~${eur(tm.extraCost)})`
-                        : `Il vous reste ${tm?.remainingMinutes ?? 0} min ce mois-ci`}
+                      {tm && (tm.remainingMinutes ?? 0) <= 0
+                        ? 'Minutes sortantes épuisées — passez à la formule supérieure ci-dessous pour continuer à appeler (appels reçus toujours illimités).'
+                        : `Il vous reste ${tm?.remainingMinutes ?? 0} min sortantes ce mois-ci`}
                     </Text>
                   )}
                 </View>

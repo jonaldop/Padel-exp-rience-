@@ -185,8 +185,9 @@ function Cgv() {
       <p>
         Les tarifs en vigueur sont affichés sur {COMPANY.site}. L'abonnement est mensuel, payé d'avance par
         prélèvement automatique. Les appels reçus sont illimités dans le cadre d'un usage professionnel
-        raisonnable. Les appels sortants sont inclus à hauteur du volume de la formule choisie ; au-delà,
-        ils sont facturés 0,05 € par minute sur la facture du mois suivant. Les formules « illimitées »
+        raisonnable. Les appels sortants sont inclus à hauteur du volume de la formule choisie ; une fois
+        ce volume épuisé, les appels sortants sont suspendus jusqu'au mois suivant ou au passage à une
+        formule supérieure — aucun hors-forfait n'est facturé. Les formules « illimitées »
         s'entendent pour un usage professionnel individuel raisonnable (limite technique de 3 000 minutes
         sortantes par mois). Les appels sortants sont limités à la France métropolitaine, aux DOM et aux
         destinations listées dans l'application.
