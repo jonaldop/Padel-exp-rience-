@@ -85,7 +85,7 @@ export function Dashboard({ companyName }: { companyName?: string }) {
                 boxShadow: '0 8px 20px rgba(124,92,240,0.3)',
               }}
             >
-              {payLoading ? '…' : `💳 Payer${needsPay.price ? ` ${needsPay.price.toLocaleString('fr-FR')} €/mois` : ''} et activer ma ligne`}
+              {payLoading ? '…' : `💳 Payer${needsPay.price ? ` ${needsPay.price.toLocaleString('fr-FR')} € HT/mois` : ''} et activer ma ligne`}
             </button>
           </div>
         </Card>

@@ -50,6 +50,9 @@ export interface Invoice {
   planName: string;
   baseAmount: number; // prix formule (TTC)
   discountPct: number;
+  /** Montant HT après remise + TVA (les prix des formules sont HT). */
+  amountHt?: number;
+  vatAmount?: number;
   /** Dépassement de minutes facturé (celui du MOIS PRÉCÉDENT, clos). */
   overageMinutes?: number;
   overageAmount?: number;
@@ -202,11 +205,16 @@ interface Data {
 
 // NB : includedMinutes = minutes d'appels SORTANTS. Les appels reçus sont
 // illimités sur toutes les formules (coût entrant négligeable, usage raisonnable).
+// ⚠️ Les prix sont HORS TAXES (clientèle professionnelle) : la TVA 20 % est
+// ajoutée à la facturation (Stripe prélève le TTC).
 const DEFAULT_PLANS: Plan[] = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 14.99, includedMinutes: 1000, features: ['1 numéro pro', 'Appels reçus illimités', '1 000 min d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 1000, features: ['1 numéro pro', 'Appels reçus illimités', '1 000 min d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
   { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 2000, features: ['Tout Essentiel', 'Appels reçus illimités', '2 000 min d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
-  { key: 'business', name: 'Business', monthlyPrice: 49, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'], active: true },
+  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'], active: true },
 ];
+
+/** TVA appliquée à la facturation (les prix des formules sont HT). */
+export const VAT_RATE = 0.2;
 
 const DEFAULT_SCHEDULE = JSON.stringify({
   mon: ['09:00-12:00', '14:00-18:00'],
@@ -255,11 +263,23 @@ export class DbService implements OnModuleInit {
         pro: [{ from: 600, to: 1500 }, { from: 1500, to: 2000 }],
         business: [{ from: 1500, to: 999999 }],
       };
+      // Migration 2026-07c : passage des prix par défaut en HT
+      // (14,99 TTC -> 12,99 HT ; 49 -> 45 ; formules custom non touchées).
+      const priceBumps: Record<string, { from: number; to: number }[]> = {
+        essentiel: [{ from: 14.99, to: 12.99 }],
+        business: [{ from: 49, to: 45 }],
+      };
       let migrated = false;
       for (const plan of this.data.plans) {
         for (const b of bumps[plan.key] || []) {
           if (plan.includedMinutes === b.from) {
             plan.includedMinutes = b.to;
+            migrated = true;
+          }
+        }
+        for (const b of priceBumps[plan.key] || []) {
+          if (plan.monthlyPrice === b.from) {
+            plan.monthlyPrice = b.to;
             migrated = true;
           }
         }
@@ -497,9 +517,12 @@ export class DbService implements OnModuleInit {
         const pct = a.discountPct || 0;
         // PAS de hors-forfait chez Joe : minutes épuisées = appels sortants
         // coupés + passage à la formule supérieure. La facture = l'abonnement.
+        // Prix HT -> TVA 20 % ajoutée, total facturé TTC.
         const overMin = 0;
         const overAmt = 0;
-        const total = Math.round(baseAmount * (1 - pct / 100) * 100) / 100;
+        const ht = Math.round(baseAmount * (1 - pct / 100) * 100) / 100;
+        const vat = Math.round(ht * VAT_RATE * 100) / 100;
+        const total = Math.round((ht + vat) * 100) / 100;
         const seq = this.data.invoices.length + 1;
         this.data.invoices.push({
           id: randomUUID(),
@@ -513,6 +536,8 @@ export class DbService implements OnModuleInit {
           overageMinutes: overMin || undefined,
           overageAmount: overAmt || undefined,
           overagePeriod: undefined,
+          amountHt: ht,
+          vatAmount: vat,
           total,
           status: 'due',
           createdAt: this.now(),
@@ -574,6 +599,7 @@ export class DbService implements OnModuleInit {
     const a = this.data.accounts.find((x) => x.id === accountId);
     const plan = this.data.plans.find((p) => p.key === a?.plan);
     const seq = this.data.invoices.length + 1;
+    const ht = Math.round((amount / (1 + VAT_RATE)) * 100) / 100;
     const inv: Invoice = {
       id: randomUUID(),
       accountId,
@@ -581,8 +607,10 @@ export class DbService implements OnModuleInit {
       period,
       planKey: a?.plan || '',
       planName: plan?.name || a?.plan || '',
-      baseAmount: plan?.monthlyPrice ?? amount,
+      baseAmount: plan?.monthlyPrice ?? ht,
       discountPct: a?.discountPct || 0,
+      amountHt: ht,
+      vatAmount: Math.round((amount - ht) * 100) / 100,
       total: amount,
       status: 'paid',
       createdAt: this.now(),

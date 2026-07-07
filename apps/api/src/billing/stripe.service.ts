@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Account, DbService, Invoice } from '../db/db.service';
+import { Account, DbService, Invoice, VAT_RATE } from '../db/db.service';
 import { TelnyxService } from '../telnyx/telnyx.service';
 import { config } from '../config/config';
 
@@ -116,13 +116,15 @@ export class StripeService {
    */
   async subscribeForAccount(account: Account, planName: string, monthlyAmount: number, customerEmail?: string): Promise<{ url: string }> {
     const base = config.publicApiUrl;
+    // monthlyAmount est le prix HT de la formule : Stripe prélève le TTC.
+    const ttc = Math.round(monthlyAmount * (1 + VAT_RATE) * 100) / 100;
     const session = await this.api<{ url: string }>('/checkout/sessions', {
       mode: 'subscription',
       'line_items[0][quantity]': '1',
       'line_items[0][price_data][currency]': 'eur',
-      'line_items[0][price_data][unit_amount]': String(Math.round(monthlyAmount * 100)),
+      'line_items[0][price_data][unit_amount]': String(Math.round(ttc * 100)),
       'line_items[0][price_data][recurring][interval]': 'month',
-      'line_items[0][price_data][product_data][name]': `Joe — Formule ${planName} (mensuel)`,
+      'line_items[0][price_data][product_data][name]': `Joe — Formule ${planName} (mensuel, ${monthlyAmount.toFixed(2).replace('.', ',')} € HT + TVA 20 %)`,
       'metadata[accountId]': account.id,
       'subscription_data[metadata][accountId]': account.id,
       ...(customerEmail ? { customer_email: customerEmail } : {}),
