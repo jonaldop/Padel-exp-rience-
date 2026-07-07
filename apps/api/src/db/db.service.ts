@@ -208,9 +208,9 @@ interface Data {
 // ⚠️ Les prix sont HORS TAXES (clientèle professionnelle) : la TVA 20 % est
 // ajoutée à la facturation (Stripe prélève le TTC).
 const DEFAULT_PLANS: Plan[] = [
-  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 480, features: ['1 numéro pro', 'Appels reçus illimités', '8 h d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
-  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 1200, features: ['Tout Essentiel', 'Appels reçus illimités', '20 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
-  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 999999, features: ['Tout Pro', 'Appels illimités en France (usage pro raisonnable)', 'Multi-utilisateurs'], active: true },
+  { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 360, features: ['1 numéro pro', 'Appels reçus illimités', '6 h d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
+  { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 720, features: ['Tout Essentiel', 'Appels reçus illimités', '12 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
+  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 1200, features: ['Tout Pro', 'Appels reçus illimités', '20 h d’appels sortants', 'Multi-utilisateurs'], active: true },
 ];
 
 /** TVA appliquée à la facturation (les prix des formules sont HT). */
@@ -259,11 +259,13 @@ export class DbService implements OnModuleInit {
       // sur la concurrence (1000/2000/illimité). Chaînée après la migration
       // précédente (200→500→1000…) ; on ne touche pas aux formules custom.
       const bumps: Record<string, { from: number; to: number }[]> = {
-        // Historique : 200→500→1000→600→480 (8 h) ; 600→1500→2000→1800→1200 (20 h).
+        // Historique essentiel : 200→500→1000→600→480→360 (6 h).
+        // Historique pro : 600→1500→2000→1800→1200→720 (12 h).
+        // Historique business : 1500→999999 (illimité) →1200 (20 h).
         // Quotas calibrés pour rester bénéficiaires MÊME saturés 100 % mobile.
-        essentiel: [{ from: 200, to: 500 }, { from: 500, to: 1000 }, { from: 1000, to: 600 }, { from: 600, to: 480 }],
-        pro: [{ from: 600, to: 1500 }, { from: 1500, to: 2000 }, { from: 2000, to: 1800 }, { from: 1800, to: 1200 }],
-        business: [{ from: 1500, to: 999999 }],
+        essentiel: [{ from: 200, to: 500 }, { from: 500, to: 1000 }, { from: 1000, to: 600 }, { from: 600, to: 480 }, { from: 480, to: 360 }],
+        pro: [{ from: 600, to: 1500 }, { from: 1500, to: 2000 }, { from: 2000, to: 1800 }, { from: 1800, to: 1200 }, { from: 1200, to: 720 }],
+        business: [{ from: 1500, to: 999999 }, { from: 999999, to: 1200 }],
       };
       // Migration 2026-07c : passage des prix par défaut en HT
       // (14,99 TTC -> 12,99 HT ; 49 -> 45 ; formules custom non touchées).
