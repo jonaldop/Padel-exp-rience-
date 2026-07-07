@@ -26,10 +26,33 @@ const statusMeta: Record<string, { txt: string; color: string; bg: string }> = {
 export function Dashboard({ companyName }: { companyName?: string }) {
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
+  // Ligne en attente d'activation : abonnement non réglé (paiement d'abord).
+  const [needsPay, setNeedsPay] = useState<{ price?: number } | null>(null);
+  const [payLoading, setPayLoading] = useState(false);
 
   useEffect(() => {
     api.history().then(setCalls).finally(() => setLoading(false));
+    // Compte non abonné + paiement en ligne actif -> bannière "Activez votre ligne".
+    Promise.all([api.billingStatus().catch(() => null), api.usage().catch(() => null)])
+      .then(([b, u]: any[]) => {
+        if (b?.enabled && !b?.subscribed && u?.status === 'trial') {
+          setNeedsPay({ price: u?.effectiveMonthlyPrice ?? u?.plan?.monthlyPrice });
+        }
+      });
   }, []);
+
+  async function payNow() {
+    setPayLoading(true);
+    try {
+      const r = await api.subscribe();
+      if (r?.url) { window.location.href = r.url; return; }
+      alert(r?.error || 'Paiement momentanément indisponible.');
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setPayLoading(false);
+    }
+  }
 
   const total = calls.length;
   const missed = calls.filter((c) => c.status === 'missed').length;
@@ -43,6 +66,30 @@ export function Dashboard({ companyName }: { companyName?: string }) {
   return (
     <div>
       <PageTitle subtitle={companyName ? `Bonjour, ${companyName} 👋` : undefined}>Accueil</PageTitle>
+
+      {needsPay && (
+        <Card style={{ padding: 16, marginBottom: 16, border: '1.5px solid #d9cffb', background: '#f5f2ff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <p style={{ fontWeight: 800, margin: 0 }}>📞 Votre ligne attend son activation</p>
+              <p style={{ color: colors.muted, fontSize: 13.5, margin: '4px 0 0' }}>
+                Réglez votre abonnement pour mettre votre numéro en service — activation immédiate après paiement.
+              </p>
+            </div>
+            <button
+              onClick={payNow}
+              disabled={payLoading}
+              style={{
+                border: 'none', cursor: 'pointer', color: '#fff', fontWeight: 800, fontSize: 14,
+                background: 'linear-gradient(120deg,#5B8CFF,#7C5CF0)', borderRadius: 999, padding: '11px 20px',
+                boxShadow: '0 8px 20px rgba(124,92,240,0.3)',
+              }}
+            >
+              {payLoading ? '…' : `💳 Payer${needsPay.price ? ` ${needsPay.price.toLocaleString('fr-FR')} €/mois` : ''} et activer ma ligne`}
+            </button>
+          </div>
+        </Card>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
         <Kpi icon="📞" tint="#eef0ff" iconColor={colors.primary} label="Appels" value={total} />

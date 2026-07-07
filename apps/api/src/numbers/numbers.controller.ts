@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@ne
 import { DbService } from '../db/db.service';
 import { SecretaryService } from '../ai/secretary.service';
 import { TelnyxService } from '../telnyx/telnyx.service';
+import { StripeService } from '../billing/stripe.service';
 import { CurrentUser, JwtGuard } from '../auth/jwt.guard';
 import { JwtPayload } from '../auth/auth.service';
 
@@ -31,6 +32,7 @@ export class NumbersController {
   constructor(
     private readonly db: DbService,
     private readonly telnyx: TelnyxService,
+    private readonly stripe: StripeService,
   ) {}
 
   /** Catalogue de numéros disponibles à l'achat (recherche par type / chiffres). */
@@ -41,7 +43,16 @@ export class NumbersController {
 
   /** Liste des numéros du compte. */
   @Get()
-  list(@CurrentUser() user: JwtPayload) {
+  async list(@CurrentUser() user: JwtPayload) {
+    // Filet de sécurité : un compte PAYANT avec un numéro encore en attente
+    // (achat Telnyx échoué au moment du paiement, webhook manqué…) -> on
+    // retente l'activation à chaque consultation. Idempotent.
+    const account = this.db.findAccountById(user.accountId);
+    if (account?.status === 'active' && account?.pendingNumber?.e164) {
+      try {
+        await this.stripe.activatePendingNumber(user.accountId);
+      } catch { /* on retentera à la prochaine consultation */ }
+    }
     // defaultGreetings : textes automatiques du secrétariat (affichés en
     // aperçu dans l'app quand aucun message personnalisé n'est défini).
     const company = this.db.findAccountById(user.accountId)?.companyName;
