@@ -51,6 +51,9 @@ export const api = {
   me: () => request('/auth/me'),
   changePassword: (currentPassword: string, newPassword: string) =>
     request('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
+  // Suppression définitive du compte (exigence App Store / RGPD).
+  deleteAccount: (password: string) =>
+    request<any>('/account', { method: 'DELETE', body: JSON.stringify({ password }) }),
 
   // Profil + formule
   updateProfile: (data: { firstName?: string; lastName?: string; phonePerso?: string }) =>

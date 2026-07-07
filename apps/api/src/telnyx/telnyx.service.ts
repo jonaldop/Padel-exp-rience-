@@ -293,6 +293,12 @@ export class TelnyxService {
   }
 
   /** Achète un numéro et l'attribue à notre Call Control App (routage entrant). */
+  /** Libère (supprime) un numéro chez Telnyx — résiliation / suppression de compte. */
+  async releaseNumber(providerNumberId: string): Promise<void> {
+    if (!this.configured || !providerNumberId) return;
+    await this.api(`/phone_numbers/${encodeURIComponent(providerNumberId)}`, { method: 'DELETE' });
+  }
+
   async buyNumber(e164: string, accountId?: string, enableSms = false): Promise<{ providerNumberId: string | null }> {
     // Idempotent : si le numéro est déjà possédé, l'achat échoue -> on continue
     // quand même pour le retrouver et l'assigner au compte.

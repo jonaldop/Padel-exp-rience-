@@ -36,9 +36,9 @@ export class StripeService {
     return Boolean(this.secretKey);
   }
 
-  private async api<T = any>(pathname: string, params?: Record<string, string>): Promise<T> {
+  private async api<T = any>(pathname: string, params?: Record<string, string>, method?: string): Promise<T> {
     const res = await fetch(`https://api.stripe.com/v1${pathname}`, {
-      method: params ? 'POST' : 'GET',
+      method: method || (params ? 'POST' : 'GET'),
       headers: {
         Authorization: `Bearer ${this.secretKey}`,
         // Version d'API épinglée : obligatoire avec les clés « organisation »
@@ -162,6 +162,11 @@ export class StripeService {
       }
     }
     return { paid: true };
+  }
+
+  /** Annule l'abonnement Stripe (résiliation / suppression de compte). */
+  async cancelSubscription(subscriptionId: string): Promise<void> {
+    await this.api(`/subscriptions/${encodeURIComponent(subscriptionId)}`, undefined, 'DELETE');
   }
 
   /**

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, RefreshControl, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, RefreshControl, ActivityIndicator, Linking, Platform,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api';
@@ -221,11 +222,21 @@ export function PlanScreen() {
                     </Text>
                   </View>
                 ) : payEnabled && (usage.plan.monthlyPrice || 0) > 0 ? (
-                  <TouchableOpacity style={s.subscribeBtn} onPress={startSubscription} disabled={subscribing}>
-                    <Text style={s.subscribeBtnTxt}>
-                      {subscribing ? '…' : `💳 Activer le prélèvement automatique (${eur(usage.effectiveMonthlyPrice ?? usage.plan.monthlyPrice)}/mois)`}
-                    </Text>
-                  </TouchableOpacity>
+                  Platform.OS === 'ios' ? (
+                    /* App Store 3.1.1 : aucune vente dans l'app iOS — gestion sur le web. */
+                    <View style={s.autoOk}>
+                      <Text style={{ color: colors.muted, fontSize: 12.5, lineHeight: 17 }}>
+                        Gérez votre abonnement et son règlement depuis votre espace web
+                        sur www.allojoe.fr.
+                      </Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={s.subscribeBtn} onPress={startSubscription} disabled={subscribing}>
+                      <Text style={s.subscribeBtnTxt}>
+                        {subscribing ? '…' : `💳 Activer le prélèvement automatique (${eur(usage.effectiveMonthlyPrice ?? usage.plan.monthlyPrice)}/mois)`}
+                      </Text>
+                    </TouchableOpacity>
+                  )
                 ) : null}
               </Glass>
             )}
@@ -266,7 +277,7 @@ export function PlanScreen() {
                       <Text style={[s.invStatus, { color: inv.status === 'paid' ? colors.green : inv.status === 'void' ? colors.muted : colors.amber }]}>
                         {inv.status === 'paid' ? '✓ Payée' : inv.status === 'void' ? 'Annulée' : 'À payer'}
                       </Text>
-                      {inv.status === 'due' && payEnabled && (
+                      {inv.status === 'due' && payEnabled && Platform.OS !== 'ios' && (
                         <TouchableOpacity
                           style={s.payBtn}
                           onPress={() => payInvoice(inv)}

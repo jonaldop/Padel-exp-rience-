@@ -142,9 +142,10 @@ export default function App() {
             />
             <Stack.Screen
               name="Profil"
-              component={ProfileScreen}
               options={{ headerShown: true, headerTitle: '', headerTransparent: true, headerTintColor: colors.primary }}
-            />
+            >
+              {() => <ProfileScreen onLogout={logout} />}
+            </Stack.Screen>
             <Stack.Screen
               name="Formule"
               component={PlanScreen}
