@@ -167,6 +167,12 @@ export const api = {
     }>('/admin/settings', {
       headers: { Authorization: `Bearer ${token}` },
     }),
+  adminCosts: (token: string) =>
+    request<any>('/admin/costs', { headers: { Authorization: `Bearer ${token}` } }),
+  adminSetCosts: (token: string, rates: Record<string, string | number>) =>
+    request<any>('/admin/settings/costs', {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(rates),
+    }),
   adminSetStripeKey: (token: string, secretKey: string, accountId?: string) =>
     request<{ ok?: boolean; configured?: boolean; keyMasked?: string; error?: string }>('/admin/settings/stripe', {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ secretKey, accountId }),
