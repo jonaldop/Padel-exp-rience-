@@ -149,7 +149,12 @@ export class StripeService {
       const accountId = s?.metadata?.accountId;
       if (accountId) {
         this.db.setAccountStripe(accountId, s.customer || null, s.subscription || null);
-        this.db.updateAccountStatus(accountId, 'active');
+        this.db.setAccountLifecycle(accountId, {
+          status: 'active',
+          cancelEffectiveAt: null,
+          pastDueSince: null,
+          numbersReleaseAt: null,
+        });
         const period = new Date().toISOString().slice(0, 7);
         this.db.recordPaidInvoice(accountId, period, (s.amount_total || 0) / 100);
         this.logger.log(`Abonnement Stripe activé pour le compte ${accountId} (${s.subscription})`);
