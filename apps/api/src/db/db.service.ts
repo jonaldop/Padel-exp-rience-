@@ -40,6 +40,12 @@ export interface Account {
   pendingNumber?: { e164: string; type?: string } | null;
   /** Alertes conso déjà envoyées ce mois-ci (80 %, 100 % du quota sortant). */
   usageAlerts?: { period: string; levels: number[] } | null;
+  /** Résiliation demandée : la ligne s'arrête à cette date (fin de période payée). */
+  cancelEffectiveAt?: string | null;
+  /** Premier échec de prélèvement non régularisé (départ du délai de grâce). */
+  pastDueSince?: string | null;
+  /** Date de libération des numéros chez Telnyx (résiliation +15 j / impayé +30 j). */
+  numbersReleaseAt?: string | null;
 }
 
 /** Facture mensuelle d'abonnement (générée automatiquement, hors période d'essai). */
@@ -401,6 +407,52 @@ export class DbService implements OnModuleInit {
     a.status = status;
     this.save();
     return a;
+  }
+
+  /** Accès brut aux comptes (balayage cycle de vie). */
+  allAccounts(): Account[] {
+    return this.data.accounts;
+  }
+
+  /** Met à jour les champs de cycle de vie d'un compte (résiliation, impayé…). */
+  setAccountLifecycle(
+    accountId: string,
+    patch: Partial<Pick<Account, 'status' | 'cancelEffectiveAt' | 'pastDueSince' | 'numbersReleaseAt'>>,
+  ): Account | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return null;
+    Object.assign(a, patch);
+    this.save();
+    return a;
+  }
+
+  /**
+   * La ligne est-elle coupée ? (résiliée, suspendue, ou impayé au-delà du
+   * délai de grâce de 10 jours). null = ligne en service.
+   */
+  lineBlockedReason(accountId: string): 'canceled' | 'suspended' | 'unpaid' | null {
+    const a = this.data.accounts.find((x) => x.id === accountId);
+    if (!a) return 'canceled';
+    if (a.status === 'canceled') return 'canceled';
+    if (a.status === 'suspended') return 'suspended';
+    if (
+      a.status === 'past_due' &&
+      a.pastDueSince &&
+      Date.now() - new Date(a.pastDueSince).getTime() >= 10 * 86400000
+    ) {
+      return 'unpaid';
+    }
+    return null;
+  }
+
+  /** Supprime les numéros d'un compte (et leurs réglages) ; renvoie les numéros retirés. */
+  releaseAccountNumbers(accountId: string): PhoneNumber[] {
+    const removed = this.data.phoneNumbers.filter((n) => n.accountId === accountId);
+    const ids = new Set(removed.map((n) => n.id));
+    this.data.phoneNumbers = this.data.phoneNumbers.filter((n) => n.accountId !== accountId);
+    this.data.settings = this.data.settings.filter((st) => !ids.has(st.phoneNumberId));
+    if (removed.length) this.save();
+    return removed;
   }
 
   /** Numéro réservé en attente de paiement (null pour effacer). */

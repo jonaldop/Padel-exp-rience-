@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Patch, Post, UseGuards } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { DbService } from '../db/db.service';
 import { StripeService } from './stripe.service';
@@ -44,6 +44,31 @@ export class AccountController {
     }
     const a = this.db.updateAccountPlan(user.accountId, plan.key);
     return { plan: a?.plan };
+  }
+
+  /**
+   * RÉSILIATION « en un clic » (promesse CGV) : plus aucun prélèvement, la
+   * ligne reste active jusqu'à la fin de la période déjà payée, puis le
+   * numéro est conservé 15 jours avant libération (LifecycleService).
+   */
+  @Post('cancel')
+  async cancel(@CurrentUser() user: JwtPayload) {
+    const account = this.db.findAccountById(user.accountId);
+    if (!account) return { error: 'Compte introuvable' };
+    if (account.cancelEffectiveAt) {
+      return { ok: true, effectiveAt: account.cancelEffectiveAt, already: true };
+    }
+    if (!account.stripeSubscriptionId) {
+      return { error: "Aucun abonnement actif à résilier." };
+    }
+    let effectiveAt: string;
+    try {
+      effectiveAt = await this.stripe.cancelAtPeriodEnd(account.stripeSubscriptionId);
+    } catch (e) {
+      return { error: `Résiliation impossible pour le moment : ${(e as Error).message}` };
+    }
+    this.db.setAccountLifecycle(user.accountId, { cancelEffectiveAt: effectiveAt });
+    return { ok: true, effectiveAt };
   }
 
   @Delete()

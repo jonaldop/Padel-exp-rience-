@@ -51,6 +51,7 @@ export function PlanScreen() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payEnabled, setPayEnabled] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
+  const [cancelAt, setCancelAt] = useState<string | null>(null);
   const [subscribing, setSubscribing] = useState(false);
   const [paying, setPaying] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,6 +71,7 @@ export function PlanScreen() {
         setInvoices(Array.isArray(inv) ? inv : []);
         setPayEnabled(Boolean(bs?.enabled));
         setSubscribed(Boolean(bs?.subscribed));
+        setCancelAt(bs?.cancelEffectiveAt || null);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -103,6 +105,36 @@ export function PlanScreen() {
   }
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  /** Résiliation en un clic : fin de prélèvement, ligne active jusqu'au terme payé. */
+  function confirmCancel() {
+    Alert.alert(
+      'Résilier votre abonnement ?',
+      'Plus aucun prélèvement. Votre ligne reste active jusqu’à la fin de la période déjà payée, puis votre numéro est conservé 15 jours avant d’être libéré.',
+      [
+        { text: 'Garder mon abonnement', style: 'cancel' },
+        {
+          text: 'Résilier',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const r = await api.cancelSubscription();
+              if (r?.error) { Alert.alert('Impossible', r.error); return; }
+              Alert.alert(
+                'Abonnement résilié',
+                r?.effectiveAt
+                  ? `Votre ligne reste active jusqu’au ${new Date(r.effectiveAt).toLocaleDateString('fr-FR')}.`
+                  : 'Votre ligne reste active jusqu’à la fin de la période payée.',
+              );
+              load();
+            } catch (e: any) {
+              Alert.alert('Impossible', e.message);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   function choose(plan: Plan) {
     if (plan.key === usage?.plan?.key) return;
@@ -224,12 +256,30 @@ export function PlanScreen() {
                 {/* Prélèvement automatique (abonnement Stripe) */}
                 {subscribed ? (
                   <View style={s.autoOk}>
-                    <Text style={{ color: colors.green, fontWeight: '800', fontSize: 13.5 }}>
-                      ✓ Prélèvement automatique actif
-                    </Text>
-                    <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
-                      Votre formule est prélevée chaque mois ; la facture apparaît ci-dessous, déjà réglée.
-                    </Text>
+                    {cancelAt ? (
+                      <>
+                        <Text style={{ color: colors.amber, fontWeight: '800', fontSize: 13.5 }}>
+                          Résiliation programmée le {new Date(cancelAt).toLocaleDateString('fr-FR')}
+                        </Text>
+                        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                          Votre ligne reste active jusqu’à cette date, puis votre numéro est conservé 15 jours.
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={{ color: colors.green, fontWeight: '800', fontSize: 13.5 }}>
+                          ✓ Prélèvement automatique actif
+                        </Text>
+                        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+                          Votre formule est prélevée chaque mois ; la facture apparaît ci-dessous, déjà réglée.
+                        </Text>
+                        <TouchableOpacity onPress={confirmCancel} style={{ marginTop: 8 }}>
+                          <Text style={{ color: colors.red, fontWeight: '700', fontSize: 12.5 }}>
+                            Résilier mon abonnement
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
                   </View>
                 ) : payEnabled && (usage.plan.monthlyPrice || 0) > 0 ? (
                   Platform.OS === 'ios' ? (

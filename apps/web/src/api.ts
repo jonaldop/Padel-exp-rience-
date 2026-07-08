@@ -73,6 +73,8 @@ export const api = {
   buyNumber: (e164: string, type?: string) =>
     request('/numbers/buy', { method: 'POST', body: JSON.stringify({ e164, type }) }),
   // Réserve le numéro choisi à l'inscription : acheté après paiement.
+  cancelSubscription: () =>
+    request<any>('/account/cancel', { method: 'POST', body: '{}' }),
   reserveNumber: (e164: string, type?: string) =>
     request('/numbers/reserve', { method: 'POST', body: JSON.stringify({ e164, type }) }),
   importNumbers: () => request('/numbers/import', { method: 'POST', body: '{}' }),

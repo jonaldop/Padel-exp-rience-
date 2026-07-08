@@ -65,7 +65,6 @@ export async function playVoicemail(
     } catch (e: any) {
       // DIAGNOSTIC (temporaire) : montre pourquoi la lecture interne échoue
       // avant de basculer sur la page lecteur.
-      Alert.alert('Lecture interne impossible', String(e?.message || e).slice(0, 300));
     }
   }
   const q = meta?.vmId

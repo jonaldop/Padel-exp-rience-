@@ -29,6 +29,7 @@ export function Dashboard({ companyName }: { companyName?: string }) {
   // Ligne en attente d'activation : abonnement non réglé (paiement d'abord).
   const [needsPay, setNeedsPay] = useState<{ price?: number } | null>(null);
   const [payLoading, setPayLoading] = useState(false);
+  const [sub, setSub] = useState<{ active: boolean; cancelAt?: string | null } | null>(null);
 
   useEffect(() => {
     api.history().then(setCalls).finally(() => setLoading(false));
@@ -38,8 +39,25 @@ export function Dashboard({ companyName }: { companyName?: string }) {
         if (b?.enabled && !b?.subscribed && u?.status === 'trial') {
           setNeedsPay({ price: u?.effectiveMonthlyPrice ?? u?.plan?.monthlyPrice });
         }
+        if (b?.subscribed) setSub({ active: true, cancelAt: b?.cancelEffectiveAt });
       });
   }, []);
+
+  async function cancelSub() {
+    if (!window.confirm(
+      'Résilier votre abonnement ?\n\nPlus aucun prélèvement. Votre ligne reste active jusqu’à la fin de la période déjà payée, puis votre numéro est conservé 15 jours avant d’être libéré.',
+    )) return;
+    try {
+      const r = await api.cancelSubscription();
+      if (r?.error) { alert(r.error); return; }
+      setSub({ active: true, cancelAt: r?.effectiveAt });
+      alert(r?.effectiveAt
+        ? `Abonnement résilié : votre ligne reste active jusqu’au ${new Date(r.effectiveAt).toLocaleDateString('fr-FR')}.`
+        : 'Abonnement résilié.');
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
 
   async function payNow() {
     setPayLoading(true);
@@ -66,6 +84,32 @@ export function Dashboard({ companyName }: { companyName?: string }) {
   return (
     <div>
       <PageTitle subtitle={companyName ? `Bonjour, ${companyName} 👋` : undefined}>Accueil</PageTitle>
+
+      {sub?.active && (
+        <Card style={{ padding: 14, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            {sub.cancelAt ? (
+              <p style={{ margin: 0, fontSize: 13.5, color: colors.amber, fontWeight: 700 }}>
+                Résiliation programmée le {new Date(sub.cancelAt).toLocaleDateString('fr-FR')} — votre ligne
+                reste active jusqu'à cette date, puis votre numéro est conservé 15 jours.
+              </p>
+            ) : (
+              <>
+                <p style={{ margin: 0, fontSize: 13.5 }}>
+                  <b style={{ color: colors.green }}>✓ Abonnement actif</b>
+                  <span style={{ color: colors.muted }}> — prélèvement automatique mensuel</span>
+                </p>
+                <button
+                  onClick={cancelSub}
+                  style={{ background: 'transparent', border: 'none', color: colors.red, fontWeight: 700, cursor: 'pointer', fontSize: 13, padding: 0 }}
+                >
+                  Résilier mon abonnement
+                </button>
+              </>
+            )}
+          </div>
+        </Card>
+      )}
 
       {needsPay && (
         <Card style={{ padding: 16, marginBottom: 16, border: '1.5px solid #d9cffb', background: '#f5f2ff' }}>

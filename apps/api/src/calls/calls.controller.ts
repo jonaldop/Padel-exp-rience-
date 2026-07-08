@@ -171,6 +171,16 @@ export class CallsController {
     if (!destinationAllowed(dest)) {
       return { error: 'Les appels internationaux ne sont pas disponibles sur votre forfait.' };
     }
+    // Ligne coupée (résiliée / suspendue / impayé au-delà du délai de grâce).
+    const lineBlocked = this.db.lineBlockedReason(user.accountId);
+    if (lineBlocked) {
+      return {
+        error:
+          lineBlocked === 'unpaid'
+            ? 'Ligne suspendue : votre prélèvement a échoué. Régularisez votre paiement sur allojoe.fr pour réactiver vos appels.'
+            : 'Votre ligne n’est plus active. Rendez-vous sur allojoe.fr pour la réactiver.',
+      };
+    }
     const guard = this.db.usageGuard(user.accountId);
     if (guard.state === 'blocked') {
       const unlimited = guard.includedMinutes >= 99999;
@@ -257,12 +267,13 @@ export class CallsController {
           if (proNumber) {
             const dest = String(payload.to || '');
             const g = this.db.usageGuard(proNumber.accountId);
-            if ((dest.startsWith('+') && !destinationAllowed(dest)) || g.state === 'blocked') {
+            const lb = this.db.lineBlockedReason(proNumber.accountId);
+            if ((dest.startsWith('+') && !destinationAllowed(dest)) || g.state === 'blocked' || lb) {
               this.db.logInbound({
                 type: 'outbound-blocked',
                 from: payload.from,
                 to: payload.to,
-                reason: g.state === 'blocked' ? `cap ${g.capMinutes}min atteint` : 'destination hors politique',
+                reason: lb ? `ligne coupée (${lb})` : g.state === 'blocked' ? `cap ${g.capMinutes}min atteint` : 'destination hors politique',
               });
               try {
                 await this.telnyx.hangup(callControlId);
@@ -274,6 +285,18 @@ export class CallsController {
         const number = this.db.findPhoneNumberByE164(payload.to);
         if (!number) {
           this.logger.warn(`Appel vers un numéro inconnu: ${payload.to}`);
+          break;
+        }
+        // Ligne coupée (résiliation effective / suspension / impayé >10 j) :
+        // message court à l'appelant puis raccrochage.
+        const lineBlocked = this.db.lineBlockedReason(number.accountId);
+        if (lineBlocked) {
+          this.db.logInbound({ type: 'line-blocked', from: payload.from, to: payload.to, reason: lineBlocked });
+          try {
+            await this.telnyx.answer(callControlId);
+            await this.telnyx.speak(callControlId, 'Ce numéro n’est plus en service actuellement.', 'Polly.Lea-Neural');
+            this.pendingHangup.add(callControlId);
+          } catch { /* appel déjà terminé */ }
           break;
         }
         this.db.createCall({
