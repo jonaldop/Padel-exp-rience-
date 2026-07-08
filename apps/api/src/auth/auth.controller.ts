@@ -92,6 +92,12 @@ export class AuthController {
   updatePlan(@CurrentUser() user: JwtPayload, @Body() body: { plan: string }) {
     const allowed = this.db.listPlans().filter((p) => p.active).map((p) => p.key);
     if (!allowed.includes(body.plan)) return { error: 'Formule inconnue' };
+    // Abonnement Stripe actif -> passer par PATCH /account/plan (synchro du
+    // prélèvement). Cet endpoint ne sert qu'aux comptes non abonnés.
+    const account = this.db.findAccountById(user.accountId);
+    if (account?.stripeSubscriptionId) {
+      return { error: 'Abonnement actif : changez de formule depuis votre espace ou la dernière version de l’app.' };
+    }
     const a = this.db.updateAccountPlan(user.accountId, body.plan);
     if (!a) return { error: 'Compte introuvable' };
     return { plan: a.plan };

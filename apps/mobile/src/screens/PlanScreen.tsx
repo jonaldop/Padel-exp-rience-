@@ -329,15 +329,22 @@ export function PlanScreen() {
                   {(p.features || []).map((f) => (
                     <Text key={f} style={s.feature}>• {f}</Text>
                   ))}
-                  <TouchableOpacity
-                    style={[s.btn, active ? s.btnActive : null]}
-                    onPress={() => choose(p)}
-                    disabled={active || saving === p.key}
-                  >
-                    <Text style={[s.btnTxt, active ? { color: colors.primary } : null]}>
-                      {active ? '✓ Formule actuelle' : saving === p.key ? '…' : 'Choisir cette formule'}
+                  {Platform.OS === 'ios' && !active ? (
+                    /* App Store 3.1.1 : pas de changement d'offre payante dans l'app iOS. */
+                    <Text style={{ color: colors.muted, fontSize: 12.5, marginTop: 10 }}>
+                      Changez de formule depuis votre espace web sur www.allojoe.fr.
                     </Text>
-                  </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[s.btn, active ? s.btnActive : null]}
+                      onPress={() => choose(p)}
+                      disabled={active || saving === p.key}
+                    >
+                      <Text style={[s.btnTxt, active ? { color: colors.primary } : null]}>
+                        {active ? '✓ Formule actuelle' : saving === p.key ? '…' : 'Choisir cette formule'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </Glass>
               );
             })}
