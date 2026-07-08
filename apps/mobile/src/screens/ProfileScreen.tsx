@@ -51,16 +51,29 @@ export function ProfileScreen({ onLogout }: { onLogout?: () => void }) {
         {
           text: 'Continuer',
           style: 'destructive',
-          onPress: () =>
-            Alert.prompt(
-              'Confirmez avec votre mot de passe',
-              undefined,
-              [
-                { text: 'Annuler', style: 'cancel' },
-                { text: 'Supprimer définitivement', style: 'destructive', onPress: (pwd) => doDelete(pwd || '') },
-              ],
-              'secure-text',
-            ),
+          onPress: () => {
+            if (Platform.OS === 'ios') {
+              // Alert.prompt n'existe QUE sur iOS.
+              Alert.prompt(
+                'Confirmez avec votre mot de passe',
+                undefined,
+                [
+                  { text: 'Annuler', style: 'cancel' },
+                  { text: 'Supprimer définitivement', style: 'destructive', onPress: (pwd) => doDelete(pwd || '') },
+                ],
+                'secure-text',
+              );
+            } else if (curPwd) {
+              // Android : on réutilise le champ « Mot de passe actuel » de la
+              // section Sécurité juste au-dessus.
+              doDelete(curPwd);
+            } else {
+              Alert.alert(
+                'Mot de passe requis',
+                'Saisissez votre mot de passe actuel dans la section Sécurité ci-dessus, puis relancez la suppression.',
+              );
+            }
+          },
         },
       ],
     );

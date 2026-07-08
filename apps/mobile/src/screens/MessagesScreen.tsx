@@ -164,6 +164,22 @@ export function MessagesScreen() {
       nav.navigate('FicheContact', { contact: existing });
       return;
     }
+    if (Platform.OS !== 'ios') {
+      // Alert.prompt n'existe que sur iOS : sur Android on crée la fiche avec
+      // le numéro comme nom (modifiable ensuite dans Contacts).
+      Alert.alert('Nouveau client', `Créer une fiche pour ${formatFr(fromE164)} ?`, [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Créer',
+          onPress: async () => {
+            const c = await createContact(formatFr(fromE164), fromE164);
+            if (c) nav.navigate('FicheContact', { contact: c });
+            else Alert.alert('Impossible', "Autorisez l'accès aux contacts pour créer la fiche.");
+          },
+        },
+      ]);
+      return;
+    }
     Alert.prompt(
       'Nouveau client',
       `Créer une fiche pour ${formatFr(fromE164)} ?`,

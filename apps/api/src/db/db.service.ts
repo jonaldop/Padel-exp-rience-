@@ -651,6 +651,9 @@ export class DbService implements OnModuleInit {
     if (existing) {
       existing.status = 'paid';
       existing.total = amount;
+      // Cohérence comptable : HT + TVA doivent recomposer le TTC encaissé.
+      existing.amountHt = Math.round((amount / (1 + VAT_RATE)) * 100) / 100;
+      existing.vatAmount = Math.round((amount - existing.amountHt) * 100) / 100;
       this.save();
       return existing;
     }
@@ -1294,7 +1297,8 @@ export class DbService implements OnModuleInit {
       (outMobileSec / 60) * r.outMobilePerMin;
     const numbersCost = numbers * r.numberPerMonth;
     const vmCost = voicemails * r.voicemailEach;
-    const stripeFees = revenue > 0 ? revenue * (r.stripePct / 100) + r.stripeFixed : 0;
+    // Stripe prélève ses frais sur le montant DÉBITÉ (TTC), pas sur le HT.
+    const stripeFees = revenue > 0 ? revenue * (1 + VAT_RATE) * (r.stripePct / 100) + r.stripeFixed : 0;
     const total = telecom + numbersCost + vmCost + stripeFees;
     return {
       revenue: r2(revenue),
