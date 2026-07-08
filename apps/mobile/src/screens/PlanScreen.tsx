@@ -174,18 +174,19 @@ export function PlanScreen() {
             {usage && (
               <Glass strong style={s.current}>
                 <View style={s.curHead}>
-                  <View>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={s.curPlan}>{usage.plan.name}</Text>
                     <Text style={s.curBilling}>{usage.billing?.libelle}{(usage.discountPct || 0) > 0 ? ` · remise -${usage.discountPct}%` : ''}</Text>
                   </View>
-                  {(usage.discountPct || 0) > 0 ? (
-                    <View style={{ alignItems: 'flex-end' }}>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    {(usage.discountPct || 0) > 0 && (
                       <Text style={s.priceStruck}>{eur(usage.plan.monthlyPrice)}</Text>
-                      <Text style={s.curPrice}>{eur(usage.effectiveMonthlyPrice)}<Text style={s.month}> HT/mois</Text></Text>
-                    </View>
-                  ) : (
-                    <Text style={s.curPrice}>{eur(usage.plan.monthlyPrice)}<Text style={s.month}> HT/mois</Text></Text>
-                  )}
+                    )}
+                    <Text style={s.curPrice}>
+                      {eur((usage.discountPct || 0) > 0 ? usage.effectiveMonthlyPrice : usage.plan.monthlyPrice)}
+                    </Text>
+                    <Text style={s.month}>HT/mois</Text>
+                  </View>
                 </View>
 
                 {/* Jauge minutes */}
@@ -312,8 +313,11 @@ export function PlanScreen() {
               return (
                 <Glass key={p.key} strong style={[s.card, active && s.cardActive]}>
                   <View style={s.cardHead}>
-                    <Text style={s.planName}>{p.name}</Text>
-                    <Text style={s.price}>{eur(p.monthlyPrice)}<Text style={s.month}> HT/mois</Text></Text>
+                    <Text style={[s.planName, { flex: 1, paddingRight: 10 }]}>{p.name}</Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={s.price}>{eur(p.monthlyPrice)}</Text>
+                      <Text style={s.month}>HT/mois</Text>
+                    </View>
                   </View>
                   <Text style={s.included}>
                     {isUnlimited(p.includedMinutes)
