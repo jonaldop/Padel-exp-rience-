@@ -33,7 +33,8 @@ const catMeta: Record<string, { label: string; color: string; bg: string }> = {
 export function MessagesScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
-  const [seg, setSeg] = useState<Segment>('chats');
+  // Le Répondeur est l'écran utile aujourd'hui ; les SMS arrivent plus tard.
+  const [seg, setSeg] = useState<Segment>('vocal');
   const [threads, setThreads] = useState<any[]>([]);
   const [vms, setVms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -214,7 +215,7 @@ export function MessagesScreen() {
 
         {/* Segments */}
         <View style={s.segments}>
-          {([['chats', 'Messages'], ['vocal', 'Répondeur']] as [Segment, string][]).map(([key, label]) => (
+          {([['vocal', 'Répondeur'], ['chats', 'SMS · bientôt']] as [Segment, string][]).map(([key, label]) => (
             <TouchableOpacity
               key={key}
               style={[s.segBtn, seg === key && s.segBtnOn]}
@@ -233,9 +234,9 @@ export function MessagesScreen() {
             refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
             ListEmptyComponent={
               <Text style={s.empty}>
-                Aucune conversation pour l'instant.{'\n\n'}
-                Les messages échangés avec vos clients sur votre numéro pro apparaîtront ici.
-                Vous pouvez démarrer une conversation depuis la fiche d'un contact (Répertoire).
+                💬 Les conversations écrites avec vos clients arrivent bientôt ici
+                (SMS d'appel manqué, WhatsApp…).{'\n\n'}
+                En attendant, tous vos messages vocaux transcrits sont dans l'onglet Répondeur.
               </Text>
             }
             renderItem={({ item: t }) => {

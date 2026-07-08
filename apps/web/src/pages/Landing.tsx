@@ -13,7 +13,7 @@ import '../landing.css';
 const FALLBACK_PLANS = [
   { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 300, features: ['1 numéro pro', 'Appels reçus illimités', '5 h d’appels sortants', 'Répondeur, horaires & transcription'] },
   { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 720, features: ['Tout Essentiel', 'Appels reçus illimités', '12 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'] },
-  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 1200, features: ['Tout Pro', 'Appels reçus illimités', '20 h d’appels sortants', 'Multi-utilisateurs'] },
+  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 1200, features: ['Tout Pro', 'Appels reçus illimités', '20 h d’appels sortants', 'Support prioritaire'] },
 ];
 
 // Contenu marketing des cartes tarifs (les prix/minutes restent pilotés par l'API ;
@@ -46,8 +46,8 @@ const PLAN_META: Record<string, { tagline: string; features: string[] }> = {
     features: [
       'Tout Pro, et :',
       '20 h d’appels sortants',
-      'Multi-utilisateurs',
       'Support prioritaire',
+      'Accès anticipé aux nouveautés',
     ],
   },
 };
@@ -502,6 +502,11 @@ export function Landing() {
                 <strong>Compte</strong>
                 <a href="/app?signup=1">Créer un compte</a>
                 <a href="/app">Se connecter</a>
+              </div>
+              <div className="lp-footer-col">
+                <strong>Aide</strong>
+                <a href="mailto:johan@webmarketing-services.com?subject=Aide%20Joe">Nous contacter</a>
+                <a href="#faq">Questions fréquentes</a>
               </div>
               <div className="lp-footer-col">
                 <strong>Légal</strong>

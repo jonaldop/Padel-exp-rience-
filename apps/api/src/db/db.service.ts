@@ -218,7 +218,7 @@ interface Data {
 const DEFAULT_PLANS: Plan[] = [
   { key: 'essentiel', name: 'Essentiel', monthlyPrice: 12.99, includedMinutes: 300, features: ['1 numéro pro', 'Appels reçus illimités', '5 h d’appels sortants', 'Répondeur, horaires & transcription'], active: true },
   { key: 'pro', name: 'Pro', monthlyPrice: 29, includedMinutes: 720, features: ['Tout Essentiel', 'Appels reçus illimités', '12 h d’appels sortants', 'Secrétariat IA (résumés, urgences)'], active: true },
-  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 1200, features: ['Tout Pro', 'Appels reçus illimités', '20 h d’appels sortants', 'Multi-utilisateurs'], active: true },
+  { key: 'business', name: 'Business', monthlyPrice: 45, includedMinutes: 1200, features: ['Tout Pro', 'Appels reçus illimités', '20 h d’appels sortants', 'Support prioritaire'], active: true },
 ];
 
 /** TVA appliquée à la facturation (les prix des formules sont HT). */

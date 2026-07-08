@@ -10,6 +10,7 @@ import { formatFr, toE164Fr } from '../format';
 import { BUILD_TAG } from '../version';
 import { setLineStatusListener, LineStatus } from '../call/incomingCalls';
 import { loadContacts, lookupContact } from '../contacts';
+import * as SecureStore from 'expo-secure-store';
 
 function isSameDay(iso: string, ref: Date) {
   const d = new Date(iso);
@@ -37,11 +38,21 @@ export function HomeScreen() {
   const [proNumber, setProNumber] = useState<string>('');
   const [lineStatus, setLineStatus] = useState<LineStatus>('offline');
   const [loading, setLoading] = useState(false);
+  // Checklist de démarrage (masquable, mémorisé sur l'appareil)
+  const [onboardHidden, setOnboardHidden] = useState(true);
 
   useEffect(() => {
     setLineStatusListener(setLineStatus);
+    SecureStore.getItemAsync('joe_onboarding_done')
+      .then((v) => setOnboardHidden(v === '1'))
+      .catch(() => setOnboardHidden(false));
     return () => setLineStatusListener(null);
   }, []);
+
+  function hideOnboarding() {
+    setOnboardHidden(true);
+    SecureStore.setItemAsync('joe_onboarding_done', '1').catch(() => {});
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -103,6 +114,39 @@ export function HomeScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Checklist de démarrage : 3 gestes pour être opérationnel, masquable. */}
+        {!onboardHidden && !!proNumber && (
+          <Glass strong style={{ marginTop: 18 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={s.cardTitle}>🚀 Bien démarrer</Text>
+              <TouchableOpacity onPress={hideOnboarding} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={{ color: colors.muted, fontSize: 12.5, fontWeight: '700' }}>Masquer</Text>
+              </TouchableOpacity>
+            </View>
+            {([
+              ['1', 'Personnalisez votre message d’accueil', () => nav.navigate('Receptionniste')],
+              ['2', 'Réglez vos horaires d’ouverture', () => nav.navigate('Reglages')],
+              ['3', `Testez : appelez le ${formatFr(proNumber)} depuis un autre téléphone`, null],
+            ] as [string, string, (() => void) | null][]).map(([num, label, onPress]) => (
+              <TouchableOpacity
+                key={num}
+                disabled={!onPress}
+                onPress={onPress || undefined}
+                style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}
+              >
+                <View style={{
+                  width: 24, height: 24, borderRadius: 12, backgroundColor: '#EFEBFF',
+                  alignItems: 'center', justifyContent: 'center', marginRight: 10,
+                }}>
+                  <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12.5 }}>{num}</Text>
+                </View>
+                <Text style={{ flex: 1, fontSize: 13.5, color: colors.text, lineHeight: 18 }}>{label}</Text>
+                {onPress && <Text style={{ color: colors.muted, fontSize: 16 }}>›</Text>}
+              </TouchableOpacity>
+            ))}
+          </Glass>
+        )}
 
         {/* Réceptionniste IA (secrétariat : transcription + qualification).
             L'« Activité du jour » vit dans Plus -> Statistiques (doublon retiré). */}

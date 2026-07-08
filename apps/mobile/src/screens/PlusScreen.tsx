@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { api } from '../api';
@@ -26,6 +26,20 @@ export function PlusScreen({ onLogout }: { onLogout: () => void }) {
     { icon: '👥', label: 'Clients', sub: 'Votre carnet de contacts', onPress: () => nav.navigate('Clients') },
     { icon: '🙍', label: 'Mes informations', sub: 'Prénom, nom, téléphone perso', onPress: () => nav.navigate('Profil') },
     { icon: '💳', label: 'Ma formule', sub: 'Voir et changer d\'abonnement', onPress: () => nav.navigate('Formule') },
+    {
+      icon: '💬',
+      label: 'Aide & contact',
+      sub: 'Une question, un souci ? On répond vite',
+      onPress: () =>
+        Alert.alert('Aide & contact', 'Nous répondons en général dans la journée.', [
+          {
+            text: '✉️ Écrire un email',
+            onPress: () => Linking.openURL('mailto:johan@webmarketing-services.com?subject=Aide%20Joe').catch(() => {}),
+          },
+          { text: '🌐 allojoe.fr', onPress: () => Linking.openURL('https://www.allojoe.fr/#faq').catch(() => {}) },
+          { text: 'Fermer', style: 'cancel' },
+        ]),
+    },
   ];
 
   return (
