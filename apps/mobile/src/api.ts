@@ -54,6 +54,8 @@ export const api = {
   // Suppression définitive du compte (exigence App Store / RGPD).
   deleteAccount: (password: string) =>
     request<any>('/account', { method: 'DELETE', body: JSON.stringify({ password }) }),
+  // Résiliation : plus de prélèvement, ligne active jusqu'à la fin du mois payé.
+  cancelSubscription: () => request<any>('/account/cancel', { method: 'POST', body: '{}' }),
 
   // Profil + formule
   updateProfile: (data: { firstName?: string; lastName?: string; phonePerso?: string }) =>
@@ -64,7 +66,7 @@ export const api = {
   plans: () => request<{ plans: any[] }>('/plans'),
   usage: () => request<any>('/auth/usage'),
   invoices: () => request<any[]>('/auth/invoices'),
-  billingStatus: () => request<{ enabled: boolean; subscribed: boolean }>('/billing/status'),
+  billingStatus: () => request<{ enabled: boolean; subscribed: boolean; cancelEffectiveAt?: string | null; pastDue?: boolean }>('/billing/status'),
   subscribe: () =>
     request<{ url?: string; error?: string }>('/billing/subscribe', { method: 'POST', body: '{}' }),
   checkoutInvoice: (invoiceId: string) =>

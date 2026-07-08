@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Header, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import { StripeService } from './stripe.service';
+import { PushService } from '../push/push.service';
 import { CurrentUser, JwtGuard } from '../auth/jwt.guard';
 import { JwtPayload } from '../auth/auth.service';
 
@@ -10,6 +11,7 @@ export class BillingController {
   constructor(
     private readonly db: DbService,
     private readonly stripe: StripeService,
+    private readonly push: PushService,
   ) {}
 
   /** Paiement en ligne activé ? Abonnement auto déjà en place sur ce compte ? */
@@ -20,6 +22,8 @@ export class BillingController {
     return {
       enabled: this.stripe.configured,
       subscribed: Boolean(account?.stripeSubscriptionId),
+      cancelEffectiveAt: account?.cancelEffectiveAt || null,
+      pastDue: account?.status === 'past_due',
     };
   }
 
@@ -116,7 +120,13 @@ export class BillingController {
       } else if (type === 'invoice.paid' || type === 'invoice.payment_succeeded') {
         await this.stripe.confirmStripeInvoice(objectId);
       } else if (type === 'invoice.payment_failed') {
-        await this.stripe.handleFailedInvoice(objectId);
+        const accountId = await this.stripe.handleFailedInvoice(objectId);
+        if (accountId) {
+          this.push.notifyAccount(accountId, {
+            title: '⚠️ Échec de votre prélèvement',
+            body: 'Le règlement de votre abonnement Joe a échoué. Mettez à jour votre paiement sur allojoe.fr sous 10 jours pour éviter la suspension de votre ligne.',
+          });
+        }
       }
     } catch {
       /* toujours répondre 200 à Stripe */

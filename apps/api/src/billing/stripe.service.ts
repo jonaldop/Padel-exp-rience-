@@ -196,6 +196,20 @@ export class StripeService {
   }
 
   /**
+   * RÉSILIATION CLIENT : l'abonnement s'arrête à la FIN de la période déjà
+   * payée (aucun nouveau prélèvement). Renvoie la date d'effet.
+   */
+  async cancelAtPeriodEnd(subscriptionId: string): Promise<string> {
+    const sub = await this.api<any>(`/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+      cancel_at_period_end: 'true',
+    });
+    const end = sub?.current_period_end
+      ? new Date(sub.current_period_end * 1000)
+      : new Date(Date.now() + 30 * 86400000);
+    return end.toISOString();
+  }
+
+  /**
    * Prélèvement récurrent : vérifie une facture Stripe (webhook invoice.paid)
    * et crée/marque payée la facture interne du mois correspondant.
    */
@@ -209,9 +223,16 @@ export class StripeService {
     const ts = (inv.period_end || inv.created) * 1000;
     const period = new Date(ts).toISOString().slice(0, 7);
     this.db.recordPaidInvoice(accountId, period, (inv.amount_paid || 0) / 100);
-    // Un paiement réussi remet le compte en règle.
+    // Un paiement réussi remet le compte en règle (et annule le compte à
+    // rebours impayé : délai de grâce + libération du numéro).
     const acc = this.db.findAccountById(accountId);
-    if (acc && acc.status === 'past_due') this.db.updateAccountStatus(accountId, 'active');
+    if (acc && (acc.status === 'past_due' || acc.status === 'suspended')) {
+      this.db.setAccountLifecycle(accountId, {
+        status: 'active',
+        pastDueSince: null,
+        numbersReleaseAt: null,
+      });
+    }
     this.logger.log(`Prélèvement Stripe encaissé : compte ${accountId}, période ${period}`);
     // Filet de sécurité : si le webhook arrive avant la page de succès.
     await this.activatePendingNumber(accountId);
@@ -257,15 +278,18 @@ export class StripeService {
     this.logger.log(`Numéro ${pending.e164} activé après paiement (compte ${accountId})`);
   }
 
-  /** Échec de prélèvement : passe le compte en impayé (après re-vérification). */
-  async handleFailedInvoice(stripeInvoiceId: string): Promise<void> {
+  /** Échec de prélèvement : impayé + départ du délai de grâce (10 j). */
+  async handleFailedInvoice(stripeInvoiceId: string): Promise<string | null> {
     const inv = await this.api<any>(`/invoices/${encodeURIComponent(stripeInvoiceId)}`);
-    if (inv?.paid) return; // finalement payé -> rien à faire
+    if (inv?.paid) return null; // finalement payé -> rien à faire
     const subId = typeof inv.subscription === 'string' ? inv.subscription : inv?.subscription?.id;
     const acc = subId ? this.db.findAccountBySubscription(subId) : null;
-    if (acc) {
-      this.db.updateAccountStatus(acc.id, 'past_due');
-      this.logger.warn(`Prélèvement Stripe ÉCHOUÉ : compte ${acc.id} passé en impayé`);
-    }
+    if (!acc) return null;
+    this.db.setAccountLifecycle(acc.id, {
+      status: 'past_due',
+      pastDueSince: acc.pastDueSince || new Date().toISOString(),
+    });
+    this.logger.warn(`Prélèvement Stripe ÉCHOUÉ : compte ${acc.id} en impayé (grâce 10 j)`);
+    return acc.id;
   }
 }
