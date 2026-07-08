@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Patch, UseGuards } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { DbService } from '../db/db.service';
 import { StripeService } from './stripe.service';
@@ -21,6 +21,30 @@ export class AccountController {
     private readonly stripe: StripeService,
     private readonly telnyx: TelnyxService,
   ) {}
+
+  /**
+   * Changement de formule SYNCHRONISÉ avec Stripe : si un prélèvement
+   * automatique est actif, son montant passe à la nouvelle formule (prorata)
+   * AVANT le changement — impossible d'avoir Business au prix d'Essentiel.
+   */
+  @Patch('plan')
+  async changePlan(@CurrentUser() user: JwtPayload, @Body() body: { plan?: string }) {
+    const plan = this.db.listPlans().find((p) => p.active && p.key === body?.plan);
+    if (!plan) return { error: 'Formule inconnue' };
+    const account = this.db.findAccountById(user.accountId);
+    if (!account) return { error: 'Compte introuvable' };
+    if (account.plan === plan.key) return { plan: account.plan };
+    if (account.stripeSubscriptionId && this.stripe.configured) {
+      const newHt = Math.round(plan.monthlyPrice * (1 - (account.discountPct || 0) / 100) * 100) / 100;
+      try {
+        await this.stripe.updateSubscriptionPlan(account.stripeSubscriptionId, plan.name, newHt);
+      } catch (e) {
+        return { error: `Changement impossible pour le moment : ${(e as Error).message}` };
+      }
+    }
+    const a = this.db.updateAccountPlan(user.accountId, plan.key);
+    return { plan: a?.plan };
+  }
 
   @Delete()
   async remove(@CurrentUser() user: JwtPayload, @Body() body: { password?: string }) {

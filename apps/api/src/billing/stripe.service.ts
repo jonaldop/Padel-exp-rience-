@@ -166,6 +166,30 @@ export class StripeService {
     return { paid: true };
   }
 
+  /**
+   * Change le montant du prélèvement à la NOUVELLE formule (prix HT -> TTC),
+   * avec prorata automatique Stripe sur la période en cours.
+   */
+  async updateSubscriptionPlan(subscriptionId: string, planName: string, monthlyHt: number): Promise<void> {
+    const sub = await this.api<any>(
+      `/subscriptions/${encodeURIComponent(subscriptionId)}?expand[]=items.data.price`,
+    );
+    const item = sub?.items?.data?.[0];
+    if (!item?.id) throw new Error('Abonnement Stripe introuvable');
+    const productId = typeof item.price?.product === 'string' ? item.price.product : item.price?.product?.id;
+    if (!productId) throw new Error('Produit Stripe introuvable');
+    const ttc = Math.round(monthlyHt * (1 + VAT_RATE) * 100) / 100;
+    await this.api(`/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+      'items[0][id]': item.id,
+      'items[0][price_data][currency]': 'eur',
+      'items[0][price_data][product]': productId,
+      'items[0][price_data][recurring][interval]': 'month',
+      'items[0][price_data][unit_amount]': String(Math.round(ttc * 100)),
+      proration_behavior: 'create_prorations',
+    });
+    this.logger.log(`Abonnement ${subscriptionId} basculé sur ${planName} (${ttc} € TTC/mois)`);
+  }
+
   /** Annule l'abonnement Stripe (résiliation / suppression de compte). */
   async cancelSubscription(subscriptionId: string): Promise<void> {
     await this.api(`/subscriptions/${encodeURIComponent(subscriptionId)}`, undefined, 'DELETE');
