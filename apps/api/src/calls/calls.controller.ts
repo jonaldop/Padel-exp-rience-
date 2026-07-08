@@ -74,7 +74,6 @@ export class CallsController {
    * directement de l'app vers Telnyx, le serveur ne les voit pas — sans ça,
    * ils manquent à l'historique ET au décompte des minutes (pare-feu).
    */
-  @UseGuards(JwtGuard)
   /** Durée lisible : 90 -> « 1 h 30 », 45 -> « 45 min ». */
   private fmtDur(min: number): string {
     const m = Math.max(0, Math.round(min));
@@ -103,6 +102,7 @@ export class CallsController {
     }
   }
 
+  @UseGuards(JwtGuard)
   @Post('report')
   reportOutbound(
     @CurrentUser() user: JwtPayload,
@@ -258,6 +258,19 @@ export class CallsController {
     const callControlId: string = payload.call_control_id;
     this.logger.log(`Webhook: ${type}`);
 
+    try {
+      await this.handleEvent(type, payload, callControlId);
+    } catch (e) {
+      // On répond 200 malgré tout : une exception ici ferait re-livrer
+      // l'événement par Telnyx en boucle (renvois PSTN répétés, vocaux
+      // dupliqués). L'erreur est logguée pour diagnostic.
+      this.logger.error(`Webhook ${type} en erreur: ${(e as Error).message}`);
+      this.db.logInbound({ type: 'webhook-error', event: type, error: (e as Error).message?.slice(0, 200) });
+    }
+    return { ok: true };
+  }
+
+  private async handleEvent(type: string, payload: any, callControlId: string) {
     switch (type) {
       case 'call.initiated': {
         if (payload.direction !== 'incoming') {
@@ -372,11 +385,17 @@ export class CallsController {
         // ⚠️ Ne traiter QUE les appels entrants qu'on gère. Sinon, quand un appel
         // SORTANT est décroché, on jouait le répondeur par-dessus (bug du "ça
         // bascule sur mon répondeur"). Si pas de fiche d'appel -> on ignore.
-        if (!call || call.direction !== 'inbound') break;
+        if (!call) break;
+        if (call.direction !== 'inbound') {
+          // Sortant décroché : on note l'heure de réponse pour ne compter que
+          // la conversation dans le quota (pas la sonnerie).
+          this.db.updateCall(call.id, { answeredAt: new Date().toISOString() });
+          break;
+        }
         // Sonnerie in-app déjà déclenchée sur call.initiated : l'app a décroché
         // le transfert -> on note juste que l'appel est en cours.
         if (call.status === 'ringing-app') {
-          this.db.updateCall(call.id, { status: 'answered' });
+          this.db.updateCall(call.id, { status: 'answered', answeredAt: new Date().toISOString() });
           break;
         }
         // Déjà basculé sur le répondeur (repli après sonnerie sans réponse).
@@ -437,7 +456,14 @@ export class CallsController {
         // SECRÉTAIRE CONVERSATIONNEL : réponses structurées de l'appelant.
         const result = payload.result || payload.results || payload.data || null;
         if (result && typeof result === 'object') {
-          this.aiGathers.set(callControlId, { data: result, at: Date.now() });
+          // Nettoyage paresseux (mêmes 30 min que transcripts) : sans lui, un
+          // appel conversationnel sans enregistrement final laissait l'entrée
+          // pour toujours (fuite mémoire).
+          const nowG = Date.now();
+          for (const [k, v] of this.aiGathers) {
+            if (nowG - v.at > 30 * 60_000) this.aiGathers.delete(k);
+          }
+          this.aiGathers.set(callControlId, { data: result, at: nowG });
           // Si le message vocal est déjà créé (enregistrement déjà sauvegardé),
           // on l'enrichit après coup.
           const call = this.db.findCallByProviderId(callControlId);
@@ -519,6 +545,12 @@ export class CallsController {
         const call = this.db.findCallByProviderId(callControlId);
         // URL publique en priorité (lisible directement par le navigateur)
         const url = payload.public_recording_urls?.mp3 || payload.recording_urls?.mp3;
+        // Idempotence : Telnyx livre « au moins une fois » — une re-livraison
+        // créait un vocal ET une notification EN DOUBLE.
+        if (call && this.db.findVoicemailByCallId(call.id)) {
+          this.db.logInbound({ type: 'vm-duplicate-ignored', callId: call.id });
+          break;
+        }
         if (call) {
           const vm = this.db.createVoicemail({
             callId: call.id,
@@ -631,7 +663,14 @@ export class CallsController {
         });
         const call = this.db.findCallByProviderId(callControlId);
         if (call) {
-          const durationS = Math.round((Date.now() - new Date(call.startedAt).getTime()) / 1000);
+          // Durée : conversation seulement quand on connaît l'heure de réponse ;
+          // un SORTANT jamais décroché ne décompte rien du quota.
+          const answeredMs = call.answeredAt ? new Date(call.answeredAt).getTime() : null;
+          const durationS = answeredMs
+            ? Math.round((Date.now() - answeredMs) / 1000)
+            : call.direction === 'outbound'
+              ? 0
+              : Math.round((Date.now() - new Date(call.startedAt).getTime()) / 1000);
           const finalStatus =
             call.status === 'ringing'
               ? 'missed'

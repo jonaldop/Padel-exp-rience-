@@ -225,7 +225,10 @@ export class StripeService {
     const accountId = inv?.subscription_details?.metadata?.accountId
       || (subId ? this.db.findAccountBySubscription(subId)?.id : null);
     if (!accountId) return;
-    const ts = (inv.period_end || inv.created) * 1000;
+    // Période = mois de l'ENCAISSEMENT (comme confirmSession). period_end
+    // pointait la fin de la période payée d'avance -> mois suivant -> le
+    // premier règlement créait deux factures pour un seul débit.
+    const ts = (inv.created || Math.floor(Date.now() / 1000)) * 1000;
     const period = new Date(ts).toISOString().slice(0, 7);
     this.db.recordPaidInvoice(accountId, period, (inv.amount_paid || 0) / 100);
     // Un paiement réussi remet le compte en règle (et annule le compte à
@@ -237,6 +240,11 @@ export class StripeService {
         pastDueSince: null,
         numbersReleaseAt: null,
       });
+      if (!this.db.listPhoneNumbers(accountId).length) {
+        // Numéro déjà libéré (impayé > 30 j) : le client réactivé devra en
+        // choisir un nouveau depuis son espace (l'ancien est reparti au stock).
+        this.logger.warn(`Compte ${accountId} réactivé SANS numéro (libéré pendant l'impayé)`);
+      }
     }
     this.logger.log(`Prélèvement Stripe encaissé : compte ${accountId}, période ${period}`);
     // Filet de sécurité : si le webhook arrive avant la page de succès.
@@ -248,7 +256,22 @@ export class StripeService {
    * une fois le paiement confirmé. Idempotent : le pending est effacé après
    * achat, un second appel ne fait rien.
    */
+  /** Achats en cours (verrou anti-course : webhook + page succès + app). */
+  private readonly activating = new Set<string>();
+
   async activatePendingNumber(accountId: string): Promise<void> {
+    // Deux déclencheurs simultanés (webhook Stripe + retour navigateur +
+    // rafraîchissement de l'app) achetaient le numéro DEUX fois.
+    if (this.activating.has(accountId)) return;
+    this.activating.add(accountId);
+    try {
+      await this.doActivatePendingNumber(accountId);
+    } finally {
+      this.activating.delete(accountId);
+    }
+  }
+
+  private async doActivatePendingNumber(accountId: string): Promise<void> {
     const acc = this.db.findAccountById(accountId);
     const pending = acc?.pendingNumber;
     if (!pending?.e164) return;
