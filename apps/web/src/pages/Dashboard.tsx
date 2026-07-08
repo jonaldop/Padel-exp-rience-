@@ -36,7 +36,7 @@ export function Dashboard({ companyName }: { companyName?: string }) {
     // Compte non abonné + paiement en ligne actif -> bannière "Activez votre ligne".
     Promise.all([api.billingStatus().catch(() => null), api.usage().catch(() => null)])
       .then(([b, u]: any[]) => {
-        if (b?.enabled && !b?.subscribed && u?.status === 'trial') {
+        if (b?.enabled && !b?.subscribed && (u?.status === 'trial' || u?.status === 'canceled')) {
           setNeedsPay({ price: u?.effectiveMonthlyPrice ?? u?.plan?.monthlyPrice });
         }
         if (b?.subscribed) setSub({ active: true, cancelAt: b?.cancelEffectiveAt });

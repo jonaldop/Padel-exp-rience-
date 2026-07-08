@@ -45,8 +45,12 @@ export class LifecycleService implements OnModuleInit {
       ) {
         this.db.setAccountLifecycle(a.id, {
           status: 'canceled',
+          cancelEffectiveAt: null,
           numbersReleaseAt: a.numbersReleaseAt || new Date(now + 15 * DAY).toISOString(),
         });
+        // Détache l'abonnement Stripe terminé : indispensable pour qu'un
+        // réabonnement (nouveau Checkout) soit possible ensuite.
+        this.db.setAccountStripe(a.id, a.stripeCustomerId || null, null);
         this.logger.log(`Résiliation effective : compte ${a.id} (numéro conservé 15 j)`);
         this.push.notifyAccount(a.id, {
           title: 'Abonnement résilié',
