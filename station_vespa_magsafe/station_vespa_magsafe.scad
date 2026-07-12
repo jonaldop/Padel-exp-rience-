@@ -6,10 +6,12 @@
 //  Concue pour impression FDM mono-couleur sur Bambu Lab A1
 //  (plateau 256 x 256 mm), PLA / PLA Matte, sans supports.
 //
-//  3 pieces imprimees :
-//    1. la base (socle + rebord telephone + vide-poches)
-//    2. le dossier incline (logement MagSafe + phare decoratif)
-//    3. le cache arriere (ferme le MagSafe et le canal de cable)
+//  2 pieces imprimees seulement :
+//    1. le corps monobloc (base + vide-poches + dossier incline 68°,
+//       rebord, phare, texte, canal de cable interne, patins, lest)
+//    2. le cache arriere (ferme le MagSafe, plaque le chargeur,
+//       maintient le cable dans sa rainure)
+//  + une piece de test rapide des tolerances (logement MagSafe seul)
 //  + en option : plaque de lest, badge logo generique.
 //
 //  Toutes les cotes sont en millimetres.
@@ -21,12 +23,12 @@
 part = "assembly";
 // Valeurs possibles :
 // assembly       -> toutes les pieces assemblees
-// base           -> la base seule (orientation d'impression)
-// dossier        -> le dossier seul (dos sur le plateau)
+// corps          -> le corps monobloc (orientation d'impression : debout)
 // cache          -> le cache arriere seul (face visible sur le plateau)
+// test           -> piece de test rapide du logement MagSafe
 // logo           -> badge logo generique separe
 // cable_section  -> vue en coupe du passage du cable
-// plaque         -> plaque de fermeture de la cavite de lest (bonus)
+// plaque         -> plaque de fermeture de la cavite de lest
 
 // ---------------------------------------------------------------------
 //  OPTIONS PRINCIPALES
@@ -57,8 +59,6 @@ magsafe_clear   = 0.25;   // jeu radial autour du chargeur
 screw_pilot_d   = 2.8;    // trou pilote vis M3 autotaraudeuse
 screw_pass_d    = 3.4;    // trou de passage vis M3
 screw_head_d    = 6.4;    // logement tete cylindrique M3
-insert_d        = 4.6;    // logement insert filete M3
-insert_depth    = 5;      // profondeur du logement d'insert
 
 // ---------------------------------------------------------------------
 //  DIMENSIONS GENERALES
@@ -86,14 +86,18 @@ tray_y1 = 38;  tray_y2 = 116;   // emprise interieure en Y (profondeur 78)
 tray_depth = 11;                // profondeur utile
 tray_r = 8;                     // rayon des coins interieurs
 
-// Dossier incline
+// Dossier incline (fusionne avec la base : monobloc)
 dos_w_bot = 76;    // largeur en bas
 dos_w_top = 72;    // largeur en haut (= diametre de l'arc sommital)
-dos_t     = 7;     // epaisseur structurelle
+dos_t     = 7;     // epaisseur structurelle courante
 dos_top_z = 180;   // hauteur totale de la station
 dos_face_y = 46;   // position Y de la face avant du dossier au niveau z = base_h
-tenon_w   = 60;    // largeur du tenon d'emboitement
-tenon_engage = 12; // profondeur d'emboitement vertical dans la base
+
+// Renforts de la jonction dossier / base (epaisseur locale >= 8 mm,
+// aucune cassure nette)
+fillet_front_r = 10;  // conge avant (8 a 12)
+fillet_back_r  = 8;   // conge arriere (8 a 12)
+rib_t = 2.5;          // epaisseur des deux nervures laterales discretes
 
 // Phare / logement MagSafe (le phare decoratif est centre sur le MagSafe :
 // bossage circulaire raye facon optique de phare, le chargeur affleure au
@@ -104,20 +108,22 @@ open_d   = 50;     // ouverture frontale (inferieure au diametre du chargeur)
 front_lip = 1.2;   // matiere devant le chargeur (0.8 a 1.2 max)
 
 // Canal de cable
-chan_w = 5.2;      // largeur du canal (cable 4.2)
-chan_d = 5;        // profondeur du canal
+chan_w = 5.2;      // largeur de la rainure (cable 4.2, jamais pince)
+chan_d = 5;        // profondeur de la rainure
+duct_w = 13;       // largeur du conduit interne bas (laisse passer la
+duct_d = 7;        // fiche USB-C) et sur-profondeur cote arriere
 
 // Cache arriere
 cover_w = 66;      // largeur du cache
-cover_y1 = 8;      // debut (bas, coordonnee locale dossier)
+cover_y1 = 13;     // debut (bas, au ras du conge arriere)
 cover_y2 = 140;    // fin (haut)
 cover_t = 2.8;     // epaisseur
 cover_r = 12;      // rayon des coins
 
-// Cavite de lest
-wc_x = 40;                 // demi-largeur de la cavite
-wc_y1 = 6;  wc_y2 = 34;    // emprise Y
-wc_depth = 5;              // profondeur totale
+// Cavite de lest (env. 150 a 250 g de rondelles metalliques)
+wc_x = 48;                 // demi-largeur de la cavite
+wc_y1 = 5;  wc_y2 = 35;    // emprise Y
+wc_depth = 13;             // profondeur totale
 wc_rab = 3;                // debord de la feuillure de la plaque
 plate_t = 2.8;             // epaisseur de la plaque de lest
 
@@ -126,14 +132,12 @@ plate_t = 2.8;             // epaisseur de la plaque de lest
 // ---------------------------------------------------------------------
 sA = sin(phone_angle);  cA = cos(phone_angle);
 dos_len   = (dos_top_z - base_h)/sA;              // longueur du dossier le long de la pente
-tenon_len = tenon_engage/sA;                      // longueur du tenon le long de la pente
 dos_Yt    = dos_face_y + dos_t/sA;                // origine Y du dossier place
 ms_ly     = (magsafe_center_height - base_h)/sA;  // centre MagSafe (coord. locale dossier)
 pocket_d  = magsafe_diameter + 2*magsafe_clear;   // diametre du logement chargeur
 pocket_depth = dos_t + boss_h - front_lip;        // profondeur du logement depuis l'arriere
 arc_r    = dos_w_top/2;                           // rayon de l'arc sommital
 arc_cy   = dos_len - arc_r;                       // centre de l'arc sommital
-dos_screw_y = dos_Yt - tenon_engage*cA/sA - (dos_t/2)/sA; // Y des vis dossier/base
 cover_screws = [[-14,58],[14,58],[-14,129],[14,129]];     // vis du cache (coord. locales)
 tray_cx = (tray_x1+tray_x2)/2;  tray_cy = (tray_y1+tray_y2)/2;
 
@@ -246,37 +250,28 @@ module tray() {
     }
 }
 
-// Logement du tenon du dossier dans la base (jeu 0,25 mm par cote)
-module dossier_socket_cut() {
-    place_dossier()
-        translate([-tenon_w/2-fit_clearance, -tenon_len-4, -fit_clearance])
-            cube([tenon_w+2*fit_clearance, tenon_len+10, dos_t+2*fit_clearance]);
-}
-
-// Percages verticaux communs base / tenon : passage M3 + tete
-// cylindrique sous la base, logement d'insert M3 (4,6 x 5) puis trou
-// pilote 2,8 pour vis autotaraudeuse dans le tenon.
-module dossier_screw_cuts() {
-    for (dx = [-18, 18])
-        translate([phone_cx+dx, dos_screw_y, 0]) {
-            translate([0,0,-1]) cylinder(h=3.5, d=screw_head_d+0.4, $fn=fn_hide); // tete
-            translate([0,0,-1]) cylinder(h=8, d=screw_pass_d, $fn=fn_hide);       // passage
-            translate([0,0,5.9]) cylinder(h=insert_depth+0.2, d=insert_d, $fn=fn_hide); // insert
-            translate([0,0,5.9]) cylinder(h=11.5, d=screw_pilot_d, $fn=fn_hide);  // pilote
-        }
-}
-
-// Canal de cable dans la base : descente sous le tenon, coude adouci,
-// rainure sous la base jusqu'a l'arriere, sortie au choix.
+// Conduit interne du cable dans le bas de la station : la rainure du
+// dossier plonge sous le conge arriere par une bouche elargie (13 mm :
+// la fiche USB-C passe sans etre demontee), traverse la base en pente
+// douce a 68 degres (aucun coude a 90), rejoint la rainure du dessous
+// (7 x 4) et ressort a l'arriere par une ouverture arrondie.
 module cable_channel_base_cut() {
     union() {
-        // descente verticale sous le logement du tenon
-        translate([phone_cx-chan_w/2, 41, -1]) cube([chan_w, 8.5, 8]);
-        // coude interne adouci (rayon 8, aucun angle brutal)
-        translate([phone_cx-chan_w/2, 54, 9]) rotate([0,90,0]) cylinder(h=chan_w, r=8, $fn=fn_hide);
-        translate([phone_cx-chan_w/2, 47, 6.5]) cube([chan_w, 7, 6]);
+        // bouche + conduit incline (dans le repere du dossier), elargi
+        // en largeur et en profondeur pour laisser passer la fiche
+        // USB-C ; la bouche se fusele en douceur vers la rainure du dos
+        // (plafonds en pente : imprimable debout sans supports)
+        place_dossier()
+            hull() {
+                translate([-duct_w/2, -30, -duct_d]) cube([duct_w, 32, duct_d+chan_d]);
+                translate([-chan_w/2, cover_y1-5, 0]) cube([chan_w, 5, chan_d]);
+            }
+        // cove interne adoucissant le virage conduit -> rainure du
+        // dessous (rayon 8, entierement cache sous le conge arriere)
+        translate([phone_cx-duct_w/2, 57, 10.5]) rotate([0,90,0])
+            cylinder(h=duct_w, r=8, $fn=fn_hide);
         // rainure sous la base (7 x 4) rejoignant le bord arriere
-        translate([phone_cx-3.5, 44, -1]) cube([7, base_d-44+2, 5]);
+        translate([phone_cx-3.5, 40, -1]) cube([7, base_d-40+2, 5]);
         // sortie arriere : ouverture 9 x 6 a sommet arrondi anti-coupure
         if (cable_exit == "rear")
             hull() {
@@ -294,62 +289,67 @@ module rubber_feet() {
 }
 
 // Cavite de lest sous la base : feuillure pour la plaque + cavite a
-// rondelles, nervuree pour rester imprimable sans supports (ponts < 15 mm).
+// rondelles. Le plafond est voute a 45 degres dans la profondeur : le
+// pont restant fait ~14 mm, imprimable sans supports.
 module weight_compartment() {
     union() {
         // feuillure de la plaque (jeu 0,25 par cote via la plaque)
         rrect(-wc_x-wc_rab, wc_y1-2, wc_x+wc_rab, wc_y2+2, 4, plate_t+0.15, fn_hide);
-        // cavite pour rondelles
-        rrect(-wc_x, wc_y1, wc_x, wc_y2, 3, wc_depth, fn_hide);
+        // cavite pour rondelles, plafond en chanfreins 45
+        hull() {
+            rrect(-wc_x, wc_y1, wc_x, wc_y2, 3, wc_depth-8, fn_hide);
+            translate([0,0,wc_depth-0.2])
+                rrect(-wc_x, wc_y1+8, wc_x, wc_y2-8, 3, 0.2, fn_hide);
+        }
     }
 }
 
-// Nervures + colonnette de vis centrale de la cavite de lest (ajoutees
-// apres soustraction de la cavite)
-module weight_compartment_ribs() {
-    inter = plate_t+0.15;   // sommet de la feuillure
-    for (y = [13, 25.5])
-        translate([-wc_x, y, inter]) cube([2*wc_x, 2, wc_depth-inter+eps]);
-    difference() {
-        translate([0, 20, inter]) cylinder(h=wc_depth-inter+eps, d=8, $fn=fn_hide);
-        translate([0, 20, -1]) cylinder(h=wc_depth+2, d=2.6, $fn=fn_hide);
-    }
+// Bossages de vis de la plaque de lest, accroches aux parois laterales
+// de la cavite (dessous en pente : imprimables tete en bas, sans support)
+module weight_plate_bosses() {
+    for (s = [-1, 1])
+        hull() {
+            translate([s*(wc_x-2), 20, 6.5])       cylinder(h=wc_depth-6.5+0.5, d=9, $fn=fn_hide);
+            translate([s*(wc_x+1.5), 20, plate_t]) cylinder(h=wc_depth-plate_t+0.5, d=9, $fn=fn_hide);
+        }
 }
 
-// Trou pilote de la vis de plaque de lest
+// Trous pilotes des deux vis de plaque de lest (M3 x 12)
 module weight_plate_screw_cut() {
-    translate([0, 20, -1]) cylinder(h=wc_depth+5, d=2.6, $fn=fn_hide);
+    for (s = [-1, 1])
+        translate([s*(wc_x-2), 20, -1]) cylinder(h=wc_depth+2, d=2.6, $fn=fn_hide);
 }
 
-// ------------------- BASE COMPLETE -------------------
-module station_base() {
+// ------------------- SOCLE (partie basse du monobloc) -------------------
+// Le conduit de cable est decoupe plus tard, au niveau du corps entier,
+// car il traverse a la fois la base et le pied du dossier.
+module base_body() {
     difference() {
         union() {
             difference() {
                 union() { rounded_base(); phone_lip(); }
                 tray();
-                dossier_socket_cut();
-                cable_channel_base_cut();
                 if (weight_cavity) weight_compartment();
             }
-            if (weight_cavity) weight_compartment_ribs();
+            if (weight_cavity) weight_plate_bosses();
         }
         lip_notch_cut();
-        dossier_screw_cuts();
         rubber_feet();
         if (weight_cavity) weight_plate_screw_cut();
     }
 }
 
-// Plaque de fermeture de la cavite de lest (piece bonus)
+// Plaque de fermeture de la cavite de lest
 module weight_plate() {
     difference() {
         rrect(-wc_x-wc_rab+cover_clearance, wc_y1-2+cover_clearance,
               wc_x+wc_rab-cover_clearance, wc_y2+2-cover_clearance, 4, plate_t, fn_vis);
-        translate([0,20,-eps]) cylinder(h=plate_t+2*eps, d=screw_pass_d, $fn=fn_hide);
-        translate([0,20,-eps]) cylinder(h=2, d=screw_head_d, $fn=fn_hide);  // tete affleurante
+        for (s = [-1, 1]) {
+            translate([s*(wc_x-2),20,-eps]) cylinder(h=plate_t+2*eps, d=screw_pass_d, $fn=fn_hide);
+            translate([s*(wc_x-2),20,-eps]) cylinder(h=2, d=screw_head_d, $fn=fn_hide); // tete affleurante
+        }
         // encoche de prise au bord
-        translate([wc_x+wc_rab, 20, plate_t]) rotate([0,90,0]) cylinder(h=8, r=3, $fn=fn_hide, center=true);
+        translate([0, wc_y2+2, plate_t]) rotate([90,0,0]) cylinder(h=8, r=3, $fn=fn_hide, center=true);
     }
 }
 
@@ -419,9 +419,20 @@ module magsafe_clips() {
 }
 
 // Canal de cable du dossier : rainure droite dans le dos, du logement
-// MagSafe jusqu'au bout du tenon (fermee ensuite par le cache arriere).
+// MagSafe jusque sous la jonction avec la base (fermee par le cache
+// arriere, puis prolongee par le conduit interne de la base).
 module cable_channel() {
-    translate([-chan_w/2, -tenon_len-3, -eps]) cube([chan_w, ms_ly+3, chan_d]);
+    translate([-chan_w/2, -30, -eps]) cube([chan_w, ms_ly+30, chan_d]);
+}
+
+// Carenage sous le phare (facon tablier de klaxon Vespa) : supprime le
+// surplomb sous le bossage quand le corps est imprime debout, et adoucit
+// le raccord du phare avec la face avant.
+module headlight_fairing() {
+    hull() {
+        translate([0, ms_ly, 0])    cylinder(h=dos_t+boss_h-1.5, d=boss_d-2, $fn=fn_vis);
+        translate([0, ms_ly-54, 0]) cylinder(h=dos_t+0.5, d=24, $fn=fn_vis);
+    }
 }
 
 // Colonnettes pleines autour des pilotes de vis du cache : garantissent
@@ -452,15 +463,18 @@ module decorative_text_module() {
 }
 
 // ------------------- DOSSIER COMPLET (coordonnees locales) ---------
+// Le pied du dossier plonge dans la masse de la base (extension sous
+// y = 0) : la fusion est monobloc, sans aucun assemblage.
 module back_panel() {
     union() {
         difference() {
             union() {
                 linear_extrude(height=dos_t) dossier_outline();
-                // tenon d'emboitement (depasse vers le bas, recoupe ensuite)
-                translate([-tenon_w/2, -tenon_len-2, 0]) cube([tenon_w, tenon_len+8, dos_t]);
+                // extension noyee dans la base (recoupee au ras du sol)
+                translate([-34, -24, 0]) cube([68, 32, dos_t]);
                 screw_bosses();
                 decorative_headlight();
+                headlight_fairing();
                 if (show_decorative_text) decorative_text_module();
             }
             magsafe_pocket();
@@ -473,28 +487,69 @@ module back_panel() {
     }
 }
 
-// Dossier en position assemblee : incline a phone_angle, recoupe au ras
-// du dessus de la base (epaulement plat) sauf le tenon, et perce pour
-// les deux vis M3 venant du dessous.
-module dossier_assembled() {
+// =====================================================================
+//  RENFORTS DE JONCTION DOSSIER / BASE (monobloc)
+// =====================================================================
+
+// Extrusion le long de X d'un profil 2D exprime dans le plan (Y,Z)
+module yz_extrude(w) {
+    rotate([90,0,90]) linear_extrude(height=w) children();
+}
+
+// Profil 2D d'un conge tangent entre le dessus de la base (z = base_h)
+// et une face du dossier ; ang = angle interieur entre les deux plans,
+// dirY = +1 si le sol s'etend vers l'arriere, -1 vers l'avant.
+module fillet_profile(y_corner, r, ang, dirY) {
+    ha = ang/2;
+    d  = r/tan(ha);                       // distance coin -> points de tangence
+    bx = dirY + cA;  by = sA;             // bissectrice (non normalisee)
+    bn = sqrt(bx*bx + by*by);
     difference() {
-        place_dossier() back_panel();
-        // tout ce qui depasse sous le plan superieur de la base,
-        // a l'exception du tenon, est retranche
-        difference() {
-            translate([-200,-60,-60]) cube([400,320,60+base_h]);
-            place_dossier()
-                translate([-tenon_w/2-0.1, -tenon_len, -0.1])
-                    cube([tenon_w+0.2, tenon_len+4, dos_t+0.2]);
-        }
-        dossier_screw_cuts();
+        polygon([[y_corner + dirY*d, base_h],
+                 [y_corner, base_h],
+                 [y_corner + d*cA, base_h + d*sA]]);
+        translate([y_corner + (r/sin(ha))*bx/bn, base_h + (r/sin(ha))*by/bn])
+            circle(r=r, $fn=fn_vis);
     }
 }
 
-// Dossier en orientation d'impression (dos pose sur le plateau)
-module station_dossier_print() {
-    rotate([-phone_angle,0,0]) translate([-phone_cx,-dos_Yt,-base_h])
-        dossier_assembled();
+// Conges internes avant (r 10) et arriere (r 8) : aucune cassure nette,
+// epaisseur locale du pied du dossier portee a plus de 8 mm.
+module junction_fillets() {
+    translate([phone_cx-36, 0, 0]) yz_extrude(72)
+        fillet_profile(dos_face_y, fillet_front_r, 180-phone_angle, -1);
+    translate([phone_cx-35, 0, 0]) yz_extrude(70)
+        fillet_profile(dos_Yt, fillet_back_r, phone_angle, 1);
+}
+
+// Deux nervures laterales discretes le long du dos du dossier, juste a
+// l'exterieur du cache arriere (jeu >= 1 mm avec celui-ci) ; elles
+// s'enracinent dans le dessus de la base et dans le flanc du dossier.
+module side_ribs() {
+    for (s = [-1, 1])
+        translate([phone_cx + s*(cover_w/2 + 1 + rib_t/2), 0, 0])
+            hull() {
+                translate([-rib_t/2, 58, base_h-2]) cube([rib_t, 10, 4]);
+                translate([-rib_t/2, 61, 44])       cube([rib_t, 5, 5]);
+            }
+}
+
+// =====================================================================
+//  CORPS MONOBLOC : base + dossier + conges + nervures, moins le
+//  conduit de cable ; deja oriente pour l'impression (debout).
+// =====================================================================
+module corps_monobloc() {
+    difference() {
+        union() {
+            base_body();
+            place_dossier() back_panel();
+            junction_fillets();
+            side_ribs();
+        }
+        cable_channel_base_cut();
+        // ras du sol : rien ne depasse sous z = 0
+        translate([-200,-100,-50]) cube([400,400,50]);
+    }
 }
 
 // =====================================================================
@@ -566,11 +621,25 @@ module logo_badge() {
 }
 
 // =====================================================================
-//  5. ASSEMBLAGE ET VUES
+//  5. PIECE DE TEST RAPIDE DES TOLERANCES
+//     Extrait du dossier autour du logement MagSafe : logement complet
+//     avec clips, morceau du canal de cable, les 4 pilotes de vis M3 du
+//     cache (le vrai cache peut y etre visse pour valider fermeture et
+//     jeux avant d'imprimer la station complete). S'imprime a plat.
+// =====================================================================
+module test_magsafe() {
+    translate([0, -ms_ly, 0])
+        intersection() {
+            back_panel();
+            translate([-38, ms_ly-42, -1]) cube([76, 84, 15]);
+        }
+}
+
+// =====================================================================
+//  6. ASSEMBLAGE ET VUES
 // =====================================================================
 module assembly() {
-    color("Gainsboro")   station_base();
-    color("WhiteSmoke")  dossier_assembled();
+    color("WhiteSmoke")  corps_monobloc();
     color("Silver")      place_dossier() rear_cover();
     if (weight_cavity) color("DimGray") weight_plate();
     if (show_logo)
@@ -590,9 +659,9 @@ module cable_section() {
 //  SELECTEUR DE PIECE
 // ---------------------------------------------------------------------
 if      (part == "assembly")      assembly();
-else if (part == "base")          station_base();
-else if (part == "dossier")       station_dossier_print();
+else if (part == "corps")         corps_monobloc();
 else if (part == "cache")         station_cache_print();
+else if (part == "test")          test_magsafe();
 else if (part == "logo")          logo_badge();
 else if (part == "plaque")        weight_plate();
 else if (part == "cable_section") cable_section();
