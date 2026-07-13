@@ -47,7 +47,15 @@ le lest), **aucun support**. Orientations déjà appliquées dans les STL.
    cyanoacrylate dans les mortaises rend l'ensemble définitif.
 4. Retourner la base, poser le câble dans la rainure du dessous et le sortir
    par l'encoche arrière.
-5. Coller 4 patins silicone Ø 8 mm dans leurs logements. C'est prêt.
+5. Coller 40 à 70 g de lest (écrous, rondelles, plombs) dans la poche à
+   croisillon sous l'avant de la base — la station reste bien en place quand
+   on décroche le téléphone.
+6. Coller 4 patins silicone Ø 8 mm dans leurs logements. C'est prêt.
+
+**Retrait du téléphone** : le chargeur, lui, ne bouge jamais — la traction des
+aimants le plaque contre la lèvre frontale. Pour décoller le téléphone d'une
+seule main, le faire glisser/pivoter plutôt que de tirer droit (comme sur
+tout socle MagSafe léger).
 
 ## Compatibilité
 

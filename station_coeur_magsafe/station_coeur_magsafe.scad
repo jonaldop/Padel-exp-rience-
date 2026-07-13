@@ -165,8 +165,17 @@ module base() {
             translate([-4.5,0,-1]) cube([9, 14, 1]);
             translate([0,0,2]) rotate([-90,0,0]) cylinder(h=14, r=4.5, $fn=32);
         }
+        // poche de lest sous l'avant de la base : y coller ecrous,
+        // rondelles ou plombs (~40-70 g) pour que la station ne suive
+        // pas le telephone au retrait. Croisillon = ponts < 15 mm.
+        difference() {
+            translate([0, -11, -eps]) cylinder(h=3, d=32, $fn=fn);
+            for (a = [0, 90])
+                translate([0, -11, 0]) rotate([0,0,a])
+                    translate([-1.5, -17, -1]) cube([3, 34, 4.2]);
+        }
         // quatre logements de patins silicone (D8 x 1,2)
-        for (p = [[0,-26],[-26,14],[26,14],[0,36]])
+        for (p = [[0,-32],[-28,10],[28,10],[0,34]])
             translate([p[0], p[1], -eps]) cylinder(h=1.2+eps, d=8, $fn=32);
     }
 }
