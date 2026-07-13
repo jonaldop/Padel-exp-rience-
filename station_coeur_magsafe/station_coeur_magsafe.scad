@@ -101,7 +101,11 @@ module place_head() {
 module head() {
     union() {
         difference() {
-            pebble(head_t, head_round) head_heart2d();
+            // galet inverse : arrondi cote dos, chanfrein cote face —
+            // la piece s'imprime FACE CONTRE LE PLATEAU (logement vers
+            // le haut : aucun pont, aucun surplomb, face texturee)
+            translate([0,0,head_t]) mirror([0,0,1])
+                pebble(head_t, head_round) head_heart2d();
             translate([0, puck_cy, 0]) {
                 // logement depuis l'arriere + chanfrein d'entree
                 translate([0,0,-eps]) cylinder(h=pocket_depth+eps, d=pocket_d, $fn=fn);
@@ -201,8 +205,13 @@ module cable_section() {
     difference() { assembly(); translate([0,-80,-20]) cube([200,300,300]); }
 }
 
+// le coeur s'exporte face contre le plateau (logement ouvert vers le haut)
+module station_coeur_print() {
+    translate([0,0,head_t]) rotate([180,0,0]) head();
+}
+
 if      (part == "assembly")      assembly();
-else if (part == "coeur")         head();
+else if (part == "coeur")         station_coeur_print();
 else if (part == "tige")          stem();
 else if (part == "base")          base();
 else if (part == "cable_section") cable_section();
