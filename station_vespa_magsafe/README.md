@@ -9,18 +9,27 @@ secours. Conçue pour une **Bambu Lab A1** (256 × 256 × 256 mm), en
 
 ![Assemblage](images/assemblage.png)
 
-**Seulement deux pièces imprimées :**
+**Une seule pièce imprimée :**
 
 | Pièce | Fichier | Impression |
 |---|---|---|
 | Corps monobloc (base + vide-poches + dossier 68° + rebord + phare + texte + conduit de câble + patins + lest) | `stl/station_corps_monobloc.stl` | debout, supports **uniquement** dans le logement MagSafe |
-| Cache arrière (ferme le MagSafe, plaque le chargeur, maintient le câble) | `stl/station_cache_arriere.stl` | à plat, aucun support |
+
+Sans cache ni vis : le chargeur MagSafe se **clipse** dans son logement
+(quatre bossettes de retenue, il se retire en le repoussant par l'ouverture
+frontale) et le câble se **clipse** dans sa rainure à lèvres (profil oméga,
+ouverture 3,6 mm pour un câble de 4,2 mm). Le dos est décoré d'anneaux
+gravés autour du logement.
+
+Vous préférez un cache arrière vissé ? Mettez `use_rear_cover = true`,
+ré-exportez le corps (les pilotes de vis apparaissent) et imprimez
+`stl/station_cache_arriere.stl` (4 × M3 × 6, aucun support).
 
 Pièces complémentaires :
 
 | Pièce | Fichier | Rôle |
 |---|---|---|
-| **Test de tolérances** | `stl/station_test_magsafe.stl` | petit extrait (76 × 84 × 12 mm, ≈ 1 h) : logement MagSafe complet, morceau de canal, 4 pilotes M3 — le vrai cache s'y visse pour tout valider avant la grande impression |
+| **Test de tolérances** | `stl/station_test_magsafe.stl` | petit extrait (76 × 84 × 12 mm, ≈ 1 h) : logement MagSafe complet avec ses clips et rainure à lèvres — clipser le chargeur et le câble pour tout valider avant la grande impression |
 | Plaque de lest | `stl/station_plaque_lest.stl` | ferme la cavité de lest (2 vis M3) |
 | Badge logo générique | `stl/station_logo.stl` | optionnel, à coller (`show_logo = true`) |
 
@@ -73,8 +82,13 @@ show_decorative_text = true;      // texte en relief (0,8 mm)
 decorative_text      = "VESPA";   // texte libre ("LA DOLCE VITA", "", ...)
 decorative_text_size = 9;         // hauteur des lettres
 text_font = "Liberation Sans:style=Bold Italic";
+show_hearts          = true;      // coeurs : façade, sommet, vide-poches
 show_logo            = false;     // badge rapporté + son logement
 ```
+
+Trois cœurs décoratifs (désactivables avec `show_hearts = false`) : en relief
+sous le phare, au-dessus du texte, et gravé au fond du vide-poches. Pour une
+finition « cadeau » : PLA Matte rose pastel, lilas ou blanc crème.
 
 `show_decorative_text = false` donne la version lisse. Le texte est recoupé à
 l'intérieur de la silhouette : un texte trop long ne débordera jamais.

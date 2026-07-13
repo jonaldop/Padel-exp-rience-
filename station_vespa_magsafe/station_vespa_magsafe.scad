@@ -35,6 +35,7 @@ part = "assembly";
 // ---------------------------------------------------------------------
 show_logo = false;              // badge logo rapporte (false = version sans logo)
 show_decorative_text = true;    // texte decoratif en relief sur le dossier
+show_hearts = true;             // coeurs decoratifs (facade, sommet, vide-poches)
 decorative_text = "VESPA";      // texte libre ("LA DOLCE VITA", "SCOOTER CLUB", ...)
 decorative_text_size = 9;       // hauteur des lettres (reduire pour un texte long)
 // Police du texte. Pour retrouver le lettrage cursif du logo d'origine
@@ -49,6 +50,12 @@ phone_angle       = 68;         // inclinaison du plan telephone (degres / horiz
 
 cable_exit = "rear";            // sortie du cable : "rear" (arriere) ou "bottom" (dessous)
 weight_cavity = true;           // cavite de lest sous la base (rondelles metalliques)
+
+// false (defaut) : station VRAIMENT monobloc, sans cache arriere ;
+//   le chargeur est retenu par quatre clips et le cable se clipse dans
+//   une rainure a levres (profil omega). Aucune vis.
+// true : variante avec cache arriere visse (4 x M3), pilotes inclus.
+use_rear_cover = false;
 
 // Hauteur du centre MagSafe au-dessus du sol (spec : 105 a 115 mm).
 // Le telephone est tenu par les aimants ; reduire vers ~92 mm si l'on
@@ -161,6 +168,16 @@ module rrect(x1, y1, x2, y2, r, h, fn=fn_hide) {
             polygon([[x1,y1],[x2,y1],[x2,y2],[x1,y2]]);
 }
 
+// Coeur 2D (pointe vers -Y) ; a = cote du carre generateur
+// (largeur totale ~1,71 a, hauteur totale ~1,56 a)
+module heart2d(a) {
+    union() {
+        rotate(45) square(a, center=true);
+        for (s = [-1, 1])
+            translate([s*a*0.3536, a*0.3536]) circle(d=a, $fn=fn_vis);
+    }
+}
+
 // Pilier d'angle de la base : cylindre + tore sommital (arete arrondie)
 // + petit chanfrein en pied (anti "patte d'elephant")
 module base_pillar() {
@@ -237,12 +254,20 @@ module tray() {
         translate([tray_cx, tray_cy, floor_z-0.8+eps])
             cylinder(h=0.8, r1=eps, r2=44, $fn=fn_hide);
         // rainures concentriques decoratives / anti-glisse (0,7 mm)
-        for (r = [6, 12, 18, 24])
+        for (r = show_hearts ? [18, 24] : [6, 12, 18, 24])
             translate([tray_cx, tray_cy, floor_z-1.4])
                 difference() {
                     cylinder(h=2.2, r=r+0.4, $fn=fn_vis);
                     translate([0,0,-eps]) cylinder(h=2.4, r=r-0.4, $fn=fn_vis);
                 }
+        // grand coeur grave au centre du fond du vide-poches
+        if (show_hearts)
+            translate([tray_cx, tray_cy-1, floor_z-1.4])
+                linear_extrude(height=2.1)
+                    difference() {
+                        heart2d(16);
+                        offset(delta=-1.1) heart2d(16);
+                    }
         // chanfrein adouci du bord superieur
         hull() {
             translate([0,0,base_h-1.4])
@@ -414,13 +439,37 @@ module magsafe_pocket() {
     }
 }
 
-// Trois clips (bossettes flexibles) retenant le chargeur, en plus du
-// cache visse ; places hors du canal de cable, retrait toujours possible.
+// Clips (bossettes flexibles) retenant le chargeur : trois avec le
+// cache visse, quatre (plus saillants) en version monobloc sans cache.
+// Places hors du canal de cable ; le chargeur se retire toujours en le
+// repoussant par l'ouverture frontale.
 module magsafe_clips() {
-    for (a = [90, 210, 330])
+    angles = use_rear_cover ? [90, 210, 330] : [45, 135, 225, 315];
+    inset  = use_rear_cover ? 1.0 : 0.9;   // saillie 0,6 / 0,7 mm
+    for (a = angles)
         translate([0, ms_ly, 0]) rotate([0,0,a])
-            translate([pocket_d/2+1.0, 0, pocket_depth-magsafe_thickness-0.6])
+            translate([pocket_d/2+inset, 0, pocket_depth-magsafe_thickness-0.6])
                 sphere(r=1.6, $fn=fn_hide);
+}
+
+// Levres de la rainure de cable (version sans cache) : l'ouverture est
+// retrecie a 3,6 mm sur les bords, le cable (4,2) s'y clipse et ne peut
+// plus s'echapper. Nervures verticales : imprimables debout sans support.
+module cable_lips() {
+    for (s = [-1, 1])
+        translate([s*chan_w/2 - (s>0 ? 0.8 : 0), 14, 0])
+            cube([0.8, ms_ly - pocket_d/2 - 3 - 14, 0.8]);
+}
+
+// Decor du dos en version monobloc : anneaux graves autour du logement
+// (clin d'oeil a la roue de secours), a la place du cache.
+module rear_rings_cut() {
+    for (r = [pocket_d/2+2.5, pocket_d/2+5])
+        translate([0, ms_ly, -eps])
+            difference() {
+                cylinder(h=0.6+eps, r=r+0.5, $fn=fn_vis);
+                translate([0,0,-eps]) cylinder(h=1, r=r-0.5, $fn=fn_vis);
+            }
 }
 
 // Canal de cable du dossier : rainure droite dans le dos, du logement
@@ -453,6 +502,15 @@ module cover_pilot_cuts() {
         translate([p[0], p[1], -eps]) cylinder(h=5.6, d=screw_pilot_d, $fn=fn_hide);
 }
 
+// Coeurs decoratifs de la facade : un coeur en relief sous le carenage
+// du phare, et un petit coeur au-dessus du texte.
+module front_hearts() {
+    translate([0, 18, dos_t-0.2])
+        linear_extrude(height=1.4) heart2d(11);
+    translate([0, 165, dos_t-0.2])
+        linear_extrude(height=1.0) heart2d(5);
+}
+
 // Texte decoratif en relief (0,8 mm), centre au-dessus du phare.
 // Le texte est recoupe a l'interieur de la silhouette (marge 2 mm) :
 // un texte personnalise trop long ne debordera jamais du dossier.
@@ -481,14 +539,17 @@ module back_panel() {
                 decorative_headlight();
                 headlight_fairing();
                 if (show_decorative_text) decorative_text_module();
+                if (show_hearts) front_hearts();
             }
             magsafe_pocket();
             cable_channel();
-            cover_pilot_cuts();
+            if (use_rear_cover) cover_pilot_cuts();
+            else rear_rings_cut();
             if (show_logo)  // logement du badge logo rapporte
                 translate([0, 42, dos_t-1.0]) cylinder(h=boss_h+2, d=24.5, $fn=fn_vis);
         }
         magsafe_clips();
+        if (!use_rear_cover) cable_lips();
     }
 }
 
@@ -645,7 +706,7 @@ module test_magsafe() {
 // =====================================================================
 module assembly() {
     color("WhiteSmoke")  corps_monobloc();
-    color("Silver")      place_dossier() rear_cover();
+    if (use_rear_cover) color("Silver") place_dossier() rear_cover();
     if (weight_cavity) color("DimGray") weight_plate();
     if (show_logo)
         color("DarkSlateGray")
