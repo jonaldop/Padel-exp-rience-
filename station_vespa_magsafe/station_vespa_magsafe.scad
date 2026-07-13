@@ -35,7 +35,12 @@ part = "assembly";
 // ---------------------------------------------------------------------
 show_logo = false;              // badge logo rapporte (false = version sans logo)
 show_decorative_text = true;    // texte decoratif en relief sur le dossier
-decorative_text = "LA DOLCE VITA"; // texte generique (pas de marque protegee)
+decorative_text = "VESPA";      // texte libre ("LA DOLCE VITA", "SCOOTER CLUB", ...)
+decorative_text_size = 9;       // hauteur des lettres (reduire pour un texte long)
+// Police du texte. Pour retrouver le lettrage cursif du logo d'origine
+// (usage personnel) : installer une fonte "style Vespa" (TTF) sur votre
+// machine puis indiquer son nom ici, ex. text_font = "Vespa";
+text_font = "Liberation Sans:style=Bold Italic";
 
 magsafe_diameter  = 56.2;       // diametre du chargeur MagSafe Apple
 magsafe_thickness = 5.7;        // epaisseur du chargeur
@@ -455,8 +460,8 @@ module decorative_text_module() {
     intersection() {
         translate([0, 152, dos_t-0.2])
             linear_extrude(height=1.0)
-                text(decorative_text, size=6, font="Liberation Sans:style=Bold",
-                     halign="center", valign="center", spacing=1.05, $fn=fn_hide);
+                text(decorative_text, size=decorative_text_size, font=text_font,
+                     halign="center", valign="center", spacing=1.1, $fn=fn_hide);
         translate([0,0,dos_t-0.3]) linear_extrude(height=1.2)
             offset(delta=-2) dossier_outline();
     }

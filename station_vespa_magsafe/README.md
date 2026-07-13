@@ -69,14 +69,20 @@ tenu par les aimants, le rebord servant de butée de sécurité.
 ## 4. Afficher ou masquer le texte et le logo
 
 ```openscad
-show_decorative_text = true;             // texte en relief (0,8 mm)
-decorative_text      = "LA DOLCE VITA";  // ou "SCOOTER CLUB", ou ""
-show_logo            = false;            // badge rapporté + son logement
+show_decorative_text = true;      // texte en relief (0,8 mm)
+decorative_text      = "VESPA";   // texte libre ("LA DOLCE VITA", "", ...)
+decorative_text_size = 9;         // hauteur des lettres
+text_font = "Liberation Sans:style=Bold Italic";
+show_logo            = false;     // badge rapporté + son logement
 ```
 
-`show_decorative_text = false` donne la version lisse, sans aucune marque. Le
-texte est recoupé à l'intérieur de la silhouette : un texte trop long ne
-débordera jamais. Aucun logo protégé n'est utilisé.
+`show_decorative_text = false` donne la version lisse. Le texte est recoupé à
+l'intérieur de la silhouette : un texte trop long ne débordera jamais.
+
+Le lettrage cursif du logo d'origine est un dessin propriétaire (Piaggio) qui
+n'est pas inclus dans ce dépôt. Pour l'obtenir sur votre impression
+personnelle : installez une fonte TTF « style Vespa » sur votre machine,
+indiquez son nom dans `text_font`, puis ré-exportez le corps.
 
 ## 5. Exporter chaque STL
 
