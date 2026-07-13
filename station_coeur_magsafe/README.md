@@ -35,11 +35,13 @@ le lest), **aucun support**. Orientations déjà appliquées dans les STL.
 
 ## Assemblage
 
-1. Clipser le chargeur MagSafe dans le logement à l'avant du cœur (trois
-   bossettes le retiennent ; pour le retirer, le pousser par l'ouverture au
-   dos du cœur).
-2. Passer le câble par l'ouverture sous le chargeur, le descendre au dos du
-   cœur et le clipser dans la rainure à lèvres de la tige.
+1. Insérer le chargeur MagSafe **par l'arrière du cœur**, câble vers le bas :
+   il glisse dans son logement (chanfrein d'entrée) et se clipse derrière
+   trois bossettes, plaqué contre la lèvre frontale — le téléphone charge à
+   travers l'ouverture de 50 mm et ne peut pas l'arracher. Pour le retirer,
+   le pousser doucement par l'ouverture frontale.
+2. Faire passer le câble derrière le palet, le descendre dans la mortaise au
+   dos du cœur et le clipser dans la rainure à lèvres de la tige.
 3. Glisser la fiche USB-C dans la mortaise de la base, puis emboîter la tige
    (elle traverse la base et affleure le dessous). Un point de colle
    cyanoacrylate dans les mortaises rend l'ensemble définitif.
