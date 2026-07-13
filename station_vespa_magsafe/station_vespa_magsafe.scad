@@ -36,8 +36,8 @@ part = "assembly";
 show_logo = false;              // badge logo rapporte (false = version sans logo)
 show_decorative_text = true;    // texte decoratif en relief sur le dossier
 show_hearts = true;             // coeurs decoratifs (facade, sommet, vide-poches)
-decorative_text = "VESPA";      // texte libre ("LA DOLCE VITA", "SCOOTER CLUB", ...)
-decorative_text_size = 9;       // hauteur des lettres (reduire pour un texte long)
+decorative_text = "Je t'aime";  // texte libre ("VESPA", "LA DOLCE VITA", ...)
+decorative_text_size = 8;       // hauteur des lettres (reduire pour un texte long)
 // Police du texte. Pour retrouver le lettrage cursif du logo d'origine
 // (usage personnel) : installer une fonte "style Vespa" (TTF) sur votre
 // machine puis indiquer son nom ici, ex. text_font = "Vespa";
@@ -389,14 +389,25 @@ module weight_plate() {
 //     dos a Z = 0, face avant a Z = dos_t)
 // =====================================================================
 
-// Silhouette 2D du dossier : trapeze galbe, sommet en arc doux
+// Silhouette 2D du dossier : un grand coeur allonge. Deux lobes au
+// sommet avec un creux central, flancs galbes qui s'affinent vers la
+// base (la pointe du coeur plonge dans le socle). Union de trois
+// enveloppes convexes : petale gauche, petale droit, dorsale centrale.
 module dossier_outline() {
-    hull() {
-        for (s = [-1,1]) {
-            translate([s*(dos_w_bot/2-10), 6])  circle(r=10, $fn=fn_vis); // bas
-            translate([s*(dos_w_bot/2-9), 70])  circle(r=10, $fn=fn_vis); // galbe lateral
+    lobe_r = 21;                       // rayon des lobes du coeur
+    lobe_y = dos_len - lobe_r;         // sommet des lobes = haut du dossier
+    union() {
+        for (s = [-1,1])
+            hull() {
+                translate([s*(dos_w_bot/2-10), 6])  circle(r=10, $fn=fn_vis); // bas
+                translate([s*(dos_w_bot/2-9), 70])  circle(r=10, $fn=fn_vis); // galbe
+                translate([s*18, lobe_y]) circle(r=lobe_r, $fn=fn_vis);       // lobe
+            }
+        // dorsale : remplit le centre sous le creux du coeur
+        hull() {
+            for (s = [-1,1]) translate([s*(dos_w_bot/2-10), 6]) circle(r=10, $fn=fn_vis);
+            translate([0, dos_len-45]) circle(r=18, $fn=fn_vis);
         }
-        translate([0, arc_cy]) circle(r=arc_r, $fn=fn_vis);               // arc sommital
     }
 }
 
@@ -502,21 +513,19 @@ module cover_pilot_cuts() {
         translate([p[0], p[1], -eps]) cylinder(h=5.6, d=screw_pilot_d, $fn=fn_hide);
 }
 
-// Coeurs decoratifs de la facade : un coeur en relief sous le carenage
-// du phare, et un petit coeur au-dessus du texte.
+// Coeur decoratif de la facade, en relief sous le carenage du phare
+// (le sommet du dossier est lui-meme un coeur : pas d'autre motif en haut)
 module front_hearts() {
     translate([0, 18, dos_t-0.2])
         linear_extrude(height=1.4) heart2d(11);
-    translate([0, 165, dos_t-0.2])
-        linear_extrude(height=1.0) heart2d(5);
 }
 
-// Texte decoratif en relief (0,8 mm), centre au-dessus du phare.
-// Le texte est recoupe a l'interieur de la silhouette (marge 2 mm) :
-// un texte personnalise trop long ne debordera jamais du dossier.
+// Texte decoratif en relief (0,8 mm), centre entre le phare et le
+// creux du coeur. Le texte est recoupe a l'interieur de la silhouette
+// (marge 2 mm) : un texte trop long ne debordera jamais du dossier.
 module decorative_text_module() {
     intersection() {
-        translate([0, 152, dos_t-0.2])
+        translate([0, 140, dos_t-0.2])
             linear_extrude(height=1.0)
                 text(decorative_text, size=decorative_text_size, font=text_font,
                      halign="center", valign="center", spacing=1.1, $fn=fn_hide);

@@ -1,11 +1,12 @@
-# Station de recharge MagSafe — style Vespa vintage (monobloc)
+# Station de recharge MagSafe — cœur style Vespa vintage (monobloc)
 
-Station de charge pour iPhone (MagSafe) avec vide-poches intégré, inspirée des
-courbes d'un scooter italien rétro : dossier galbé fondu dans la base comme un
-tablier de scooter, phare rond strié en façade (le chargeur MagSafe en est la
-« lentille »), carénage façon tablier de klaxon, cache arrière façon roue de
-secours. Conçue pour une **Bambu Lab A1** (256 × 256 × 256 mm), en
-**mono-couleur**, **sans AMS**.
+Station de charge pour iPhone (MagSafe) avec vide-poches intégré, pensée comme
+un cadeau : le **dossier est un grand cœur** (deux lobes au sommet, pointe
+fondue dans le socle) inspiré des courbes d'un scooter italien rétro — phare
+rond strié en façade (le chargeur MagSafe en est la « lentille »), carénage
+façon tablier de klaxon, « Je t'aime » en relief sous le creux du cœur.
+Conçue pour une **Bambu Lab A1** (256 × 256 × 256 mm), en **mono-couleur**,
+**sans AMS**.
 
 ![Assemblage](images/assemblage.png)
 
@@ -78,17 +79,18 @@ tenu par les aimants, le rebord servant de butée de sécurité.
 ## 4. Afficher ou masquer le texte et le logo
 
 ```openscad
-show_decorative_text = true;      // texte en relief (0,8 mm)
-decorative_text      = "VESPA";   // texte libre ("LA DOLCE VITA", "", ...)
-decorative_text_size = 9;         // hauteur des lettres
+show_decorative_text = true;        // texte en relief (0,8 mm)
+decorative_text      = "Je t'aime"; // texte libre ("VESPA", "LA DOLCE VITA", ...)
+decorative_text_size = 8;           // hauteur des lettres
 text_font = "Liberation Sans:style=Bold Italic";
-show_hearts          = true;      // coeurs : façade, sommet, vide-poches
-show_logo            = false;     // badge rapporté + son logement
+show_hearts          = true;        // coeurs : façade + vide-poches
+show_logo            = false;       // badge rapporté + son logement
 ```
 
-Trois cœurs décoratifs (désactivables avec `show_hearts = false`) : en relief
-sous le phare, au-dessus du texte, et gravé au fond du vide-poches. Pour une
-finition « cadeau » : PLA Matte rose pastel, lilas ou blanc crème.
+Le dossier est lui-même un grand cœur ; s'y ajoutent un cœur en relief sous
+le phare et un cœur gravé au fond du vide-poches (`show_hearts = false` pour
+les retirer). Pour une finition « cadeau » : PLA Matte rose pastel, lilas ou
+blanc crème.
 
 `show_decorative_text = false` donne la version lisse. Le texte est recoupé à
 l'intérieur de la silhouette : un texte trop long ne débordera jamais.
