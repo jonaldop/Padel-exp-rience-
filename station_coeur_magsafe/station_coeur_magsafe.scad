@@ -31,10 +31,14 @@ front_lip  = 1.2;           // levre devant le chargeur
 open_d     = 50;            // ouverture frontale (le telephone charge au travers)
 puck_cy    = 6.5;           // centre du chargeur dans le coeur (local Y)
 
-// Tige
-stem_w = 16;  stem_d = 13;  // section
-stem_l = 81;                // longueur totale (traverse la base)
-stem_y = 14;                // position (vers l'arriere de la base)
+// Tige — section en QUEUE D'ARONDE : large cote face (stem_w), etroite
+// cote dos (stem_wb). Glissee dans la rainure du coeur par le bas, elle
+// est verrouillee mecaniquement : impossible de s'echapper vers l'arriere.
+stem_w  = 16;  stem_d = 13; // section cote face / profondeur
+stem_wb = 14;               // largeur cote dos (pente de la queue d'aronde)
+stem_l  = 81;               // longueur totale (traverse la base)
+stem_y  = 14;               // position (vers l'arriere de la base)
+dovetail_clear = 0.15;      // jeu de glissement dans le coeur
 
 // Base (vide-poches coeur)
 base_h   = 12;              // hauteur
@@ -59,6 +63,24 @@ module fat_heart(lobe_r, lobe_x, lobe_y, tip_r, tip_y) {
 
 module head_heart2d()  { fat_heart(31, 19, 15, 5, -36); }   // 100 x 87
 module base_heart2d()  { fat_heart(33, 19, 12, 6, -40); }   // 104 x 91
+
+// Section trapezoidale de la tige (queue d'aronde), coins arrondis ;
+// face large en -Y, dos etroit en +Y
+module stem_cross(clr=0) {
+    offset(r=1.5, $fn=24) offset(delta=-1.5) offset(delta=clr)
+        polygon([[-stem_w/2, -stem_d/2], [stem_w/2, -stem_d/2],
+                 [stem_wb/2, stem_d/2], [-stem_wb/2, stem_d/2]]);
+}
+
+// Section de la rainure du coeur : queue d'aronde + fente debouchant
+// au dos (plus etroite que la face de la tige -> verrouillage)
+module slot_cross() {
+    union() {
+        stem_cross(dovetail_clear);
+        translate([-(stem_wb/2 + dovetail_clear + 0.15), stem_d/2 - 1])
+            square([stem_wb + 2*dovetail_clear + 0.3, 4]);
+    }
+}
 
 // Plaque a aretes rondes cote visible, mais DESSOUS PLAT (face plateau) :
 // un galet complet mettrait les premieres couches du pourtour en
@@ -98,12 +120,12 @@ module place_head() {
 // sortir : le pousser par l'ouverture frontale. La mortaise de tige,
 // ouverte au dos, sert aussi de passage au cable qui descend sous le
 // palet, puis dans la tige.
-module head() {
+module head(mono=false) {
     union() {
         difference() {
             // galet inverse : arrondi cote dos, chanfrein cote face —
-            // la piece s'imprime FACE CONTRE LE PLATEAU (logement vers
-            // le haut : aucun pont, aucun surplomb, face texturee)
+            // en 3 pieces, s'imprime FACE CONTRE LE PLATEAU (logement
+            // vers le haut : aucun pont, aucun surplomb, face texturee)
             translate([0,0,head_t]) mirror([0,0,1])
                 pebble(head_t, head_round) head_heart2d();
             translate([0, puck_cy, 0]) {
@@ -113,8 +135,14 @@ module head() {
                 // ouverture frontale : le telephone charge au travers
                 translate([0,0,pocket_depth-eps]) cylinder(h=front_lip+1, d=open_d, $fn=fn);
             }
-            // mortaise de tige + canal de cable (ouverte au dos)
-            translate([-slot_w/2, -50, -1]) cube([slot_w, 44, slot_d+1.25]);
+            if (!mono) {
+                // rainure en queue d'aronde de la tige : elle se glisse
+                // par la pointe du coeur et bute en fin de course
+                translate([0, -50, 6.9]) rotate([-90,0,0])
+                    linear_extrude(height=36) slot_cross();
+                // canal de cable au-dela de la butee, jusque sous le palet
+                translate([-4, -16, -1]) cube([8, 10, 14.6]);
+            }
         }
         // trois bossettes rampees juste derriere le palet (engagement
         // net ~0,3 aux trois points ; insertion ferme mais aisee)
@@ -122,38 +150,56 @@ module head() {
             translate([0, puck_cy, 0]) rotate([0,0,a])
                 translate([pocket_d/2+1.0, 0, pocket_depth-magsafe_thickness-0.9])
                     sphere(r=1.6, $fn=24);
+        // deux nervures d'ecrasement sur le fond de la rainure : elles
+        // poussent la tige dans le coin de la queue d'aronde -> zero jeu
+        if (!mono)
+            for (s = [-1, 1])
+                translate([s*5-0.5, -36, 13.25]) cube([1, 20, 0.35]);
     }
 }
 
 // ------------------------- TIGE ---------------------------------------
 // Verticale, section arrondie ; rainure arriere a levres : le cable
 // (4,2) s'y clipse et reste invisible de face.
+module stem_body() { linear_extrude(height=stem_l) stem_cross(0); }
+
+// Rainure du cable (7 x 6, ouverte a l'arriere), prolongeable au-dela
+// du sommet de la tige (utile pour la version monobloc)
+module stem_groove_cut(extra=2) {
+    translate([-3.5, stem_d/2-6, -1]) cube([7, 7, stem_l+1+extra]);
+}
+
+// Levres de la rainure, ancrees 0,7 mm dans ses parois : l'ouverture
+// est reduite a 4,0 mm, le cable (4,2) s'y clipse et ne s'echappe plus
+module stem_lips() {
+    for (s = [-1,1])
+        translate([s*3.1 - 1.1, stem_d/2 - 1.2, 1]) cube([2.2, 1.0, stem_l-2]);
+}
+
 module stem() {
     difference() {
         union() {
-            linear_extrude(height=stem_l)
-                offset(r=3, $fn=32) offset(delta=-3)
-                    square([stem_w, stem_d], center=true);
-            // levres de la rainure
-            for (s = [-1,1])
-                translate([s*2.75, stem_d/2-1.05, stem_l/2])
-                    cube([1.5, 0.9, stem_l], center=true);
+            difference() { stem_body(); stem_groove_cut(); }
+            stem_lips();
         }
-        // rainure du cable (7 x 6, ouverte a l'arriere)
-        translate([-3.5, stem_d/2-6, -1]) cube([7, 7, stem_l+2]);
+        // biseau de 12 degres au pied : une fois la tige inclinee dans
+        // la base, son extremite affleure exactement le dessous
+        translate([0, -stem_d/2, 0]) rotate([12,0,0])
+            translate([-20, -5, -30]) cube([40, 40, 30]);
     }
 }
 
 // ------------------------- BASE (VIDE-POCHES) -------------------------
-module base() {
+module base(mono=false) {
     difference() {
         union() {
             // socle galet
             pebble(base_h, base_round) base_heart2d();
-            // bossage du logement de tige
-            translate([0, stem_y, 0]) linear_extrude(height=base_h-1)
+            // bossage du logement de tige (allonge vers l'arriere pour
+            // abriter le puits de cable de la version monobloc)
+            translate([0, stem_y+3, 0]) linear_extrude(height=base_h-1)
                 offset(r=5, $fn=32) offset(delta=-5)
-                    square([stem_w+10, stem_d+9], center=true);
+                    square([stem_w+10, stem_d+15], center=true);
         }
         // vide-poches (paroi 5, bord adouci)
         translate([0,0,base_h-tray_depth]) linear_extrude(height=tray_depth+1)
@@ -168,10 +214,11 @@ module base() {
                 linear_extrude(height=1)
                     text(decorative_text, size=7, halign="center", valign="center",
                          font="Liberation Sans:style=Bold Italic", spacing=1.1);
-        // mortaise traversante de la tige (inclinee)
-        place_stem() translate([-slot_w/2, -slot_d/2, -6]) cube([slot_w, slot_d, 30]);
+        // mortaise traversante de la tige (inclinee, queue d'aronde)
+        if (!mono)
+            place_stem() translate([0,0,-6]) linear_extrude(height=30) stem_cross(0.25);
         // rainure du cable sous la base, en diagonale vers l'arriere droit
-        for (seg = [[[0,20],[10,34]], [[10,34],[10,48]]])
+        for (seg = [[[0,27],[10,38]], [[10,38],[10,48]]])
             hull() for (p = seg)
                 translate([p[0], p[1], -1]) cylinder(h=5.5, r=3.5, $fn=32);
         // sortie arriere : encoche arrondie dans le bord
@@ -194,6 +241,42 @@ module base() {
     }
 }
 
+// ------------------------- CORPS MONOBLOC ------------------------------
+// Toute la station en UNE SEULE piece imprimee debout : coeur, tige et
+// base fondus, collerette de raccord sous le coeur, rainure de cable
+// continue au dos (a levres : le cable s'y clipse), puits interne
+// derriere la tige pour rejoindre le dessous de la base. La silhouette
+// du coeur monte a moins de ~25 degres de devers : seuls quelques
+// supports peints DANS le logement MagSafe sont necessaires.
+module corps_unique() {
+    difference() {
+        union() {
+            difference() {
+            union() {
+                base(mono=true);
+                place_stem() stem_body();
+                place_head() head(mono=true);
+                // collerette de raccord tige -> pointe du coeur
+                hull() {
+                    place_stem() translate([0,0,40]) linear_extrude(height=1) stem_cross(0);
+                    place_head() translate([-14, -27, 0]) cube([28, 1.5, head_t]);
+                }
+            }
+            // rainure de cable continue : tout le long de la tige, a
+            // travers la collerette, jusque sous le palet MagSafe
+            place_stem() stem_groove_cut(extra=32);
+                // puits du cable derriere la tige (la fiche USB-C
+                // passe), traversant la base jusqu'a la rainure du dessous
+                translate([-6.5, 23, -1]) cube([13, 8, 14]);
+            }
+            // levres de la rainure : le cable s'y clipse sur toute la tige
+            place_stem() stem_lips();
+        }
+        // ras du sol : rien ne depasse sous z = 0
+        translate([-200, -200, -50]) cube([400, 400, 50]);
+    }
+}
+
 // ------------------------- ASSEMBLAGE ----------------------------------
 module assembly() {
     color("MistyRose")  base();
@@ -211,6 +294,7 @@ module station_coeur_print() {
 }
 
 if      (part == "assembly")      assembly();
+else if (part == "monobloc")      corps_unique();
 else if (part == "coeur")         station_coeur_print();
 else if (part == "tige")          stem();
 else if (part == "base")          base();

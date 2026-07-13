@@ -8,10 +8,20 @@ A1**, PLA (rose recommandé !), **sans supports**.
 
 ![Assemblage](images/assemblage.png)
 
+**Version recommandée — une seule pièce, rien à assembler :**
+
+| Pièce | Fichier | Impression |
+|---|---|---|
+| Station complète monobloc | `stl/station_coeur_monobloc.stl` | debout ; supports **peints uniquement dans le logement MagSafe** (arbre, retirés par l'ouverture arrière) |
+
+**Variante en trois pièces emboîtées** (plateaux plus petits, aucune zone à
+supports) — la tige a une section en **queue d'aronde** : glissée dans la
+rainure du cœur par la pointe, elle est verrouillée mécaniquement, sans colle :
+
 | # | Pièce | Fichier | Impression |
 |---|---|---|---|
-| 1 | Cœur (support MagSafe) | `stl/station_coeur.stl` | à plat, dos sur le plateau |
-| 2 | Tige | `stl/station_tige.stl` | debout, brim conseillé |
+| 1 | Cœur (support MagSafe) | `stl/station_coeur.stl` | face contre le plateau |
+| 2 | Tige (queue d'aronde) | `stl/station_tige.stl` | debout, brim conseillé |
 | 3 | Base (vide-poches + passage de câble) | `stl/station_base.stl` | à plat |
 
 Dimensions : cœur 100 × 87 × 18 mm, base 104 × 91 × 12 mm, hauteur assemblée
