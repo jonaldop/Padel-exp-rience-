@@ -22,10 +22,13 @@ show_decorative_text = true;
 fit_clearance = 0.25;       // jeu d'emboitement par cote
 recess_clear  = 0.3;        // jeu radial du logement chargeur
 
-// Tete (coeur)
+// Tete (coeur) — le chargeur s'insere PAR L'ARRIERE ; une levre
+// frontale (ouverture 50) l'empeche de traverser : au retrait du
+// telephone, la traction des aimants le plaque contre la levre.
 head_t     = 18;            // epaisseur
 head_round = 3;             // arrondi des aretes (effet galet)
-recess_depth = 5.8;         // profondeur du logement chargeur (affleurant)
+front_lip  = 1.2;           // levre devant le chargeur
+open_d     = 50;            // ouverture frontale (le telephone charge au travers)
 puck_cy    = 6.5;           // centre du chargeur dans le coeur (local Y)
 
 // Tige
@@ -39,7 +42,8 @@ tray_depth = 6;             // profondeur du vide-poches
 base_round = 2.5;           // arrondi du pourtour
 
 fn = 72;  eps = 0.01;
-recess_d = magsafe_diameter + 2*recess_clear;     // ~56,8
+pocket_d = magsafe_diameter + 2*recess_clear;     // jeu radial 0,3
+pocket_depth = head_t - front_lip;                // fond = levre frontale
 slot_w   = stem_w + 2*fit_clearance;              // mortaise de la tete
 slot_d   = stem_d + 2*fit_clearance;
 
@@ -77,25 +81,32 @@ module place_head() {
 
 // ------------------------- TETE (COEUR) -------------------------------
 // Locale : X largeur, Y hauteur (pointe en -Y), Z epaisseur (dos a 0).
-// Chargeur insere par l'avant dans un logement affleurant ; la mortaise
-// de tige, ouverte au dos, sert aussi de passage de cable jusqu'au
-// logement (le fond du logement est ajoure au droit de la mortaise).
+// Le chargeur entre PAR L'ARRIERE (chanfrein d'entree, jeu 0,3/cote),
+// glisse jusqu'a la levre frontale et se clipse derriere trois
+// bossettes rampees ; au retrait du telephone, la traction des aimants
+// le plaque contre la levre — il ne peut pas etre arrache. Pour le
+// sortir : le pousser par l'ouverture frontale. La mortaise de tige,
+// ouverte au dos, sert aussi de passage au cable qui descend sous le
+// palet, puis dans la tige.
 module head() {
     union() {
         difference() {
             pebble(head_t, head_round) head_heart2d();
-            // logement du chargeur, affleurant, chanfrein d'entree
-            translate([0, puck_cy, head_t-recess_depth])
-                cylinder(h=recess_depth+1, d=recess_d, $fn=fn);
-            translate([0, puck_cy, head_t-0.8])
-                cylinder(h=1, d1=recess_d, d2=recess_d+1.6, $fn=fn);
+            translate([0, puck_cy, 0]) {
+                // logement depuis l'arriere + chanfrein d'entree
+                translate([0,0,-eps]) cylinder(h=pocket_depth+eps, d=pocket_d, $fn=fn);
+                translate([0,0,-eps]) cylinder(h=1.2, d1=pocket_d+2, d2=pocket_d, $fn=fn);
+                // ouverture frontale : le telephone charge au travers
+                translate([0,0,pocket_depth-eps]) cylinder(h=front_lip+1, d=open_d, $fn=fn);
+            }
             // mortaise de tige + canal de cable (ouverte au dos)
             translate([-slot_w/2, -50, -1]) cube([slot_w, 44, slot_d+1.25]);
         }
-        // trois bossettes de retenue du chargeur (saillie 0,45)
+        // trois bossettes rampees juste derriere le palet (engagement
+        // net ~0,3 aux trois points ; insertion ferme mais aisee)
         for (a = [90, 200, 340])
             translate([0, puck_cy, 0]) rotate([0,0,a])
-                translate([recess_d/2+1.15, 0, head_t-1.6])
+                translate([pocket_d/2+1.0, 0, pocket_depth-magsafe_thickness-0.9])
                     sphere(r=1.6, $fn=24);
     }
 }
