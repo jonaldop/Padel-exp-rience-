@@ -21,7 +21,7 @@ show_decorative_text = true;
 // Texte grave dans le coeur (deux lignes, version support uniquement)
 heart_text1 = "iPhone de";
 heart_text2 = "mon Amour";
-heart_text_size = 8;
+heart_text_size = 7.5;
 
 // false (defaut) : SUPPORT iPHONE PUR — le telephone repose sur une
 //   tablette a rebord, adosse au coeur ; charge par cable branche
@@ -101,12 +101,34 @@ module heart_cleft_cut() {
 // Le galet (minkowski) REBOUCHE les zones concaves (echancrure) en y
 // laissant une marche : on retranche ce residu de fermeture a travers
 // toute l'epaisseur -> le creux du coeur reste fidele a la courbe.
-module heart_closing_cut() {
+module heart_closing_cut(r=2.24) {
     translate([0, 0, -1]) linear_extrude(height=head_t+boss_h+3)
         difference() {
-            offset(r=-3.02, $fn=fn) offset(r=3.02, $fn=fn) head_heart2d();
+            offset(r=-r, $fn=fn) offset(r=r, $fn=fn) head_heart2d();
             offset(delta=0.01) head_heart2d();
         }
+}
+
+// Corps du coeur version support : taille "gemme-savon" — le coeur
+// s'affine vers l'avant (biseau doux sur tout le pourtour), toutes
+// aretes arrondies ; la face avant reste plane (appui du telephone).
+module head_gem() {
+    minkowski() {
+        translate([0, 4, 2.2])
+            linear_extrude(height=head_t-4.4, scale=0.88)
+                translate([0, -4]) offset(r=-2.2, $fn=fn) head_heart2d();
+        sphere(r=2.2, $fn=24);
+    }
+}
+
+// Fin lisere grave suivant le contour de la face avant
+module heart_pinstripe_cut() {
+    translate([0, 4, head_t-0.5]) linear_extrude(height=1)
+        scale([0.88, 0.88]) translate([0, -4])
+            difference() {
+                offset(r=-5, $fn=fn) head_heart2d();
+                offset(r=-6.2, $fn=fn) head_heart2d();
+            }
 }
 module base_heart2d()  { fat_heart(33, 19, 12, 6, -40); }   // 104 x 91
 
@@ -170,7 +192,8 @@ module head(mono=false) {
     union() {
         difference() {
             union() {
-                pebble(head_t, head_round) head_heart2d();
+                if (use_magsafe) pebble(head_t, head_round) head_heart2d();
+                else head_gem();
                 if (use_magsafe) {
                     translate([0, puck_cy, 0]) hull() {   // bossage d'appui
                         cylinder(h=head_t+boss_h-1.2, d=boss_d, $fn=fn);
@@ -185,7 +208,7 @@ module head(mono=false) {
                 }
             }
             if (use_magsafe) heart_cleft_cut();
-            else heart_closing_cut();
+            else { heart_closing_cut(); heart_pinstripe_cut(); }
             if (use_magsafe) translate([0, puck_cy, 0]) {
                 // logement depuis l'arriere + chanfrein d'entree
                 translate([0,0,-eps]) cylinder(h=pocket_depth+eps, d=pocket_d, $fn=fn);
@@ -198,7 +221,7 @@ module head(mono=false) {
             // repose pas dessus)
             if (!use_magsafe)
                 for (i = [0, 1])
-                    translate([0, 17 - i*13, head_t-0.6])
+                    translate([0, 19 - i*12, head_t-0.6])
                         linear_extrude(height=2)
                             text(i == 0 ? heart_text1 : heart_text2,
                                  size=heart_text_size, halign="center", valign="center",
@@ -242,7 +265,7 @@ module phone_shelf() {
         }
         // gousset : fond la tablette dans la tige, pentes imprimables
         hull() {
-            translate([-32, -56.2, 13]) cube([64, 0.3, 18]);
+            translate([-24, -56.2, 13]) cube([48, 0.3, 18]);
             translate([-8, -78, 8])     cube([16, 0.3, 5]);
         }
     }
