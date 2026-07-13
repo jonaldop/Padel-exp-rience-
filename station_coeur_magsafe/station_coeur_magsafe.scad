@@ -19,6 +19,14 @@ head_tilt         = 12;     // inclinaison de la tete (degres / verticale)
 decorative_text   = "Je t'aime";  // grave dans le fond du vide-poches
 show_decorative_text = true;
 
+// false (defaut) : SUPPORT iPHONE PUR — le telephone repose sur une
+//   tablette a rebord, adosse au coeur ; charge par cable branche
+//   directement (encoche centrale, fenetre de passage vers la rainure
+//   arriere). Aucun support d'impression nulle part.
+// true : le coeur integre le chargeur MagSafe (bossage d'appui, levre,
+//   clips) ; supports peints uniquement dans le logement.
+use_magsafe = false;
+
 fit_clearance = 0.25;       // jeu d'emboitement par cote
 recess_clear  = 0.3;        // jeu radial du logement chargeur
 
@@ -131,18 +139,20 @@ module head(mono=false) {
         difference() {
             union() {
                 pebble(head_t, head_round) head_heart2d();
-                translate([0, puck_cy, 0]) hull() {   // bossage d'appui
-                    cylinder(h=head_t+boss_h-1.2, d=boss_d, $fn=fn);
-                    cylinder(h=head_t+boss_h, d=boss_d-4, $fn=fn);
-                }
-                // carenage sous le bossage, fondu vers la pointe :
-                // supprime le surplomb en impression debout (monobloc)
-                hull() {
-                    translate([0, puck_cy, 0]) cylinder(h=head_t+boss_h-1.6, d=boss_d-4, $fn=fn);
-                    translate([0, -30, 0])    cylinder(h=head_t+0.8, d=18, $fn=fn);
+                if (use_magsafe) {
+                    translate([0, puck_cy, 0]) hull() {   // bossage d'appui
+                        cylinder(h=head_t+boss_h-1.2, d=boss_d, $fn=fn);
+                        cylinder(h=head_t+boss_h, d=boss_d-4, $fn=fn);
+                    }
+                    // carenage sous le bossage, fondu vers la pointe :
+                    // supprime le surplomb en impression debout (monobloc)
+                    hull() {
+                        translate([0, puck_cy, 0]) cylinder(h=head_t+boss_h-1.6, d=boss_d-4, $fn=fn);
+                        translate([0, -30, 0])    cylinder(h=head_t+0.8, d=18, $fn=fn);
+                    }
                 }
             }
-            translate([0, puck_cy, 0]) {
+            if (use_magsafe) translate([0, puck_cy, 0]) {
                 // logement depuis l'arriere + chanfrein d'entree
                 translate([0,0,-eps]) cylinder(h=pocket_depth+eps, d=pocket_d, $fn=fn);
                 translate([0,0,-eps]) cylinder(h=1.2, d1=pocket_d+2, d2=pocket_d, $fn=fn);
@@ -160,16 +170,46 @@ module head(mono=false) {
         }
         // trois bossettes rampees juste derriere le palet (engagement
         // net ~0,3 aux trois points ; insertion ferme mais aisee)
-        for (a = [90, 200, 340])
-            translate([0, puck_cy, 0]) rotate([0,0,a])
-                translate([pocket_d/2+1.0, 0, pocket_depth-magsafe_thickness-0.9])
-                    sphere(r=1.6, $fn=24);
+        if (use_magsafe)
+            for (a = [90, 200, 340])
+                translate([0, puck_cy, 0]) rotate([0,0,a])
+                    translate([pocket_d/2+1.0, 0, pocket_depth-magsafe_thickness-0.9])
+                        sphere(r=1.6, $fn=24);
         // deux nervures d'ecrasement sur le fond de la rainure : elles
         // poussent la tige dans le coin de la queue d'aronde -> zero jeu
         if (!mono)
             for (s = [-1, 1])
                 translate([s*5-0.5, -36, 13.25]) cube([1, 20, 0.35]);
     }
+}
+
+// ---------------- TABLETTE DU SUPPORT (version sans MagSafe) ----------
+// Repere local coeur : tablette perpendiculaire a la face, sous la
+// pointe du coeur, avec rebord arrondi et gousset de soutien fondu
+// dans la tige (imprimable debout sans support).
+module phone_shelf() {
+    union() {
+        // tablette (le telephone repose dessus, dos contre le coeur)
+        translate([-32, -56, 13]) cube([64, 4, 19]);
+        // rebord avant arrondi (retient le bas du telephone)
+        hull() {
+            translate([-32, -52, 28.5]) cube([64, 0.5, 3.5]);
+            translate([-32, -44.5, 30.5]) rotate([0,90,0]) cylinder(h=64, r=1.7, $fn=24);
+        }
+        // gousset : fond la tablette dans la tige, pentes imprimables
+        hull() {
+            translate([-32, -56.2, 13]) cube([64, 0.3, 18]);
+            translate([-8, -78, 8])     cube([16, 0.3, 5]);
+        }
+    }
+}
+
+// Decoupes de la tablette : encoche centrale du cable (16 mm, la fiche
+// USB-C passe coudee) + fenetre laterale traversante vers la rainure
+// arriere de la tige (le cable contourne la tige par la droite)
+module phone_shelf_cuts() {
+    translate([-8, -60, 17.5]) cube([16, 20, 28]);    // encoche centrale
+    translate([6, -55, -1])    cube([18, 8, 16]);     // fenetre -> arriere
 }
 
 // ------------------------- TIGE ---------------------------------------
@@ -277,10 +317,14 @@ module corps_unique() {
                     place_stem() translate([0,0,40]) linear_extrude(height=1) stem_cross(0);
                     place_head() translate([-14, -27, 0]) cube([28, 1.5, head_t]);
                 }
+                // tablette a rebord du support iPhone (version cable)
+                if (!use_magsafe) place_head() phone_shelf();
             }
-            // rainure de cable continue : tout le long de la tige, a
-            // travers la collerette, jusque sous le palet MagSafe
-            place_stem() stem_groove_cut(extra=32);
+            // rainure de cable continue le long de la tige ; version
+            // MagSafe : prolongee jusque sous le palet — version support :
+            // arretee juste au-dessus de la fenetre de la tablette
+            place_stem() stem_groove_cut(extra = use_magsafe ? 32 : -32);
+            if (!use_magsafe) place_head() phone_shelf_cuts();
                 // puits du cable derriere la tige (la fiche USB-C
                 // passe), traversant la base jusqu'a la rainure du dessous
                 translate([-6.5, 23, -1]) cube([13, 8, 14]);
@@ -312,7 +356,11 @@ module station_coeur_print() { head(); }
 // Maquette 160,9 x 77,6 x 8, ilot camera 38 x 39 x 4,5 en haut a gauche,
 // anneau MagSafe a 80 mm du bas ; dos plaque sur le sommet du bossage.
 module iphone_mock() {
-    color("DimGray") translate([0, puck_cy, head_t+boss_h]) {
+    // MagSafe : centre sur le palet, dos au sommet du bossage ;
+    // support : pose sur la tablette (bas a y=-52), dos contre la face
+    ph_y = use_magsafe ? puck_cy : 28;
+    ph_z = use_magsafe ? head_t + boss_h : head_t;
+    color("DimGray") translate([0, ph_y, ph_z]) {
         hull()   // corps du telephone
             for (sx=[-1,1], sy=[-1,1])
                 translate([sx*(77.6/2-10), (160.9/2-10)*sy + 0.45, 0])
