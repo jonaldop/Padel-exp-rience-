@@ -110,6 +110,7 @@ dos_face_y = 46;   // position Y de la face avant du dossier au niveau z = base_
 fillet_front_r = 10;  // conge avant (8 a 12)
 fillet_back_r  = 8;   // conge arriere (8 a 12)
 rib_t = 2.5;          // epaisseur des deux nervures laterales discretes
+edge_round = 2.5;     // rayon d'arrondi du pourtour du dossier (effet galet)
 
 // Phare / logement MagSafe (le phare decoratif est centre sur le MagSafe :
 // bossage circulaire raye facon optique de phare, le chargeur affleure au
@@ -411,27 +412,23 @@ module dossier_outline() {
     }
 }
 
-// Phare decoratif : bossage circulaire centre sur le MagSafe.
-// Cerclage en relief, stries rayonnantes facon optique de phare,
-// le chargeur affleure au centre comme la lentille. La saillie de
-// 5 mm degage aussi la bosse camera de l'iPhone.
+// Phare decoratif : bossage circulaire centre sur le MagSafe, dome
+// lisse et epure, souligne par un unique cerclage fin. Le chargeur
+// affleure au centre comme la lentille ; la saillie de 5 mm degage
+// aussi la bosse camera de l'iPhone.
 module decorative_headlight() {
     translate([0, ms_ly, 0])
         difference() {
-            // bossage a sommet adouci
+            // bossage a sommet bien arrondi
             hull() {
-                cylinder(h=dos_t+boss_h-1, d=boss_d, $fn=fn_vis);
-                cylinder(h=dos_t+boss_h, d=boss_d-3, $fn=fn_vis);
+                cylinder(h=dos_t+boss_h-2, d=boss_d, $fn=fn_vis);
+                cylinder(h=dos_t+boss_h-0.8, d=boss_d-3, $fn=fn_vis);
+                cylinder(h=dos_t+boss_h, d=boss_d-6, $fn=fn_vis);
             }
-            // stries verticales rayonnantes (largeur 1,6, pas 7,2)
-            for (i = [0:27])
-                rotate([0,0,i*360/28])
-                    translate([boss_d/2, 0, dos_t-1])
-                        cylinder(h=boss_h+2, d=1.6, $fn=16);
-            // cerclage : gorge circulaire sur la face (relief de 0,7)
-            translate([0,0,dos_t+boss_h-0.7])
+            // cerclage : fine gorge circulaire sur la face (0,6)
+            translate([0,0,dos_t+boss_h-0.6])
                 difference() {
-                    cylinder(h=1, r=29.5, $fn=fn_vis);
+                    cylinder(h=1, r=29.3, $fn=fn_vis);
                     translate([0,0,-eps]) cylinder(h=1.2, r=28.5, $fn=fn_vis);
                 }
         }
@@ -541,7 +538,14 @@ module back_panel() {
     union() {
         difference() {
             union() {
-                linear_extrude(height=dos_t) dossier_outline();
+                // plaque du coeur aux aretes entierement arrondies
+                // (effet galet : minkowski avec une sphere)
+                minkowski() {
+                    translate([0,0,edge_round])
+                        linear_extrude(height=dos_t-2*edge_round)
+                            offset(r=-edge_round) dossier_outline();
+                    sphere(r=edge_round, $fn=20);
+                }
                 // extension noyee dans la base (recoupee au ras du sol)
                 translate([-34, -24, 0]) cube([68, 32, dos_t]);
                 screw_bosses();
