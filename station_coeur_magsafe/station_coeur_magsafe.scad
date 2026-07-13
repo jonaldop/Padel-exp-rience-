@@ -79,15 +79,34 @@ module fat_heart(lobe_r, lobe_x, lobe_y, tip_r, tip_y) {
         }
 }
 
-module head_heart2d()  { fat_heart(31, 19, 15, 5, -36); }   // 100 x 87
+// Silhouette de la tete.
+// Version support : la COURBE MATHEMATIQUE du coeur — lobes pleins,
+// flancs en S, echancrure large naturellement arrondie, pointe elancee.
+// Version MagSafe : coeur dodu a cercles (le logement D57 impose des
+// lobes larges et une echancrure reduite).
+module head_heart2d() {
+    if (use_magsafe) fat_heart(31, 19, 15, 5, -36);           // 100 x 87
+    else polygon([for (a = [0:2:358])
+        [3.125*16*pow(sin(a),3),
+         3.125*(13*cos(a) - 5*cos(2*a) - 2*cos(3*a) - cos(4*a)) + 12]]);
+}
 
-// Echancrure du coeur : coin a fond arrondi decoupe A TRAVERS toute
-// l'epaisseur (l'arrondi galet refermait un creux taille dans la
-// silhouette 2D). Version MagSafe : moins profonde (logement oblige).
+// Echancrure de la version MagSafe : coin a fond arrondi decoupe a
+// travers toute l'epaisseur, apres l'arrondi galet
 module heart_cleft_cut() {
-    apex = use_magsafe ? 41 : 32;
     translate([0, 0, -1]) linear_extrude(height=head_t+boss_h+3)
-        offset(r=3, $fn=fn) polygon([[-10, 64], [10, 64], [0, apex]]);
+        offset(r=3, $fn=fn) polygon([[-10, 64], [10, 64], [0, 41]]);
+}
+
+// Le galet (minkowski) REBOUCHE les zones concaves (echancrure) en y
+// laissant une marche : on retranche ce residu de fermeture a travers
+// toute l'epaisseur -> le creux du coeur reste fidele a la courbe.
+module heart_closing_cut() {
+    translate([0, 0, -1]) linear_extrude(height=head_t+boss_h+3)
+        difference() {
+            offset(r=-3.02, $fn=fn) offset(r=3.02, $fn=fn) head_heart2d();
+            offset(delta=0.01) head_heart2d();
+        }
 }
 module base_heart2d()  { fat_heart(33, 19, 12, 6, -40); }   // 104 x 91
 
@@ -165,7 +184,8 @@ module head(mono=false) {
                     }
                 }
             }
-            heart_cleft_cut();
+            if (use_magsafe) heart_cleft_cut();
+            else heart_closing_cut();
             if (use_magsafe) translate([0, puck_cy, 0]) {
                 // logement depuis l'arriere + chanfrein d'entree
                 translate([0,0,-eps]) cylinder(h=pocket_depth+eps, d=pocket_d, $fn=fn);
@@ -178,7 +198,7 @@ module head(mono=false) {
             // repose pas dessus)
             if (!use_magsafe)
                 for (i = [0, 1])
-                    translate([0, 21 - i*13, head_t-0.6])
+                    translate([0, 17 - i*13, head_t-0.6])
                         linear_extrude(height=2)
                             text(i == 0 ? heart_text1 : heart_text2,
                                  size=heart_text_size, halign="center", valign="center",
@@ -336,10 +356,11 @@ module corps_unique() {
                 base(mono=true);
                 place_stem() stem_body();
                 place_head() head(mono=true);
-                // collerette de raccord tige -> pointe du coeur
+                // collerette de raccord tige -> pointe du coeur, fine :
+                // elle coule dans le prolongement de la pointe
                 hull() {
                     place_stem() translate([0,0,40]) linear_extrude(height=1) stem_cross(0);
-                    place_head() translate([-14, -27, 0]) cube([28, 1.5, head_t]);
+                    place_head() translate([-10, -34, 0]) cube([20, 1.5, head_t]);
                 }
                 // tablette a rebord du support iPhone (version cable)
                 if (!use_magsafe) place_head() phone_shelf();
