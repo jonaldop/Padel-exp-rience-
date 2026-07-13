@@ -30,6 +30,12 @@ head_round = 3;             // arrondi des aretes (effet galet)
 front_lip  = 1.2;           // levre devant le chargeur
 open_d     = 50;            // ouverture frontale (le telephone charge au travers)
 puck_cy    = 6.5;           // centre du chargeur dans le coeur (local Y)
+// Bossage d'appui autour de l'ouverture : le telephone repose dessus et
+// l'ilot camera (saillie ~4,5 mm) flotte au-dessus des lobes du coeur —
+// sans lui, un iPhone Pro pivoterait sur sa camera et decollerait des
+// aimants. Ne pas reduire boss_h sous 5.
+boss_d = 64;                // diametre du bossage
+boss_h = 5;                 // saillie du bossage
 
 // Tige — section en QUEUE D'ARONDE : large cote face (stem_w), etroite
 // cote dos (stem_wb). Glissee dans la rainure du coeur par le bas, elle
@@ -47,7 +53,7 @@ base_round = 2.5;           // arrondi du pourtour
 
 fn = 72;  eps = 0.01;
 pocket_d = magsafe_diameter + 2*recess_clear;     // jeu radial 0,3
-pocket_depth = head_t - front_lip;                // fond = levre frontale
+pocket_depth = head_t + boss_h - front_lip;       // fond = levre au sommet du bossage
 slot_w   = stem_w + 2*fit_clearance;              // mortaise de la tete
 slot_d   = stem_d + 2*fit_clearance;
 
@@ -123,11 +129,19 @@ module place_head() {
 module head(mono=false) {
     union() {
         difference() {
-            // galet inverse : arrondi cote dos, chanfrein cote face —
-            // en 3 pieces, s'imprime FACE CONTRE LE PLATEAU (logement
-            // vers le haut : aucun pont, aucun surplomb, face texturee)
-            translate([0,0,head_t]) mirror([0,0,1])
+            union() {
                 pebble(head_t, head_round) head_heart2d();
+                translate([0, puck_cy, 0]) hull() {   // bossage d'appui
+                    cylinder(h=head_t+boss_h-1.2, d=boss_d, $fn=fn);
+                    cylinder(h=head_t+boss_h, d=boss_d-4, $fn=fn);
+                }
+                // carenage sous le bossage, fondu vers la pointe :
+                // supprime le surplomb en impression debout (monobloc)
+                hull() {
+                    translate([0, puck_cy, 0]) cylinder(h=head_t+boss_h-1.6, d=boss_d-4, $fn=fn);
+                    translate([0, -30, 0])    cylinder(h=head_t+0.8, d=18, $fn=fn);
+                }
+            }
             translate([0, puck_cy, 0]) {
                 // logement depuis l'arriere + chanfrein d'entree
                 translate([0,0,-eps]) cylinder(h=pocket_depth+eps, d=pocket_d, $fn=fn);
@@ -230,13 +244,15 @@ module base(mono=false) {
         // rondelles ou plombs (~40-70 g) pour que la station ne suive
         // pas le telephone au retrait. Croisillon = ponts < 15 mm.
         difference() {
-            translate([0, -11, -eps]) cylinder(h=3, d=32, $fn=fn);
+            translate([0, -10, -eps]) cylinder(h=3.5, d=36, $fn=fn);
             for (a = [0, 90])
-                translate([0, -11, 0]) rotate([0,0,a])
-                    translate([-1.5, -17, -1]) cube([3, 34, 4.2]);
+                translate([0, -10, 0]) rotate([0,0,a])
+                    translate([-1.5, -19, -1]) cube([3, 38, 4.7]);
         }
-        // quatre logements de patins silicone (D8 x 1,2)
-        for (p = [[0,-32],[-28,10],[28,10],[0,34]])
+        // quatre logements de patins silicone (D8 x 1,2), patins arriere
+        // ecartes et recules : meilleure resistance au basculement quand
+        // on pose le telephone
+        for (p = [[0,-34],[-28,10],[28,10],[-20,35],[20,35]])
             translate([p[0], p[1], -eps]) cylinder(h=1.2+eps, d=8, $fn=32);
     }
 }
@@ -288,13 +304,34 @@ module cable_section() {
     difference() { assembly(); translate([0,-80,-20]) cube([200,300,300]); }
 }
 
-// le coeur s'exporte face contre le plateau (logement ouvert vers le haut)
-module station_coeur_print() {
-    translate([0,0,head_t]) rotate([180,0,0]) head();
+// le coeur (3 pieces) s'imprime dos sur le plateau, bossage vers le
+// haut ; seuls quelques supports peints dans le logement MagSafe
+module station_coeur_print() { head(); }
+
+// ------------------- SIMULATION : iPHONE PRO MAX POSE -------------------
+// Maquette 160,9 x 77,6 x 8, ilot camera 38 x 39 x 4,5 en haut a gauche,
+// anneau MagSafe a 80 mm du bas ; dos plaque sur le sommet du bossage.
+module iphone_mock() {
+    color("DimGray") translate([0, puck_cy, head_t+boss_h]) {
+        hull()   // corps du telephone
+            for (sx=[-1,1], sy=[-1,1])
+                translate([sx*(77.6/2-10), (160.9/2-10)*sy + 0.45, 0])
+                    cylinder(h=8, r=10, $fn=48);
+        // ilot camera (il doit flotter AU-DESSUS des lobes du coeur)
+        translate([-31.8, 35.2, -4.5])
+            linear_extrude(height=4.6)
+                offset(r=6, $fn=32) offset(delta=-6) square([38, 38.7]);
+    }
+}
+
+module simulation() {
+    corps_unique();
+    place_head() iphone_mock();
 }
 
 if      (part == "assembly")      assembly();
 else if (part == "monobloc")      corps_unique();
+else if (part == "simulation")    simulation();
 else if (part == "coeur")         station_coeur_print();
 else if (part == "tige")          stem();
 else if (part == "base")          base();
