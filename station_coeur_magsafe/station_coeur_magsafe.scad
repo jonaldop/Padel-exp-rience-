@@ -79,15 +79,15 @@ module fat_heart(lobe_r, lobe_x, lobe_y, tip_r, tip_y) {
         }
 }
 
-// Coeur de la tete, avec une VRAIE echancrure entre les lobes (le
-// galet minkowski comblait le creux : on le taille explicitement).
-// Version MagSafe : echancrure reduite pour ne pas percer le logement.
-module head_heart2d() {
-    apex = use_magsafe ? 38 : 29;
-    difference() {
-        fat_heart(31, 19, 15, 5, -36);                 // 100 x 87
-        polygon([[-14, 62], [14, 62], [0, apex]]);
-    }
+module head_heart2d()  { fat_heart(31, 19, 15, 5, -36); }   // 100 x 87
+
+// Echancrure du coeur : coin a fond arrondi decoupe A TRAVERS toute
+// l'epaisseur (l'arrondi galet refermait un creux taille dans la
+// silhouette 2D). Version MagSafe : moins profonde (logement oblige).
+module heart_cleft_cut() {
+    apex = use_magsafe ? 41 : 32;
+    translate([0, 0, -1]) linear_extrude(height=head_t+boss_h+3)
+        offset(r=3, $fn=fn) polygon([[-10, 64], [10, 64], [0, apex]]);
 }
 module base_heart2d()  { fat_heart(33, 19, 12, 6, -40); }   // 104 x 91
 
@@ -165,6 +165,7 @@ module head(mono=false) {
                     }
                 }
             }
+            heart_cleft_cut();
             if (use_magsafe) translate([0, puck_cy, 0]) {
                 // logement depuis l'arriere + chanfrein d'entree
                 translate([0,0,-eps]) cylinder(h=pocket_depth+eps, d=pocket_d, $fn=fn);
