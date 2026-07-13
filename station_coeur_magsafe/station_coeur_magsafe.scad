@@ -60,11 +60,21 @@ module fat_heart(lobe_r, lobe_x, lobe_y, tip_r, tip_y) {
 module head_heart2d()  { fat_heart(31, 19, 15, 5, -36); }   // 100 x 87
 module base_heart2d()  { fat_heart(33, 19, 12, 6, -40); }   // 104 x 91
 
-// Plaque a aretes rondes : minkowski(outline retracte, sphere)
+// Plaque a aretes rondes cote visible, mais DESSOUS PLAT (face plateau) :
+// un galet complet mettrait les premieres couches du pourtour en
+// surplomb ; ici petit chanfrein a 45 en pied, flancs droits, sommet
+// et epaules arrondis par minkowski.
 module pebble(t, r) {
-    minkowski() {
-        translate([0,0,r]) linear_extrude(height=t-2*r) offset(r=-r) children();
-        sphere(r=r, $fn=20);
+    union() {
+        hull() {   // chanfrein anti patte d'elephant
+            linear_extrude(height=0.1) offset(delta=-1) children();
+            translate([0,0,1]) linear_extrude(height=0.1) children();
+        }
+        translate([0,0,1]) linear_extrude(height=t-r-1) children();  // flancs
+        minkowski() {                                    // sommet arrondi
+            translate([0,0,r]) linear_extrude(height=t-2*r) offset(r=-r) children();
+            sphere(r=r, $fn=20);
+        }
     }
 }
 
