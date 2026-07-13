@@ -18,6 +18,10 @@ head_tilt         = 12;     // inclinaison de la tete (degres / verticale)
 
 decorative_text   = "Je t'aime";  // grave dans le fond du vide-poches
 show_decorative_text = true;
+// Texte grave dans le coeur (deux lignes, version support uniquement)
+heart_text1 = "iPhone de";
+heart_text2 = "mon Amour";
+heart_text_size = 8;
 
 // false (defaut) : SUPPORT iPHONE PUR — le telephone repose sur une
 //   tablette a rebord, adosse au coeur ; charge par cable branche
@@ -75,7 +79,16 @@ module fat_heart(lobe_r, lobe_x, lobe_y, tip_r, tip_y) {
         }
 }
 
-module head_heart2d()  { fat_heart(31, 19, 15, 5, -36); }   // 100 x 87
+// Coeur de la tete, avec une VRAIE echancrure entre les lobes (le
+// galet minkowski comblait le creux : on le taille explicitement).
+// Version MagSafe : echancrure reduite pour ne pas percer le logement.
+module head_heart2d() {
+    apex = use_magsafe ? 38 : 29;
+    difference() {
+        fat_heart(31, 19, 15, 5, -36);                 // 100 x 87
+        polygon([[-14, 62], [14, 62], [0, apex]]);
+    }
+}
 module base_heart2d()  { fat_heart(33, 19, 12, 6, -40); }   // 104 x 91
 
 // Section trapezoidale de la tige (queue d'aronde), coins arrondis ;
@@ -159,6 +172,16 @@ module head(mono=false) {
                 // ouverture frontale : le telephone charge au travers
                 translate([0,0,pocket_depth-eps]) cylinder(h=front_lip+1, d=open_d, $fn=fn);
             }
+            // dedicace gravee dans le coeur (version support : la face
+            // est pleine ; en creux pour que le dos du telephone ne
+            // repose pas dessus)
+            if (!use_magsafe)
+                for (i = [0, 1])
+                    translate([0, 21 - i*13, head_t-0.6])
+                        linear_extrude(height=2)
+                            text(i == 0 ? heart_text1 : heart_text2,
+                                 size=heart_text_size, halign="center", valign="center",
+                                 font="Liberation Sans:style=Bold Italic", spacing=1.08);
             if (!mono) {
                 // rainure en queue d'aronde de la tige : elle se glisse
                 // par la pointe du coeur et bute en fin de course
